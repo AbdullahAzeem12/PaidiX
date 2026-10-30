@@ -1,0 +1,176 @@
+import 'package:flutter/material.dart';
+import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_typography.dart';
+import '../../../../core/widgets/spongy_tap.dart';
+import '../../data/user_profile_repository.dart';
+import '../../domain/user_profile.dart';
+import '../widgets/edit_profile_dialog.dart';
+import '../widgets/kyc_review_card.dart';
+import '../widgets/profile_info_card.dart';
+
+/// Onboarding & Profile Page for PaidiX.
+///
+/// Provides real-time synchronization between Sign-Up, regulatory KYC flow,
+/// and live account profile. Matches design system and screenshot specifications.
+class OnboardingProfilePage extends StatelessWidget {
+  const OnboardingProfilePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: SafeArea(
+        child: ValueListenableBuilder<UserProfile>(
+          valueListenable: UserProfileRepository.instance.profileNotifier,
+          builder: (context, profile, _) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide = constraints.maxWidth >= 900;
+                final isNarrow = constraints.maxWidth < 400;
+
+                return SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: isNarrow ? 16 : 24,
+                    vertical: 24,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header Section: Eyebrow + Title + Subtitle + Edit Profile Action
+                      _buildHeader(context, profile, isNarrow, colors),
+                      const SizedBox(height: 24),
+
+                      // Main Cards: Two-column grid on wide displays, vertical on mobile
+                      if (isWide)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: ProfileInfoCard(profile: profile),
+                            ),
+                            const SizedBox(width: 20),
+                            Expanded(
+                              flex: 5,
+                              child: KycReviewCard(profile: profile),
+                            ),
+                          ],
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ProfileInfoCard(profile: profile),
+                            const SizedBox(height: 20),
+                            KycReviewCard(profile: profile),
+                          ],
+                        ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(
+    BuildContext context,
+    UserProfile profile,
+    bool isNarrow,
+    PaidiXColorScheme colors,
+  ) {
+    final titleBlock = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'PROFILE',
+          style: AppTypography.sectionEyebrow.copyWith(
+            color: colors.gold,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.5,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          'Your profile & identity.',
+          style: AppTypography.pageHeading.copyWith(
+            color: colors.textPrimary,
+            letterSpacing: -0.4,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Personal information and KYC documents on file.',
+          style: AppTypography.pageSubtitle.copyWith(
+            color: colors.textSecondary,
+          ),
+        ),
+      ],
+    );
+
+    final editButton = SpongyTap(
+      onTap: () => EditProfileDialog.show(context, profile),
+      pressScale: 0.92,
+      borderRadius: AppSpacing.radiusMd,
+      backgroundColor: colors.card,
+      activeBackgroundColor: colors.cardDark,
+      border: Border.all(
+        color: colors.aqua.withValues(alpha: 0.6),
+        width: 1.2,
+      ),
+      activeBorder: Border.all(
+        color: colors.aqua,
+        width: 1.2,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      splashColor: colors.aquaLight.withValues(alpha: 0.28),
+      highlightColor: colors.aqua.withValues(alpha: 0.12),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.edit_outlined,
+            size: 15,
+            color: colors.aqua,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Edit profile',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isNarrow) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          titleBlock,
+          const SizedBox(height: 16),
+          editButton,
+        ],
+      );
+    }
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(child: titleBlock),
+        const SizedBox(width: 16),
+        editButton,
+      ],
+    );
+  }
+}

@@ -1,0 +1,464 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_motion.dart';
+import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_theme.dart';
+import '../../features/profile/data/user_profile_repository.dart';
+import '../../features/profile/domain/user_profile.dart';
+import 'brand_logo.dart';
+import 'paidi_x_bottom_nav_bar.dart';
+
+class AppShell extends StatefulWidget {
+  final Widget child;
+  final String currentPath;
+
+  const AppShell({
+    super.key,
+    required this.child,
+    required this.currentPath,
+  });
+
+  @override
+  State<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends State<AppShell> {
+  bool _isSidebarCollapsed = false;
+
+  int _calculateSelectedIndex() {
+    final p = widget.currentPath;
+    if (p.startsWith('/app/payments/new')) return 3;
+    if (p.startsWith('/app/payments')) return 2;
+    if (p.startsWith('/app/onboarding')) return 1;
+    return 0; // dashboard
+  }
+
+  void _onDestinationSelected(int index) {
+    switch (index) {
+      case 0:
+        context.go('/app/dashboard');
+        break;
+      case 1:
+        context.go('/app/onboarding');
+        break;
+      case 2:
+        context.go('/app/payments');
+        break;
+      case 3:
+        context.go('/app/payments/new');
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return ValueListenableBuilder<UserProfile>(
+      valueListenable: UserProfileRepository.instance.profileNotifier,
+      builder: (context, userProfile, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 768;
+
+            if (isWide) {
+              return Scaffold(
+                backgroundColor: colors.background,
+                body: Row(
+                  children: [
+                    _buildSidebar(userProfile),
+                    Expanded(
+                      child: widget.child,
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            // Mobile layout
+            final selectedIndex = _calculateSelectedIndex();
+            final isNarrowPhone = constraints.maxWidth < 360;
+
+            return Scaffold(
+              backgroundColor: colors.background,
+              appBar: AppBar(
+                backgroundColor: colors.card,
+                elevation: 0,
+                titleSpacing: isNarrowPhone ? 10 : 16,
+                title: const BrandLogo(
+                  size: 30,
+                  showPlanBadge: false,
+                  showTagline: false,
+                ),
+                actions: [
+                  _buildThemeToggleButton(isSidebar: false),
+                  if (!isNarrowPhone) ...[
+                    Container(
+                      margin: const EdgeInsets.symmetric(vertical: 12),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isDark ? colors.cardDark : colors.cardHighlight,
+                        borderRadius: AppSpacing.radiusPill,
+                        border: Border.all(
+                          color: isDark ? colors.borderSubtle : colors.border,
+                          width: 1,
+                        ),
+                      ),
+                      child: Text(
+                        'BASIC PLAN',
+                        style: TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: isDark ? colors.aquaLight : colors.aqua,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => context.go('/app/onboarding'),
+                    child: _buildUserAvatar(
+                      isSidebar: false,
+                      initial: userProfile.avatarInitial,
+                    ),
+                  ),
+                  SizedBox(width: isNarrowPhone ? 10 : 16),
+                ],
+                bottom: PreferredSize(
+                  preferredSize: const Size.fromHeight(1),
+                  child: Container(color: colors.border, height: 1),
+                ),
+              ),
+              body: widget.child,
+              bottomNavigationBar: PaidiXBottomNavBar(
+                selectedIndex: selectedIndex,
+                onItemSelected: _onDestinationSelected,
+                items: const [
+                  PaidiXBottomNavItem(
+                    icon: Icons.grid_view_outlined,
+                    activeIcon: Icons.grid_view_rounded,
+                    label: 'Dashboard',
+                  ),
+                  PaidiXBottomNavItem(
+                    icon: Icons.badge_outlined,
+                    activeIcon: Icons.badge,
+                    label: 'Onboarding',
+                  ),
+                  PaidiXBottomNavItem(
+                    icon: Icons.receipt_long_outlined,
+                    activeIcon: Icons.receipt_long_rounded,
+                    label: 'My Payments',
+                  ),
+                  PaidiXBottomNavItem(
+                    icon: Icons.add_circle_outline_rounded,
+                    activeIcon: Icons.add_circle_rounded,
+                    label: 'New Payment',
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildThemeToggleButton({bool isCompact = false, bool isSidebar = false}) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppTheme.themeModeNotifier,
+      builder: (context, mode, _) {
+        final isDark = mode == ThemeMode.dark;
+        final colors = AppColors.of(context);
+
+        final iconColor = isSidebar
+            ? (isDark ? AppColors.gold : AppColors.sidebarText)
+            : (isDark ? colors.gold : colors.textPrimary);
+
+        return IconButton(
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            transitionBuilder: (child, anim) => RotationTransition(
+              turns: anim,
+              child: FadeTransition(opacity: anim, child: child),
+            ),
+            child: Icon(
+              isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+              key: ValueKey<bool>(isDark),
+              color: iconColor,
+              size: isCompact ? 18 : 20,
+            ),
+          ),
+          tooltip: isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme',
+          onPressed: () => AppTheme.toggleTheme(),
+        );
+      },
+    );
+  }
+
+  Widget _buildSidebar(UserProfile userProfile) {
+    final selectedIndex = _calculateSelectedIndex();
+    final sidebarWidth = _isSidebarCollapsed ? 76.0 : 240.0;
+
+    return AnimatedContainer(
+      duration: AppMotion.normal,
+      curve: Curves.easeOutCubic,
+      width: sidebarWidth,
+      decoration: const BoxDecoration(
+        color: AppColors.sidebar,
+        border: Border(right: BorderSide(color: AppColors.sidebarLine, width: 1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Logo & Actions (theme toggle + collapse)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(18, 20, 8, 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (!_isSidebarCollapsed)
+                  const Expanded(
+                    child: BrandLogo(showPlanBadge: true, forceLightText: true),
+                  )
+                else
+                  const BrandLogo(
+                    showPlanBadge: false,
+                    showTagline: false,
+                    size: 36,
+                    forceLightText: true,
+                  ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildThemeToggleButton(isCompact: true, isSidebar: true),
+                    IconButton(
+                      icon: Icon(
+                        _isSidebarCollapsed
+                            ? Icons.chevron_right
+                            : Icons.chevron_left,
+                        color: AppColors.sidebarMuted,
+                        size: 20,
+                      ),
+                      onPressed: () =>
+                          setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Nav Items
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              children: [
+                _buildNavItem(
+                  icon: Icons.dashboard_outlined,
+                  activeIcon: Icons.dashboard,
+                  title: 'Dashboard',
+                  isSelected: selectedIndex == 0,
+                  onTap: () => _onDestinationSelected(0),
+                ),
+                const SizedBox(height: 4),
+                _buildNavItem(
+                  icon: Icons.assignment_ind_outlined,
+                  activeIcon: Icons.assignment_ind,
+                  title: 'Onboarding',
+                  isSelected: selectedIndex == 1,
+                  onTap: () => _onDestinationSelected(1),
+                ),
+                const SizedBox(height: 20),
+                if (!_isSidebarCollapsed)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    child: Text(
+                      'PAYMENTS',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.5,
+                        color: AppColors.sidebarMuted,
+                      ),
+                    ),
+                  ),
+                _buildNavItem(
+                  icon: Icons.receipt_long_outlined,
+                  activeIcon: Icons.receipt_long,
+                  title: 'My Payments',
+                  isSelected: selectedIndex == 2,
+                  onTap: () => _onDestinationSelected(2),
+                ),
+                const SizedBox(height: 4),
+                _buildNavItem(
+                  icon: Icons.auto_awesome_outlined,
+                  activeIcon: Icons.auto_awesome,
+                  title: 'New Payment',
+                  isSelected: selectedIndex == 3,
+                  onTap: () => _onDestinationSelected(3),
+                ),
+              ],
+            ),
+          ),
+
+          // User Profile footer
+          _buildUserProfileFooter(userProfile),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required IconData activeIcon,
+    required String title,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2),
+      decoration: BoxDecoration(
+        color: isSelected ? AppColors.activeNavBg : Colors.transparent,
+        borderRadius: AppSpacing.radiusMd,
+        border: Border.all(
+          color: isSelected ? AppColors.sidebarLine : Colors.transparent,
+          width: 0.8,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: AppSpacing.radiusMd,
+        child: Stack(
+          children: [
+            if (isSelected)
+              Positioned(
+                left: 0,
+                top: 6,
+                bottom: 6,
+                child: Container(
+                  width: 3.5,
+                  decoration: BoxDecoration(
+                    color: AppColors.activeNavIndicator,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+            Material(
+              color: Colors.transparent,
+              child: ListTile(
+                dense: true,
+                leading: Icon(
+                  isSelected ? activeIcon : icon,
+                  color: isSelected ? const Color(0xFF95DFDB) : AppColors.sidebarMuted,
+                  size: 20,
+                ),
+                title: _isSidebarCollapsed
+                    ? null
+                    : Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 13.5,
+                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color: isSelected ? Colors.white : AppColors.sidebarText,
+                        ),
+                      ),
+                shape: RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                onTap: onTap,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserProfileFooter(UserProfile userProfile) {
+    return InkWell(
+      onTap: () => context.go('/app/onboarding'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.sidebarLine, width: 1)),
+        ),
+        child: Row(
+          children: [
+            _buildUserAvatar(isSidebar: true, initial: userProfile.avatarInitial),
+            if (!_isSidebarCollapsed) ...[
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      userProfile.fullName,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.sidebarText,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      userProfile.email,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.sidebarMuted,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.keyboard_arrow_down,
+                color: AppColors.sidebarMuted,
+                size: 18,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUserAvatar({required bool isSidebar, String initial = 'A'}) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Color bg;
+    Color fg;
+
+    if (isSidebar) {
+      bg = const Color(0xFF0E7C7B);
+      fg = Colors.white;
+    } else {
+      bg = isDark ? colors.aqua : colors.primaryButton;
+      fg = isDark ? const Color(0xFF031415) : Colors.white;
+    }
+
+    return Container(
+      width: 32,
+      height: 32,
+      decoration: BoxDecoration(
+        color: bg,
+        shape: BoxShape.circle,
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: TextStyle(
+          color: fg,
+          fontWeight: FontWeight.w800,
+          fontSize: 14,
+        ),
+      ),
+    );
+  }
+}
