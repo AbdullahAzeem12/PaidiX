@@ -1,9 +1,6 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/notification_service.dart';
@@ -83,15 +80,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     HapticFeedback.lightImpact();
 
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await Permission.photos.request();
-      }
-
       final xFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1200,
-        imageQuality: 92,
       );
 
       if (xFile != null) {

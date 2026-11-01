@@ -8,6 +8,7 @@ import '../../features/profile/data/user_profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
 import 'brand_logo.dart';
 import 'paidi_x_bottom_nav_bar.dart';
+import 'profile_menu_dialog.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -121,7 +122,11 @@ class _AppShellState extends State<AppShell> {
                   ],
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () => context.go('/app/onboarding'),
+                    onTap: () => ProfileMenuDialog.show(
+                      context: context,
+                      userProfile: userProfile,
+                      isMobile: true,
+                    ),
                     child: _buildUserAvatar(
                       isSidebar: false,
                       initial: userProfile.avatarInitial,
@@ -379,7 +384,11 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildUserProfileFooter(UserProfile userProfile) {
     return InkWell(
-      onTap: () => context.go('/app/onboarding'),
+      onTap: () => ProfileMenuDialog.show(
+        context: context,
+        userProfile: userProfile,
+        isMobile: false,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: const BoxDecoration(

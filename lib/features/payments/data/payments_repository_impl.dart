@@ -131,9 +131,36 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
       }
     }
 
-    // Date range filter / Bitnex week
+    // Date range filter / Custom dates / Bitnex week
     final now = DateTime.now();
-    if (filter.isBitnexWeek) {
+    if (filter.fromDate != null || filter.toDate != null) {
+      if (filter.fromDate != null) {
+        final start = DateTime(
+          filter.fromDate!.year,
+          filter.fromDate!.month,
+          filter.fromDate!.day,
+          0,
+          0,
+          0,
+        );
+        result = result
+            .where((item) => !item.transactionDate.isBefore(start))
+            .toList();
+      }
+      if (filter.toDate != null) {
+        final end = DateTime(
+          filter.toDate!.year,
+          filter.toDate!.month,
+          filter.toDate!.day,
+          23,
+          59,
+          59,
+        );
+        result = result
+            .where((item) => !item.transactionDate.isAfter(end))
+            .toList();
+      }
+    } else if (filter.isBitnexWeek) {
       // Bitnex settlement week (Monday 00:00:00 through Sunday 23:59:59)
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
       final startOfDay =
@@ -149,6 +176,15 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
                   item.transactionDate.year == now.year &&
                   item.transactionDate.month == now.month &&
                   item.transactionDate.day == now.day)
+              .toList();
+          break;
+        case DateRangeFilter.yesterday:
+          final y = now.subtract(const Duration(days: 1));
+          result = result
+              .where((item) =>
+                  item.transactionDate.year == y.year &&
+                  item.transactionDate.month == y.month &&
+                  item.transactionDate.day == y.day)
               .toList();
           break;
         case DateRangeFilter.last3Days:
@@ -197,6 +233,18 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
               .where((item) => item.transactionDate.isAfter(cutoff))
               .toList();
           break;
+        case DateRangeFilter.last6Months:
+          final cutoff = DateTime(now.year, now.month - 6, now.day);
+          result = result
+              .where((item) => item.transactionDate.isAfter(cutoff))
+              .toList();
+          break;
+        case DateRangeFilter.last12Months:
+          final cutoff = DateTime(now.year, now.month - 12, now.day);
+          result = result
+              .where((item) => item.transactionDate.isAfter(cutoff))
+              .toList();
+          break;
         case DateRangeFilter.thisYear:
           result = result
               .where((item) => item.transactionDate.year == now.year)
@@ -208,6 +256,7 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
               .toList();
           break;
         case DateRangeFilter.allTime:
+        case DateRangeFilter.custom:
           break;
       }
     }
@@ -215,4 +264,3 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
     return result;
   }
 }
-

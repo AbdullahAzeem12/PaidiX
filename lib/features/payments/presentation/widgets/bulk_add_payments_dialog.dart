@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
@@ -212,7 +213,6 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
-        imageQuality: 85,
       );
       if (picked != null) {
         final bytes = await picked.readAsBytes();
@@ -236,21 +236,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
       initialDate: row.date,
       firstDate: DateTime(2020),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        final colors = AppColors.of(context);
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.dark(
-              primary: colors.aqua,
-              onPrimary: const Color(0xFF022F32),
-              surface: colors.card,
-              onSurface: colors.textPrimary,
-            ),
-            dialogTheme: DialogThemeData(backgroundColor: colors.card),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => buildAppDatePickerTheme(context, child!),
     );
 
     if (picked != null) {

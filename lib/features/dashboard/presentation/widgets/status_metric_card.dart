@@ -22,9 +22,19 @@ class StatusMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompact = screenWidth < 600;
+    final horizontalPadding = isCompact ? 12.0 : 16.0;
+    final verticalPadding = isCompact ? 12.0 : 14.0;
+    final badgeSize = isCompact ? 26.0 : 28.0;
+    final letterSpacing = isCompact ? 0.4 : 0.8;
+    final fontSize = isCompact ? 9.8 : 10.5;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
       decoration: BoxDecoration(
         color: colors.card,
         borderRadius: AppSpacing.radiusLg,
@@ -35,30 +45,37 @@ class StatusMetricCard extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(
-                  title.toUpperCase(),
-                  style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.2,
-                    color: colors.textSecondary,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: fontSize,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: letterSpacing,
+                      color: colors.textSecondary,
+                    ),
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              const SizedBox(width: 6),
               Container(
-                width: 28,
-                height: 28,
+                width: badgeSize,
+                height: badgeSize,
                 decoration: BoxDecoration(
                   color: iconBgColor ??
                       (iconColor ?? colors.aqua).withValues(alpha: 0.18),
                   borderRadius: AppSpacing.radiusSm,
                 ),
                 alignment: Alignment.center,
-                child: icon,
+                child: IconTheme(
+                  data: IconThemeData(size: isCompact ? 15.0 : 16.0),
+                  child: icon,
+                ),
               ),
             ],
           ),
@@ -66,7 +83,7 @@ class StatusMetricCard extends StatelessWidget {
           Text(
             count,
             style: AppTypography.statValueLarge.copyWith(
-              fontSize: 24,
+              fontSize: isCompact ? 22 : 24,
               color: colors.textPrimary,
             ),
           ),

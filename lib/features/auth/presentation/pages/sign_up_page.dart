@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
@@ -18,7 +19,8 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _SignUpPageState();
 }
 
-class _SignUpPageState extends State<SignUpPage> {
+class _SignUpPageState extends State<SignUpPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
@@ -29,12 +31,37 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _smsConsentChecked = false;
   bool _isLoading = false;
 
+  // Tapped link tracking for immediate color-flash animation
+  String? _tappedLink; // 'privacy' | 'terms'
+
+  // Checkbox bounce animation
+  late final AnimationController _checkboxController;
+  late final Animation<double> _checkboxScale;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkboxController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 280),
+    );
+    _checkboxScale = Tween<double>(begin: 1.0, end: 0.82).animate(
+      CurvedAnimation(
+        parent: _checkboxController,
+        curve: Curves.easeInCubic,
+        reverseCurve: Curves.easeOutBack,
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _fullNameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _checkboxController.dispose();
     super.dispose();
   }
 
@@ -57,6 +84,36 @@ class _SignUpPageState extends State<SignUpPage> {
 
     // Newly registered accounts proceed to regulatory KYC verification
     context.go('/kyc');
+  }
+
+  void _toggleSmsConsent() {
+    // Trigger spongy checkbox bounce
+    _checkboxController.forward().then((_) {
+      Future.delayed(const Duration(milliseconds: 60), () {
+        if (mounted) {
+          _checkboxController.reverse();
+          setState(() => _smsConsentChecked = !_smsConsentChecked);
+        }
+      });
+    });
+  }
+
+  /// Opens a URL and briefly flashes the link color to give immediate feedback.
+  Future<void> _openLink(String linkKey, String url) async {
+    setState(() => _tappedLink = linkKey);
+    // Flash for 320ms then revert
+    Future.delayed(const Duration(milliseconds: 320), () {
+      if (mounted) setState(() => _tappedLink = null);
+    });
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// Returns the current color for a link span based on tap state.
+  Color _linkColor(String linkKey, Color normal, Color active) {
+    return _tappedLink == linkKey ? active : normal;
   }
 
   @override
@@ -125,70 +182,129 @@ class _SignUpPageState extends State<SignUpPage> {
                       ),
                       const SizedBox(height: 18),
 
-                      // SMS Consent Checkbox
+                      // ─── SMS Consent Checkbox ────────────────────────────
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SpongyTap(
-                            onTap: () => setState(
-                                () => _smsConsentChecked = !_smsConsentChecked),
-                            pressScale: 0.90,
-                            borderRadius: BorderRadius.circular(4),
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: Checkbox(
-                                value: _smsConsentChecked,
-                                onChanged: (val) => setState(
-                                    () => _smsConsentChecked = val ?? false),
-                                activeColor: colors.aqua,
-                                checkColor: const Color(0xFF031415),
-                                side: BorderSide(
-                                  color: colors.border,
-                                  width: 1.5,
+                          // Animated spongy checkbox
+                          AnimatedBuilder(
+                            animation: _checkboxController,
+                            builder: (context, _) {
+                              return Transform.scale(
+                                scale: _checkboxScale.value,
+                                child: GestureDetector(
+                                  onTap: _toggleSmsConsent,
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 180),
+                                    curve: Curves.easeOutCubic,
+                                    width: 22,
+                                    height: 22,
+                                    decoration: BoxDecoration(
+                                      color: _smsConsentChecked
+                                          ? colors.aqua
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(
+                                        color: _smsConsentChecked
+                                            ? colors.aqua
+                                            : colors.border,
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: _smsConsentChecked
+                                          ? [
+                                              BoxShadow(
+                                                color: colors.aqua
+                                                    .withValues(alpha: 0.35),
+                                                blurRadius: 8,
+                                                spreadRadius: 1,
+                                              ),
+                                            ]
+                                          : null,
+                                    ),
+                                    child: _smsConsentChecked
+                                        ? Icon(
+                                            Icons.check,
+                                            size: 15,
+                                            color: const Color(0xFF031415),
+                                          )
+                                        : null,
+                                  ),
                                 ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: Text.rich(
-                              textAlign: TextAlign.justify,
-                              TextSpan(
-                                style: AppTypography.legalText
-                                    .copyWith(color: colors.textSecondary),
-                                children: [
-                                  const TextSpan(
-                                    text:
-                                        'By checking this box, I agree to receive SMS text messages from Paidix Global at the phone number provided, including account and payment notifications, customer care, and marketing messages. Reply STOP to opt out. See our ',
-                                  ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Main SMS consent text
+                                Text.rich(
+                                  textAlign: TextAlign.justify,
                                   TextSpan(
-                                    text: 'Privacy Policy',
-                                    style: TextStyle(
-                                      decoration: TextDecoration.underline,
-                                      fontWeight: FontWeight.w600,
-                                      color: colors.aquaLight,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () {},
+                                    style: AppTypography.legalText.copyWith(
+                                        color: colors.textSecondary),
+                                    children: const [
+                                      TextSpan(
+                                        text:
+                                            'By checking this box, I agree to receive SMS text messages from Paidix Global at the phone number provided, including account and payment notifications, customer care, and marketing messages. Reply STOP to opt out.',
+                                      ),
+                                    ],
                                   ),
-                                  const TextSpan(text: ' and '),
+                                ),
+                                const SizedBox(height: 4),
+                                // "See our Privacy Policy and Terms of Service"
+                                // on its own new line, left-aligned
+                                Text.rich(
                                   TextSpan(
-                                    text: 'Terms of Service',
-                                    style: TextStyle(
-                                      decoration: TextDecoration.underline,
-                                      fontWeight: FontWeight.w600,
-                                      color: colors.aquaLight,
-                                    ),
-                                    recognizer: TapGestureRecognizer()
-                                      ..onTap = () {},
+                                    style: AppTypography.legalText.copyWith(
+                                        color: colors.textSecondary),
+                                    children: [
+                                      const TextSpan(text: 'See our '),
+                                      TextSpan(
+                                        text: 'Privacy Policy',
+                                        style: TextStyle(
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.w600,
+                                          color: AnimatedColorValue(
+                                            current: _linkColor(
+                                              'privacy',
+                                              colors.aquaLight,
+                                              Colors.white,
+                                            ),
+                                          ).color,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () => _openLink(
+                                                'privacy',
+                                                'https://paidix.com/privacy',
+                                              ),
+                                      ),
+                                      const TextSpan(text: ' and '),
+                                      TextSpan(
+                                        text: 'Terms of Service',
+                                        style: TextStyle(
+                                          decoration: TextDecoration.underline,
+                                          fontWeight: FontWeight.w600,
+                                          color: AnimatedColorValue(
+                                            current: _linkColor(
+                                              'terms',
+                                              colors.aquaLight,
+                                              Colors.white,
+                                            ),
+                                          ).color,
+                                        ),
+                                        recognizer: TapGestureRecognizer()
+                                          ..onTap = () => _openLink(
+                                                'terms',
+                                                'https://paidix.com/terms',
+                                              ),
+                                      ),
+                                      const TextSpan(text: '.'),
+                                    ],
                                   ),
-                                  const TextSpan(text: '.'),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -238,10 +354,17 @@ class _SignUpPageState extends State<SignUpPage> {
                                 style: TextStyle(
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
-                                  color: colors.aquaLight,
+                                  color: _linkColor(
+                                    'terms_footer',
+                                    colors.aquaLight,
+                                    Colors.white,
+                                  ),
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () {},
+                                  ..onTap = () => _openLink(
+                                        'terms_footer',
+                                        'https://paidix.com/terms',
+                                      ),
                               ),
                               const TextSpan(text: ' and '),
                               TextSpan(
@@ -249,10 +372,17 @@ class _SignUpPageState extends State<SignUpPage> {
                                 style: TextStyle(
                                   decoration: TextDecoration.underline,
                                   fontWeight: FontWeight.w600,
-                                  color: colors.aquaLight,
+                                  color: _linkColor(
+                                    'privacy_footer',
+                                    colors.aquaLight,
+                                    Colors.white,
+                                  ),
                                 ),
                                 recognizer: TapGestureRecognizer()
-                                  ..onTap = () {},
+                                  ..onTap = () => _openLink(
+                                        'privacy_footer',
+                                        'https://paidix.com/privacy',
+                                      ),
                               ),
                               const TextSpan(
                                 text:
@@ -268,7 +398,8 @@ class _SignUpPageState extends State<SignUpPage> {
                       Divider(color: colors.divider, thickness: 1),
                       const SizedBox(height: 24),
 
-                      // Footer Switch Link with spongy bounce & ripple
+                      // Footer Switch Link — "Sign in" with spongy bounce, color flash,
+                      // and slide+fade page transition handled in router
                       Center(
                         child: Wrap(
                           alignment: WrapAlignment.center,
@@ -301,4 +432,12 @@ class _SignUpPageState extends State<SignUpPage> {
       ),
     );
   }
+}
+
+/// Helper to make setState-driven color changes compile cleanly
+/// in TextSpan (which can't use AnimatedDefaultTextStyle).
+/// Color is resolved at build time from the parent setState call.
+class AnimatedColorValue {
+  final Color color;
+  const AnimatedColorValue({required Color current}) : color = current;
 }

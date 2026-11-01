@@ -10,13 +10,17 @@ import '../domain/user_profile.dart';
 class UserProfileRepository {
   UserProfileRepository._internal();
 
-  static final UserProfileRepository instance = UserProfileRepository._internal();
+  static final UserProfileRepository instance =
+      UserProfileRepository._internal();
   factory UserProfileRepository() => instance;
 
   final ValueNotifier<UserProfile> profileNotifier =
       ValueNotifier<UserProfile>(UserProfile.defaultProfile());
 
   UserProfile get profile => profileNotifier.value;
+
+  /// Remembers the current KYC onboarding step across activity pause/destruction
+  KycStep activeKycStep = KycStep.personal;
 
   /// Synchronize details entered during the initial Sign-Up step
   void syncFromSignUp({
@@ -47,27 +51,34 @@ class UserProfileRepository {
     final bank = kycState.bank;
 
     // Determine clean phone representation
-    final country = p.countryCode.trim().isNotEmpty ? p.countryCode : current.countryCode;
+    final country =
+        p.countryCode.trim().isNotEmpty ? p.countryCode : current.countryCode;
     final rawPhone = p.phoneNumber.trim();
     final combinedPhone = rawPhone.isNotEmpty
         ? (rawPhone.startsWith('+') ? rawPhone : '$country$rawPhone')
         : current.phoneNumber;
 
     profileNotifier.value = current.copyWith(
-      fullName: p.fullName.trim().isNotEmpty ? p.fullName.trim() : current.fullName,
+      fullName:
+          p.fullName.trim().isNotEmpty ? p.fullName.trim() : current.fullName,
       countryCode: country,
       phoneNumber: combinedPhone,
+      smsConsent: p.smsConsent,
       address: (p.address != null && p.address!.trim().isNotEmpty)
           ? p.address!.trim()
           : current.address,
       city: (p.city != null && p.city!.trim().isNotEmpty)
           ? p.city!.trim()
           : current.city,
-      cnicNumber: id.cnicNumber.trim().isNotEmpty ? id.cnicNumber.trim() : current.cnicNumber,
+      cnicNumber: id.cnicNumber.trim().isNotEmpty
+          ? id.cnicNumber.trim()
+          : current.cnicNumber,
       // Front and Back CNIC bytes/paths (prefer enhanced bytes if present)
-      cnicFrontBytes: id.enhancedFrontBytes ?? id.frontBytes ?? current.cnicFrontBytes,
+      cnicFrontBytes:
+          id.enhancedFrontBytes ?? id.frontBytes ?? current.cnicFrontBytes,
       cnicFrontFilePath: id.frontFilePath ?? current.cnicFrontFilePath,
-      cnicBackBytes: id.enhancedBackBytes ?? id.backBytes ?? current.cnicBackBytes,
+      cnicBackBytes:
+          id.enhancedBackBytes ?? id.backBytes ?? current.cnicBackBytes,
       cnicBackFilePath: id.backFilePath ?? current.cnicBackFilePath,
       // Selfie bytes/paths
       selfieBytes: photo.enhancedBytes ?? photo.bytes ?? current.selfieBytes,
@@ -127,4 +138,3 @@ class UserProfileRepository {
     profileNotifier.value = UserProfile.defaultProfile();
   }
 }
-

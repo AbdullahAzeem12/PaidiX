@@ -32,8 +32,12 @@ class _KycPageState extends State<KycPage> {
     final hasUserCustomName = profile.fullName.isNotEmpty && profile.fullName != 'Abdullah Azeem';
     final hasUserCustomPhone = profile.phoneNumber.isNotEmpty && profile.phoneNumber != '+923217649976';
 
+    final effectiveStep = widget.initialStep != KycStep.personal
+        ? widget.initialStep
+        : UserProfileRepository.instance.activeKycStep;
+
     _state = KycState(
-      currentStep: widget.initialStep,
+      currentStep: effectiveStep,
       personal: PersonalInfo(
         fullName: hasUserCustomName ? profile.fullName : '',
         countryCode: profile.countryCode,
@@ -62,6 +66,8 @@ class _KycPageState extends State<KycPage> {
   }
 
   void _goToStep(KycStep step) {
+    UserProfileRepository.instance.activeKycStep = step;
+    UserProfileRepository.instance.syncFromKyc(_state);
     setState(() {
       _state = _state.copyWith(currentStep: step);
     });
@@ -179,6 +185,7 @@ class _KycPageState extends State<KycPage> {
             setState(() {
               _state = _state.copyWith(identity: info);
             });
+            UserProfileRepository.instance.syncFromKyc(_state);
           },
           onNextStep: _nextStep,
           onBack: _previousStep,
@@ -191,6 +198,7 @@ class _KycPageState extends State<KycPage> {
             setState(() {
               _state = _state.copyWith(photo: info);
             });
+            UserProfileRepository.instance.syncFromKyc(_state);
           },
           onNextStep: _nextStep,
           onBack: _previousStep,

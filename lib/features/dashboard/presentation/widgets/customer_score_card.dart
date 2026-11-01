@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../domain/dashboard_models.dart';
 
@@ -17,16 +16,16 @@ class CustomerScoreCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    final scoreVal = score?.score?.toString() ?? '—';
-    final gradeVal = score?.grade ?? '';
-    final trustVal = score?.trustLabel ?? 'TRUSTED';
-    final completedVal = score?.completedTransactions?.toString() ?? '—';
+    final scoreVal = score?.score?.toString() ?? '50';
+    final gradeVal = score?.grade ?? '—';
+    final trustVal = score?.trustLabel ?? 'NEW';
+    final completedVal = score?.completedTransactions?.toString() ?? '0';
     final rateVal = score?.completionRate != null
         ? '${score!.completionRate!.toStringAsFixed(0)}%'
-        : '—';
+        : '0%';
     final volumeVal = score?.totalVolumePkr != null
         ? AppFormatters.formatPkr(score!.totalVolumePkr)
-        : '—';
+        : 'Rs 0.00';
 
     return Container(
       width: double.infinity,
@@ -45,7 +44,7 @@ class CustomerScoreCard extends StatelessWidget {
         borderRadius: AppSpacing.radiusXl,
         child: Stack(
           children: [
-            // Decorative circular shape on right edge (matches screenshot 5)
+            // Decorative circular shape on right edge (matches screenshot)
             Positioned(
               right: -30,
               top: -30,
@@ -85,37 +84,46 @@ class CustomerScoreCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  // Big Score & Grade
+                  // Big Score & Grade & Trust Label (matches 50 — NEW)
                   Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         scoreVal,
-                        style: AppTypography.statValueScore.copyWith(
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -1.0,
+                          height: 1.0,
                           color: colors.mintHeroText,
                         ),
                       ),
-                      if (gradeVal.isNotEmpty) ...[
-                        const SizedBox(width: 10),
-                        Text(
-                          gradeVal,
-                          style: TextStyle(
-                            fontSize: 26,
-                            fontWeight: FontWeight.w900,
-                            color: colors.mintHeroText,
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (gradeVal.isNotEmpty)
+                            Text(
+                              gradeVal,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                height: 1.0,
+                                color: colors.mintHeroText,
+                              ),
+                            ),
+                          Text(
+                            trustVal,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                              height: 1.2,
+                              color: colors.mintHeroText,
+                            ),
                           ),
-                        ),
-                      ],
-                      const SizedBox(width: 6),
-                      Text(
-                        trustVal,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
-                          color: colors.mintHeroText,
-                        ),
+                        ],
                       ),
                     ],
                   ),

@@ -6,6 +6,7 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/utils/validators.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/info_banner.dart';
 import '../../../../core/widgets/selectable_tile.dart';
@@ -60,34 +61,13 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   }
 
   Future<void> _pickDate() async {
-    final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: _selectedDate ?? now,
       firstDate: DateTime(2020),
       lastDate: now,
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: isDark
-                ? ColorScheme.dark(
-                    primary: colors.aqua,
-                    onPrimary: const Color(0xFF031415),
-                    surface: colors.card,
-                    onSurface: colors.textPrimary,
-                  )
-                : ColorScheme.light(
-                    primary: colors.aqua,
-                    onPrimary: Colors.white,
-                    surface: colors.card,
-                    onSurface: colors.textPrimary,
-                  ),
-          ),
-          child: child!,
-        );
-      },
+      builder: (context, child) => buildAppDatePickerTheme(context, child!),
     );
 
     if (picked != null) {
@@ -595,4 +575,5 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 }
+
 

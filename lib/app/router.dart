@@ -22,8 +22,25 @@ GoRouter createAppRouter({String initialLocation = '/signup'}) {
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
           child: const SignInPage(),
+          // Slide up + fade — elegant upward reveal with cubic easing
+          transitionDuration: const Duration(milliseconds: 380),
+          reverseTransitionDuration: const Duration(milliseconds: 300),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
+            final slideAnim = Tween<Offset>(
+              begin: const Offset(0.0, 0.06),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            ));
+            final fadeAnim = CurvedAnimation(
+              parent: animation,
+              curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
+            );
+            return SlideTransition(
+              position: slideAnim,
+              child: FadeTransition(opacity: fadeAnim, child: child),
+            );
           },
         ),
       ),
