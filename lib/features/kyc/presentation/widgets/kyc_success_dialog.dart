@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../profile/data/user_profile_repository.dart';
 
 class KycSuccessDialog extends StatelessWidget {
   const KycSuccessDialog({super.key});
@@ -109,6 +110,7 @@ class KycSuccessDialog extends StatelessWidget {
                   icon: const Icon(Icons.dashboard_rounded, size: 16),
                   variant: AppButtonVariant.primary,
                   onPressed: () {
+                    UserProfileRepository.instance.markKycCompleted();
                     Navigator.of(context).pop();
                     context.go('/app/dashboard');
                   },

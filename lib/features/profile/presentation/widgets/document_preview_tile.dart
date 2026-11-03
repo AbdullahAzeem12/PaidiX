@@ -123,6 +123,7 @@ class DocumentPreviewTile extends StatelessWidget {
       return Image.memory(
         bytes!,
         fit: BoxFit.cover,
+        alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
         errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
       );
     }
@@ -134,6 +135,7 @@ class DocumentPreviewTile extends StatelessWidget {
         return Image.file(
           file,
           fit: BoxFit.cover,
+          alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
           errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
         );
       }

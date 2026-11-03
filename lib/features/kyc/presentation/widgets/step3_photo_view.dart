@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
@@ -37,10 +36,56 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
   double _processingProgress = 0.0;
   String _processingStage = '';
 
+  static bool _lastPickWasCamera = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLostData();
+  }
+
+  /// Restores photo if the Android OS destroyed and recreated MainActivity
+  /// while taking camera selfie or selecting photo from gallery.
+  Future<void> _checkLostData() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty) return;
+      final file = response.file;
+      if (file != null) {
+        await _applyPickedPhoto(file, isCamera: _lastPickWasCamera);
+      }
+    } catch (e) {
+      debugPrint('retrieveLostData error: $e');
+    }
+  }
+
+  Future<void> _applyPickedPhoto(XFile xFile, {required bool isCamera}) async {
+    try {
+      final bytes = await xFile.readAsBytes();
+      final fileName = xFile.name.isNotEmpty
+          ? xFile.name
+          : (isCamera ? 'selfie_camera.jpg' : 'selfie_gallery.jpg');
+
+      widget.onChanged(
+        widget.photoInfo.copyWith(
+          fileName: fileName,
+          filePath: xFile.path,
+          bytes: bytes,
+          isCameraCapture: isCamera,
+          isEnhanced: false,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Failed to apply picked photo: $e');
+    }
+  }
+
   /// Directly requests physical phone camera permission from Android OS
   /// and opens native camera to capture live biometric selfie photo.
   Future<void> _captureWithCamera() async {
     HapticFeedback.mediumImpact();
+    _lastPickWasCamera = true;
 
     try {
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -50,31 +95,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       final xFile = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 92,
       );
 
       if (xFile != null) {
-        final bytes = await xFile.readAsBytes();
-        final fileName =
-            xFile.name.isNotEmpty ? xFile.name : 'selfie_camera.jpg';
-        widget.onChanged(
-          widget.photoInfo.copyWith(
-            fileName: fileName,
-            filePath: xFile.path,
-            bytes: bytes,
-            isCameraCapture: true,
-            isEnhanced: false,
-          ),
-        );
-
-        // Real physical phone system notification
-        await NotificationService.instance.showNotification(
-          id: 30,
-          title: 'Live Selfie Captured',
-          body: '$fileName ready for biometric facial alignment and enhancement.',
-        );
+        await _applyPickedPhoto(xFile, isCamera: true);
       }
     } catch (e) {
       // Fallback sample for simulated environments
@@ -86,52 +110,30 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
           isEnhanced: false,
         ),
       );
-
-      await NotificationService.instance.showNotification(
-        id: 30,
-        title: 'Live Selfie Captured',
-        body: '$fileName ready for biometric facial alignment and enhancement.',
-      );
     }
   }
 
-  /// Directly requests physical phone photo permission from Android OS
-  /// and opens physical device photo gallery.
+  /// Opens physical device photo gallery without in-memory bitmap downscaling OOM spikes.
   Future<void> _pickFromGallery() async {
     HapticFeedback.lightImpact();
+    _lastPickWasCamera = false;
 
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await Permission.photos.request();
-      }
-
-      final xFile = await _picker.pickImage(
+      XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
-        maxWidth: 1600,
-        maxHeight: 1600,
-        imageQuality: 92,
       );
 
-      if (xFile != null) {
-        final bytes = await xFile.readAsBytes();
-        final fileName =
-            xFile.name.isNotEmpty ? xFile.name : 'selfie_gallery.jpg';
-        widget.onChanged(
-          widget.photoInfo.copyWith(
-            fileName: fileName,
-            filePath: xFile.path,
-            bytes: bytes,
-            isCameraCapture: false,
-            isEnhanced: false,
-          ),
-        );
+      if (xFile == null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final lost = await _picker.retrieveLostData();
+          if (!lost.isEmpty && lost.file != null) {
+            xFile = lost.file;
+          }
+        } catch (_) {}
+      }
 
-        // Real physical phone system notification
-        await NotificationService.instance.showNotification(
-          id: 31,
-          title: 'Selfie Photo Selected',
-          body: '$fileName selected from gallery. Ready for automatic enhancement.',
-        );
+      if (xFile != null) {
+        await _applyPickedPhoto(xFile, isCamera: false);
       }
     } catch (e) {
       final fileName = 'selfie_gallery_photo.png';
@@ -141,12 +143,6 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
           isCameraCapture: false,
           isEnhanced: false,
         ),
-      );
-
-      await NotificationService.instance.showNotification(
-        id: 31,
-        title: 'Selfie Photo Selected',
-        body: '$fileName selected from gallery. Ready for automatic enhancement.',
       );
     }
   }
@@ -185,14 +181,6 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         isEnhanced: true,
         enhancedBytes: res.processedBytes,
       ),
-    );
-
-    // Physical phone system notification on enhancement complete
-    await NotificationService.instance.showNotification(
-      id: 32,
-      title: 'Biometric Photo Enhanced',
-      body:
-          'Selfie auto-oriented, glare-reduced, and contrast-enhanced for profile verification.',
     );
   }
 
@@ -962,12 +950,14 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       return Image.memory(
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.cover,
+        cacheWidth: 800,
       );
     }
     if (widget.photoInfo.bytes != null) {
       return Image.memory(
         widget.photoInfo.bytes!,
         fit: BoxFit.cover,
+        cacheWidth: 800,
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -976,6 +966,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       return Image.file(
         File(widget.photoInfo.filePath!),
         fit: BoxFit.cover,
+        cacheWidth: 800,
       );
     }
 
@@ -1012,12 +1003,14 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       return Image.memory(
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.contain,
+        cacheWidth: 800,
       );
     }
     if (widget.photoInfo.bytes != null) {
       return Image.memory(
         widget.photoInfo.bytes!,
         fit: BoxFit.contain,
+        cacheWidth: 800,
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -1026,6 +1019,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       return Image.file(
         File(widget.photoInfo.filePath!),
         fit: BoxFit.contain,
+        cacheWidth: 800,
       );
     }
 

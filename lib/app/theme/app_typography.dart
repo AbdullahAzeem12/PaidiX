@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
+import 'app_theme.dart';
 
 /// Site-wide typography rules adhering to PaidiX brand guidance.
 /// Weights are Medium (500) base with Bold (700/800) headings and tabular numbers.
 class AppTypography {
   AppTypography._();
 
+  static String? get _font => AppTheme.activeFontFamily;
+
   static TextStyle get brandTitle => TextStyle(
+        fontFamily: _font,
         fontSize: 20,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.3,
@@ -14,6 +18,7 @@ class AppTypography {
       );
 
   static TextStyle get brandTagline => TextStyle(
+        fontFamily: _font,
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: AppColors.textSecondary,
@@ -21,6 +26,7 @@ class AppTypography {
       );
 
   static TextStyle get sectionEyebrow => TextStyle(
+        fontFamily: _font,
         fontSize: 11,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.6,
@@ -28,6 +34,7 @@ class AppTypography {
       );
 
   static TextStyle get pageHeading => TextStyle(
+        fontFamily: _font,
         fontSize: 28,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.6,
@@ -36,6 +43,7 @@ class AppTypography {
       );
 
   static TextStyle get pageSubtitle => TextStyle(
+        fontFamily: _font,
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
@@ -43,6 +51,7 @@ class AppTypography {
       );
 
   static TextStyle get statValueLarge => TextStyle(
+        fontFamily: _font,
         fontSize: 30,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.8,
@@ -50,6 +59,7 @@ class AppTypography {
       );
 
   static TextStyle get statValueScore => TextStyle(
+        fontFamily: _font,
         fontSize: 54,
         fontWeight: FontWeight.w900,
         letterSpacing: -1.5,
@@ -58,6 +68,7 @@ class AppTypography {
       );
 
   static TextStyle get cardTitle => TextStyle(
+        fontFamily: _font,
         fontSize: 12,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.2,
@@ -65,6 +76,7 @@ class AppTypography {
       );
 
   static TextStyle get label => TextStyle(
+        fontFamily: _font,
         fontSize: 11.5,
         fontWeight: FontWeight.w700,
         letterSpacing: 1.1,
@@ -72,6 +84,7 @@ class AppTypography {
       );
 
   static TextStyle get tableHeader => TextStyle(
+        fontFamily: _font,
         fontSize: 11,
         fontWeight: FontWeight.w800,
         letterSpacing: 1.2,
@@ -79,30 +92,35 @@ class AppTypography {
       );
 
   static TextStyle get tableCell => TextStyle(
+        fontFamily: _font,
         fontSize: 13,
         fontWeight: FontWeight.w500,
         color: AppColors.textPrimary,
       );
 
   static TextStyle get tableCellMuted => TextStyle(
+        fontFamily: _font,
         fontSize: 12.5,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
       );
 
   static TextStyle get inputText => TextStyle(
+        fontFamily: _font,
         fontSize: 14.5,
         fontWeight: FontWeight.w500,
         color: AppColors.textPrimary,
       );
 
   static TextStyle get inputPlaceholder => TextStyle(
+        fontFamily: _font,
         fontSize: 14.5,
         fontWeight: FontWeight.w400,
         color: AppColors.textPlaceholder,
       );
 
   static TextStyle get buttonText => TextStyle(
+        fontFamily: _font,
         fontSize: 14,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.2,
@@ -110,19 +128,22 @@ class AppTypography {
       );
 
   static TextStyle get buttonTextLight => TextStyle(
+        fontFamily: _font,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.2,
         color: AppColors.textPrimary,
       );
 
-  static const TextStyle badgeText = TextStyle(
+  static TextStyle get badgeText => TextStyle(
+        fontFamily: _font,
         fontSize: 11.5,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.3,
       );
 
   static TextStyle get legalText => TextStyle(
+        fontFamily: _font,
         fontSize: 11,
         fontWeight: FontWeight.w400,
         color: AppColors.textSecondary,
@@ -130,6 +151,7 @@ class AppTypography {
       );
 
   static TextStyle get linkText => TextStyle(
+        fontFamily: _font,
         fontSize: 14,
         fontWeight: FontWeight.w700,
         color: AppColors.aqua,
@@ -137,6 +159,7 @@ class AppTypography {
 
   // Contextual helper
   static TextStyle pageHeadingOf(BuildContext context) => TextStyle(
+        fontFamily: _font,
         fontSize: 28,
         fontWeight: FontWeight.w800,
         letterSpacing: -0.6,
@@ -145,6 +168,7 @@ class AppTypography {
       );
 
   static TextStyle pageSubtitleOf(BuildContext context) => TextStyle(
+        fontFamily: _font,
         fontSize: 14,
         fontWeight: FontWeight.w400,
         color: AppColors.of(context).textSecondary,

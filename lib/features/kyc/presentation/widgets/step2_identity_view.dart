@@ -4,10 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
-import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/cnic_formatter.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../data/kyc_image_processor.dart';
@@ -44,6 +42,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
   CnicStatus _cnicStatus = CnicStatus.empty;
   Timer? _debounceTimer;
 
+  static String? _pendingPickSide;
+
   @override
   void initState() {
     super.initState();
@@ -51,6 +51,24 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     _cnicController = TextEditingController(text: initialCnic);
     if (initialCnic.isNotEmpty) {
       _validateCnicRealtime(initialCnic, debounce: false);
+    }
+    _checkLostData();
+  }
+
+  /// Restores image if the Android OS destroyed and recreated MainActivity
+  /// while the user was interacting with external Gallery app.
+  Future<void> _checkLostData() async {
+    if (kIsWeb || !Platform.isAndroid) return;
+    try {
+      final response = await _picker.retrieveLostData();
+      if (response.isEmpty) return;
+      final file = response.file;
+      if (file != null) {
+        final isFront = _pendingPickSide != 'back';
+        await _applyPickedImage(file, isFront);
+      }
+    } catch (e) {
+      debugPrint('retrieveLostData error: $e');
     }
   }
 
@@ -103,58 +121,61 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     }
   }
 
-  /// Directly requests physical phone system permission from Android OS
-  /// and opens native physical device photo gallery.
-  Future<void> _pickImage(bool isFront) async {
-    HapticFeedback.lightImpact();
-
+  Future<void> _applyPickedImage(XFile xFile, bool isFront) async {
     try {
-      // Direct physical phone permission check via permission_handler
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await Permission.photos.request();
-      }
+      final bytes = await xFile.readAsBytes();
+      final fileName = xFile.name.isNotEmpty
+          ? xFile.name
+          : (isFront ? 'cnic_front.jpg' : 'cnic_back.jpg');
 
-      final xFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1920,
-        maxHeight: 1200,
-        imageQuality: 92,
-      );
-
-      if (xFile != null) {
-        final bytes = await xFile.readAsBytes();
-        final fileName = xFile.name.isNotEmpty
-            ? xFile.name
-            : (isFront ? 'cnic_front.jpg' : 'cnic_back.jpg');
-
-        if (isFront) {
-          widget.onChanged(
-            widget.identityInfo.copyWith(
-              frontFileName: fileName,
-              frontFilePath: xFile.path,
-              frontBytes: bytes,
-              isEnhanced: false,
-            ),
-          );
-        } else {
-          widget.onChanged(
-            widget.identityInfo.copyWith(
-              backFileName: fileName,
-              backFilePath: xFile.path,
-              backBytes: bytes,
-              isEnhanced: false,
-            ),
-          );
-        }
-
-        // Trigger real physical phone system notification
-        await NotificationService.instance.showNotification(
-          id: isFront ? 10 : 11,
-          title: 'CNIC ${isFront ? 'Front' : 'Back'} Uploaded',
-          body: '$fileName ready for intelligent glare reduction and alignment.',
+      if (isFront) {
+        widget.onChanged(
+          widget.identityInfo.copyWith(
+            frontFileName: fileName,
+            frontFilePath: xFile.path,
+            frontBytes: bytes,
+            isEnhanced: false,
+          ),
+        );
+      } else {
+        widget.onChanged(
+          widget.identityInfo.copyWith(
+            backFileName: fileName,
+            backFilePath: xFile.path,
+            backBytes: bytes,
+            isEnhanced: false,
+          ),
         );
       }
     } catch (e) {
+      debugPrint('Error applying picked image bytes: $e');
+    }
+  }
+
+  /// Opens native photo gallery without in-memory bitmap downscaling OOM spikes.
+  Future<void> _pickImage(bool isFront) async {
+    HapticFeedback.lightImpact();
+    _pendingPickSide = isFront ? 'front' : 'back';
+
+    try {
+      XFile? xFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+      );
+
+      if (xFile == null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        try {
+          final lost = await _picker.retrieveLostData();
+          if (!lost.isEmpty && lost.file != null) {
+            xFile = lost.file;
+          }
+        } catch (_) {}
+      }
+
+      if (xFile != null) {
+        await _applyPickedImage(xFile, isFront);
+      }
+    } catch (e) {
+      debugPrint('pickImage error: $e');
       // Fallback for simulated or desktop test harness
       final fallbackName = isFront ? 'image (3).png' : 'image (2).png';
       if (isFront) {
@@ -225,14 +246,6 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         enhancedFrontBytes: frontRes.processedBytes,
         enhancedBackBytes: backRes.processedBytes,
       ),
-    );
-
-    // Physical phone notification on enhancement complete
-    await NotificationService.instance.showNotification(
-      id: 20,
-      title: 'Document Enhancement Complete',
-      body:
-          'CNIC front & back auto-aligned, glare-removed, and encrypted with AES-256.',
     );
   }
 
@@ -1116,6 +1129,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        cacheWidth: 1080,
       );
     }
     if (filePath != null && !kIsWeb && File(filePath).existsSync()) {
@@ -1124,6 +1138,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         fit: BoxFit.cover,
         width: double.infinity,
         height: double.infinity,
+        cacheWidth: 1080,
       );
     }
 

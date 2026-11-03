@@ -1,0 +1,13 @@
+---
+description: Load PaidiX project brain instead of scanning the whole repo
+alwaysApply: true
+---
+
+# PaidiX brain first
+
+- Flutter app root: `PaidiX/` (nested). Canonical context: `PaidiX/PROJECT_BRAIN.md`.
+- Read that file before globbing `lib/` or Gradle. Edit code only for files the task needs.
+- Ignore `build/`, `.dart_tool/`, `android/.gradle/`.
+- Invariants: empty payments on launch; em dash for unknown money; one `sharedPaymentsRepository` in `lib/app/router.dart`; default route `/signup`; dark theme default; sidebar colors never invert; Impeller off + `RenderMode.texture`.
+- After behavior/Gradle/route changes, update `PROJECT_BRAIN.md` in the same change.
+- Verify from `PaidiX/`: `flutter test` (and `flutter analyze` if you touched Dart).

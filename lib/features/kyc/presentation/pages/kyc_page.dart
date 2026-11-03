@@ -29,18 +29,21 @@ class _KycPageState extends State<KycPage> {
   void initState() {
     super.initState();
     final profile = UserProfileRepository.instance.profile;
-    final hasUserCustomName = profile.fullName.isNotEmpty && profile.fullName != 'Abdullah Azeem';
-    final hasUserCustomPhone = profile.phoneNumber.isNotEmpty && profile.phoneNumber != '+923217649976';
+
+    final effectiveStep = widget.initialStep != KycStep.personal
+        ? widget.initialStep
+        : UserProfileRepository.instance.activeKycStep;
 
     _state = KycState(
-      currentStep: widget.initialStep,
+      currentStep: effectiveStep,
       personal: PersonalInfo(
-        fullName: hasUserCustomName ? profile.fullName : '',
-        countryCode: profile.countryCode,
-        phoneNumber: hasUserCustomPhone ? profile.phoneNumber : '',
-        smsConsent: false,
-        address: profile.address != 'Canalberg Housing Society' ? profile.address : null,
-        city: profile.city != 'لاہور' ? profile.city : null,
+        fullName: profile.fullName,
+        countryCode:
+            profile.countryCode.isNotEmpty ? profile.countryCode : '+92',
+        phoneNumber: profile.phoneNumber,
+        smsConsent: profile.smsConsent,
+        address: profile.address.isNotEmpty ? profile.address : null,
+        city: profile.city.isNotEmpty ? profile.city : null,
       ),
       identity: IdentityDocInfo(
         cnicNumber: profile.cnicNumber,
@@ -54,14 +57,21 @@ class _KycPageState extends State<KycPage> {
         filePath: profile.selfieFilePath,
       ),
       bank: BankInfo(
-        bankName: profile.bankName ?? 'Meezan Bank Limited',
-        beneficiaryTitle: profile.bankBeneficiary ?? profile.fullName,
+        bankName: (profile.bankName != null && profile.bankName!.isNotEmpty)
+            ? profile.bankName!
+            : 'Meezan Bank Limited',
+        beneficiaryTitle: (profile.bankBeneficiary != null &&
+                profile.bankBeneficiary!.isNotEmpty)
+            ? profile.bankBeneficiary!
+            : profile.fullName,
         iban: profile.bankIban ?? '',
       ),
     );
   }
 
   void _goToStep(KycStep step) {
+    UserProfileRepository.instance.activeKycStep = step;
+    UserProfileRepository.instance.syncFromKyc(_state);
     setState(() {
       _state = _state.copyWith(currentStep: step);
     });
@@ -88,6 +98,7 @@ class _KycPageState extends State<KycPage> {
       _state = _state.copyWith(isSubmitted: true);
     });
     UserProfileRepository.instance.syncFromKyc(_state);
+    UserProfileRepository.instance.markKycCompleted();
     KycSuccessDialog.show(context);
   }
 
@@ -179,6 +190,7 @@ class _KycPageState extends State<KycPage> {
             setState(() {
               _state = _state.copyWith(identity: info);
             });
+            UserProfileRepository.instance.syncFromKyc(_state);
           },
           onNextStep: _nextStep,
           onBack: _previousStep,
@@ -191,6 +203,7 @@ class _KycPageState extends State<KycPage> {
             setState(() {
               _state = _state.copyWith(photo: info);
             });
+            UserProfileRepository.instance.syncFromKyc(_state);
           },
           onNextStep: _nextStep,
           onBack: _previousStep,

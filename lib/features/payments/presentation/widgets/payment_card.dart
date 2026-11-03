@@ -21,6 +21,15 @@ class PaymentCard extends StatelessWidget {
         color: colors.card,
         borderRadius: AppSpacing.radiusLg,
         border: Border.all(color: colors.border, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(
+              alpha: colors.brightness == Brightness.dark ? 0.25 : 0.05,
+            ),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -31,15 +40,20 @@ class PaymentCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  item.reference,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                    color: colors.aquaLight,
+                Expanded(
+                  child: Text(
+                    item.reference,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: colors.aquaLight,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 StatusBadge(status: item.status),
               ],
             ),
@@ -75,41 +89,56 @@ class PaymentCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'AMOUNT (USD)',
-                      style: AppTypography.tableHeader.copyWith(color: colors.textSecondary),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      AppFormatters.formatUsd(item.amount),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: colors.textPrimary,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AMOUNT (USD)',
+                        style: AppTypography.tableHeader
+                            .copyWith(color: colors.textSecondary),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          AppFormatters.formatUsd(item.amount),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      'NET PKR',
-                      style: AppTypography.tableHeader.copyWith(color: colors.textSecondary),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      AppFormatters.formatPkr(item.netPkr),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                        color: colors.aquaLight,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'NET PKR',
+                        style: AppTypography.tableHeader
+                            .copyWith(color: colors.textSecondary),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 3),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          AppFormatters.formatPkr(item.netPkr),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            color: colors.aquaLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -119,13 +148,18 @@ class PaymentCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  '1 USD = ${item.exchangeRate.toStringAsFixed(2)} • Fee: ${AppFormatters.formatUsd(item.feeAmount)}',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: colors.textMuted,
+                Expanded(
+                  child: Text(
+                    '1 USD = ${item.exchangeRate.toStringAsFixed(2)} • Fee: ${AppFormatters.formatUsd(item.feeAmount)}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: colors.textMuted,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   AppFormatters.formatDate(item.transactionDate),
                   style: TextStyle(

@@ -12,6 +12,7 @@ import '../widgets/pagination_controls.dart';
 import '../widgets/payment_card.dart';
 import '../widgets/payments_filter_bar.dart';
 import '../widgets/payments_table.dart';
+import '../widgets/smooth_animated_list_item.dart';
 
 class PaymentsPage extends StatefulWidget {
   final PaymentsRepositoryImpl paymentsRepository;
@@ -76,6 +77,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
           backgroundColor: colors.background,
           body: SafeArea(
             child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.symmetric(
                   horizontal: 20, vertical: 24),
               child: Column(
@@ -131,21 +133,47 @@ class _PaymentsPageState extends State<PaymentsPage> {
                       onAction: () => context.go('/app/payments/new'),
                     )
                   else ...[
-                    LayoutBuilder(
-                      builder: (context, constraints) {
-                        if (constraints.maxWidth >= 768) {
-                          return PaymentsTable(items: paginatedList);
-                        }
-                        return Column(
-                          children: paginatedList
-                              .map((p) => PaymentCard(item: p))
-                              .toList(),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 320),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.0, 0.03),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
                         );
                       },
+                      child: KeyedSubtree(
+                        key: ValueKey(
+                          '$_currentPage-$_pageSize-${_filter.searchQuery}-${_filter.status}-${_filter.dateRange}-${_filter.isBitnexWeek}',
+                        ),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth >= 768) {
+                              return PaymentsTable(items: paginatedList);
+                            }
+                            return Column(
+                              children: List.generate(
+                                paginatedList.length,
+                                (idx) => SmoothAnimatedListItem(
+                                  index: idx,
+                                  child: PaymentCard(item: paginatedList[idx]),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 18),
 
-                    // Pagination Controls
+                    // Pagination Controls (Showing, Rows, Page)
                     PaginationControls(
                       totalCount: totalCount,
                       pageSize: _pageSize,

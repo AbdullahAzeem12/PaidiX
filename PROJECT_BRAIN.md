@@ -17,8 +17,8 @@ When you change behavior, **update this file in the same change** (routes, formu
 1. Answer from this brain. Open source files only for the files you will edit.
 2. Flutter app root is **`PaidiX/`** (nested). Workspace root is the parent folder that also contains `.agents/` and `.idea/`.
 3. Ignore generated trees: `build/`, `.dart_tool/`, `android/.gradle/`, `*/ephemeral/`.
-4. Default theme is **dark**. Sidebar chrome is **never inverted** (`AppColors.sidebar*`).
-5. Prefer `AppColors.of(context)` in widgets; static `AppColors.*` getters follow `themeModeNotifier` (not always the widget tree).
+4. Default theme is **light** (with toggle in header and Appearance settings). Sidebar chrome is **never inverted** (`AppColors.sidebar*`).
+5. Prefer `AppColors.of(context)` in widgets; static `AppColors.*` getters follow `themeModeNotifier` (default `ThemeMode.light`).
 6. Empty money values render as **`—`** (`AppFormatters`). Do not invent demo transactions.
 7. After UI/logic changes: `flutter test` from `PaidiX/`. Theme token tests live in `test/theme_test.dart`.
 
@@ -105,26 +105,37 @@ android.useAndroidX=true
 android.suppressUnsupportedCompileSdk=37.0
 android.newDsl=false
 android.builtInKotlin=false
+# Multi-drive Windows Kotlin incremental compilation fix (C:\ pub cache vs D:\ project)
+kotlin.incremental=false
+kotlin.incremental.android=false
+kotlin.incremental.jvm=false
 ```
 
 ### 3.5 Wrapper
 
-`gradle-wrapper.properties` → **Gradle 9.3.1-all**
+`gradle-wrapper.properties` → **Gradle 9.3.1-all**. `DEFAULT_JVM_OPTS` in `gradlew.bat` and `gradlew` sets `--enable-native-access=ALL-UNNAMED` to eliminate Java 25+ JEP 472 restricted method (`System.load`) warnings from `net.rubygrapefruit.platform`.
 
 ### 3.6 Manifests & host
 
 **`app/src/main/AndroidManifest.xml`**
 
-- Permissions: `CAMERA`, `READ_EXTERNAL_STORAGE` (maxSdk 32), `READ_MEDIA_IMAGES`, `POST_NOTIFICATIONS`
-- Label: `PaidiX`, icon `@mipmap/ic_launcher`
+- Permissions: `CAMERA`, `READ_EXTERNAL_STORAGE` (maxSdk 32), `WRITE_EXTERNAL_STORAGE` (maxSdk 32), `READ_MEDIA_IMAGES`, `POST_NOTIFICATIONS`
+- Label: `PaidiX`, icon `@mipmap/ic_launcher`, roundIcon `@mipmap/ic_launcher_round`
+- Adaptive Icons: `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` with `@color/ic_launcher_background` (`#022F32`) and centered safe-zone `@mipmap/ic_launcher_foreground`
 - Activity: `.MainActivity`, `singleTop`, `adjustResize`, Flutter embedding **2**
 - **Impeller disabled:** `io.flutter.embedding.android.EnableImpeller` = `false`
 
-**`MainActivity.kt`** (`com.paidix.paidix`): `FlutterActivity` with **`RenderMode.texture`** (not surface). Keep this unless Impeller/surface is proven stable on target devices.
+**`MainActivity.kt`** (`com.paidix.paidix`): `FlutterActivity` configured with `RenderMode.texture` (`getRenderMode()` and AndroidManifest meta-data) to permanently prevent black/blank screen freezes when resuming from external Gallery/Camera activities on Huawei EMUI/HarmonyOS devices.
 
 **Debug/profile manifests:** `INTERNET` only (hot reload).
 
-**Splash:** light `#EFF3F0`, night `#031415` (`values/colors.xml`, `values-night/colors.xml`). Launch drawables exist for both.
+**Splash & Brand Colors:** light `#EFF3F0`, night `#031415`, icon background `#022F32` (`values/colors.xml`, `values-night/colors.xml`). Launch drawables exist for both.
+
+**Release APK Builds (`release/` & `build/app/outputs/flutter-apk/`):**
+- **Universal Fat APK:** `PaidiX-v1.0.0-Universal.apk` (51.8 MB) — works on 100% of Android devices.
+- **Arm64 Lightweight APK:** `PaidiX-v1.0.0-arm64-v8a.apk` (18.0 MB) — 65% smaller, high-performance for all modern Android phones.
+- **Armeabi-v7a APK:** `PaidiX-v1.0.0-armeabi-v7a.apk` (15.7 MB) — for older 32-bit Android phones.
+- **x86_64 APK:** `PaidiX-v1.0.0-x86_64.apk` (19.5 MB) — for Android emulators and ChromeOS.
 
 **TODOs still in Gradle:** unique applicationId comment (ID is already `com.paidix.paidix`); release signing config.
 
@@ -158,7 +169,8 @@ lib/
     ├── auth/                 domain models + validators + sign in/up pages (no repository)
     ├── kyc/                  models, image processor (simulated), 4-step UI
     ├── dashboard/            models + impl wrapping payments repo + page
-    └── payments/             models, abstract repo, in-memory impl, list + new form
+    ├── payments/             models, abstract repo, in-memory impl, list + new form
+    └── settings/             Account Settings (Profile, Security, Payments PIN, Appearance, Bank Accounts)
 ```
 
 **Dependency direction:** `dashboard` → `payments` repository. Pages under `/app/*` receive `PaymentsRepositoryImpl` (concrete) so they can listen to `paymentsListenable`.
@@ -173,7 +185,7 @@ final appRouter = createAppRouter(initialLocation: '/signup');
 
 Tests that need a clean router should call `createAppRouter(...)` with a fresh location; production uses `appRouter`.
 
-There is **no** auth session, token store, or KYC persistence. Killing the app resets payments and KYC.
+There is **no** HTTP client or auth backend. User profile, KYC identity documents (Selfie, CNIC Front, CNIC Back), and avatar are stored persistently via `UserProfileRepository` in local device storage (`paidix_users/<email>/profile.json` and image files) with synchronized in-memory caching, surviving logout, re-login, and app restarts. Payments repository remains process-memory based.
 
 ---
 
@@ -188,31 +200,32 @@ Defined in `lib/app/router.dart`. Transitions: fade (most), slide+fade for `/app
 | `/kyc` | no | `KycPage` | 4 steps, no app chrome |
 | `/app/dashboard` | **AppShell** | `DashboardPage` | |
 | `/app/onboarding` | **AppShell** | `OnboardingProfilePage` | Dynamic user profile & KYC review |
-| `/app/payments` | AppShell | `PaymentsPage` | Payments list, search, pagination, bulk add dialog, and collapsible `PaymentsFilterBar` (closed by default, animated expand/collapse, horizontal slider for side-by-side Range/Currency/Status chips with popup menus) |
+| `/app/settings` | AppShell | `AccountSettingsPage` | 5-tab settings: Profile (read/edit name, phone with single +92 prefix without duplication, CNIC, city, address, camera badge avatar with auto-crop & enhance, responsive update/remove avatar dialog with fallback to initial letter "A", and high-fidelity 3-card saved documents section for Selfie, CNIC Front, CNIC Back featuring emerald preview banner, header row with `✓ Enhanced` badges, 155px container with floating zoom lens overlay, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` flow), Security (password update, 3 eye-toggle fields), Payments PIN (4–8 digit lock, update with previous PIN verification, email recovery, and destructive remove), Appearance (Dark/Light/System theme cards + 10-font grid + text size slider 80–140%), Bank Accounts (responsive cards matching desktop/mobile specifications: gold ACCOUNTS eyebrow, security audit notice, PKR RECEIVING (PAKISTAN) + Add account pill, cards with uppercase bank headers, ☆ Primary badge / Set as primary toggle, prominent holder title, •••• •••• 2786 masked number, divider, Edit and Remove actions with confirmation dialog; Edit/Add Pakistani bank account modal with audit notice, 18-bank catalog picker, letters-only / digits-only validation, optional IBAN, persistent storage via UserProfileRepository in paidix_users/<email>/bank_accounts.json, and zero overflow on 320px–1200px). Slide-in/slide-out page transition. Tapping the back button (`_buildMobileTopBar` and `_buildSideNav`) navigates directly to `/app/dashboard` with spongy haptic feedback and smooth easeOutCubic slide+fade transition. Responsive wide breakpoint requires `width >= 768 && height >= 520` so tilted/landscape mobile phones (740x360, 800x360, 850x390, 896x414) automatically render the mobile layout with the 48px horizontal tab bar and full-width content, completely eliminating the 223px sidebar flex overflow; sidebar navigation and modal dialogs are wrapped in `SingleChildScrollView` to guarantee zero pixel overflow on any phone orientation. |
+| `/app/payments` | AppShell | `PaymentsPage` | Payments list with `SmoothAnimatedListItem` pop-in/fade-in entrance & bouncy physics, search, interactive `PaginationControls` (Showing range, interactive Rows selector chips 10/20/30/50/100/Custom, Page navigation with direct jump dialog), bulk add dialog, and collapsible `PaymentsFilterBar` (closed by default, animated expand/collapse, horizontal slider for side-by-side Range/Currency/Status chips with popup menus) |
 | `/app/payments/new` | AppShell | `NewPaymentPage` | nested under payments |
 
 **Auth (simulated 600ms delay, no API):**
 
-- Sign up success → `/kyc`
-- Sign in: if email contains `admin` **or** `verified` → `/app/dashboard`; else → `/kyc`
+- Sign up success: registers user with `hasCompletedKyc: false` → routes to `/kyc` for initial onboarding
+- Sign in: if email contains `admin` or `verified`, or account has completed KYC (`hasCompletedKyc == true`) → `/app/dashboard`; else unverified new user → `/kyc`
 - Forgot password: dialog only (“instructions will be sent”)
 - Sign-up SMS consent is a checkbox; phone is optional
 
 **KYC:**
 
 - Header can `go('/signin')`
-- Submit last step → `KycSuccessDialog` (non-dismissible) → **Go to Dashboard** → `/app/dashboard`
+- Submit last step: saves all KYC details permanently, sets `hasCompletedKyc: true` → `KycSuccessDialog` (non-dismissible) → **Go to Dashboard** → `/app/dashboard`. Zero push notifications during document/selfie enhancement.
 
-**AppShell nav (wide ≥768 sidebar; else bottom bar):**
+**AppShell nav (wide ≥768 && height ≥520 sidebar; else bottom bar):**
 
 0. Dashboard `/app/dashboard`
 1. Onboarding `/app/onboarding`
 2. My Payments `/app/payments`
 3. New Payment `/app/payments/new`
 
-Bottom navigation bar (`PaidiXBottomNavBar`) provides fully responsive adaptive horizontal spacing (320px–480px+), zero text truncation via auto-fitting typography (`FittedBox(fit: BoxFit.scaleDown)`), 0ms raw pointer touch compression (`Curves.easeInOutCubic`), bouncy spring release (`Curves.easeOutBack`), animated icon scaling & color transitions, active pill illumination, and glowing micro-indicator accent lines.
+Bottom navigation bar (`PaidiXBottomNavBar`) provides fully responsive adaptive horizontal spacing (320px–480px+), zero text truncation via auto-fitting typography (`FittedBox(fit: BoxFit.scaleDown)`), 0ms raw pointer touch compression (`Curves.easeInOutCubic`), bouncy spring release (`Curves.easeOutBack` on scale), animated icon scaling & color transitions, active pill illumination, and fluid micro-indicator accent lines with strictly monotonic easing (`Curves.easeOutCubic`) to guarantee non-negative `BoxShadow` blur radii during backward and forward tab transitions.
 
-Dynamic user profile state via `UserProfileRepository.instance`. Default profile: **Abdullah Azeem** / `kherool66@gmail.com` / avatar **A**. Dashboard greeting: **Hello, ${profile.firstName}.** Plan badge: **BASIC PLAN**. Edit Profile modal provides real-time updates, timestamp refresh, and gallery-based re-upload of KYC documents (Selfie, CNIC Front, CNIC Back) with responsive mobile & wide desktop layouts, tactile spongy click compression, and auto-wrapping responsive toast notifications.
+Dynamic user profile state via `UserProfileRepository.instance`. Default profile: **Abdullah Azeem** / `kheroali66@gmail.com` (with `kherool66@gmail.com` synchronized alias) / avatar **A**. Dashboard greeting: **Hello, ${profile.firstName}.** Plan badge: **BASIC PLAN**. Edit Profile & Account Settings provide real-time updates, single clean `PK +92` phone prefix without duplication, elevated camera badge avatar (76px/88px diameter, aqua ambient halo, high-contrast floating badge, centered face alignment `Alignment(0.0, -0.22)`), interactive update/remove avatar modal restoring initial letter "A", and responsive 3-card saved documents section (Selfie, CNIC Front, CNIC Back). For Selfie: dedicated biometric portrait presentation with atmospheric frosted blurred backdrop, centered 118x144 emerald-framed portrait preview targeting human face/eyes without vertical squishing (background radial guide ring removed for a clean focused look), `PORTRAIT BIOMETRIC` badge, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` action with zero overflow across 320px–1200px screens. User profile details, custom avatars, and regulatory documents are persisted to local device storage and restored automatically upon re-login. Avatar updates are synchronized across `AppShell` mobile header and desktop sidebar.
 
 ---
 
@@ -228,7 +241,7 @@ Constants (must stay in sync with tests):
 - New item `id`: `pay_<epochMs>`
 - **Every `submitPayment` sets `status: PaymentStatusType.completed`**
 - List is newest-first (`insert(0, ...)`)
-- Starts **empty** (product invariant)
+- Default constructor `PaymentsRepositoryImpl({bool seedMockData = false})` starts **empty** by default for unit tests, while `sharedPaymentsRepository` in `router.dart` enables `seedMockData: true` so all active users immediately experience 24 realistic mock items where the top 4 exactly mirror production screenshots (`PBX-2026-001332`, `PBX-2026-001331`, `PBX-2026-001333`, `PBX-2026-001330`). Methods `seedMockData()` and `clearPayments()` are available on repository.
 
 Formula:
 
@@ -252,7 +265,11 @@ Example locked by `test/payments_repository_test.dart`: `$171` → fee `20.52` �
 
 **Duplicate confirmation codes:** not enforced in the repository (README mentions duplicate prevention; code does not).
 
-**New payment proof:** `_simulateFilePick()` assigns a fake filename; not `image_picker`.
+**New payment proof & submission:** Native `ImagePicker` (`ImageSource.gallery`) with memory bounding (`maxWidth: 2400`, `maxHeight: 2400`, `imageQuality: 88`) and Android/Huawei activity lifecycle recovery via `_picker.retrieveLostData()` in `initState()`. Proof attachment stores `proofFileName`, `proofFilePath`, and `proofBytes` in `PaymentItem` and `PaymentSubmission`. Features interactive file preview (24x24 thumbnail, truncated filename, clear `[X]` button, and `BROWSE` button with loading indicator). Backend submission pipeline validates fields, creates `PaymentSubmission`, invokes `paymentsRepository.submitPayment()`, fires push notification via `NotificationService.instance.showNotification(id: 17, ...)`, displays a floating emerald SnackBar, and transitions to `/app/payments`.
+
+**Bulk Add Payments Dialog (`BulkAddPaymentsDialog`):** Built with adaptive landscape/tilt mode protection (`isLandscape = size.width > size.height && size.height < 520`). On phone tilt/landscape orientations (`740x360`, `800x360`, `850x390`, `896x414`, `640x320`), margin and padding are automatically compacted (`vertical: 3` and `6`), the multi-line instruction paragraph condenses to a single-line summary, toolbar actions wrap with minimal spacing, and the footer transitions from a stacked column to a side-by-side horizontal `Row` with compact 34px buttons and omits the multi-line browser storage disclaimer. The spreadsheet/mobile card grid is wrapped in `Expanded` inside the main dialog flex column, completely eliminating the 6.9px bottom flex overflow and guaranteeing 0 pixel overflow across all phone tilt orientations.
+
+**Interactive Pagination Controls (`PaginationControls`):** Interactive "Showing X–Y of Z", "Rows: 10, 20, 30, 50, 100, Custom", and "Page X of N" navigation with first (`«`), previous (`< Prev`), page jump dialog, next (`Next >`), and last (`»`) controls. Mobile layout wraps `pageNavControls` in a horizontal scroll view to guarantee zero overflow even on ultra-compact 320px screen widths.
 
 ### 7.2 Status enum — `PaymentStatusType` (`status_badge.dart`)
 
@@ -316,6 +333,14 @@ Files: `lib/app/theme/app_colors.dart`, `app_theme.dart`, `app_typography.dart`,
 **Light (:root-inspired):** bg `#EFF3F0`, card `#FFFFFF`, aqua `#0E7C7B`, gold `#E5B35A`.
 
 `test/theme_test.dart` locks many of these hex values — **change tokens and tests together**.
+
+**Typography & Interactive Font System:**
+- Reactive dynamic font selection via `AppTheme.fontFamilyNotifier` (`ValueNotifier<String>`, default `'System default'`).
+- 10 supported font families: System default, Inter, Roboto, Poppins, Lato, Nunito, Open Sans, DM Sans, Source Sans 3, IBM Plex Sans (via `google_fonts: ^9.0.0` with offline test fallback `GoogleFonts.config.allowRuntimeFetching = false`).
+- Text scale reactivity via `AppTheme.textScaleNotifier` (`ValueNotifier<double>`, range 80%–140%, default 100%).
+- Persistent preferences in local storage (`paidix_appearance.json`).
+- `AppTypography` dynamically connects every typography style to `AppTheme.activeFontFamily`, while the root `PaidiXApp` injects `MediaQuery.copyWith(textScaler: TextScaler.linear(scale))` wrapped in a multi-listenable builder.
+- Account Settings `Appearance` tab font picker: responsive 2-column grid (`childAspectRatio: 2.2`) with tiles auto-scaled via `FittedBox(fit: BoxFit.scaleDown)` to guarantee zero pixel overflows across all phone widths (320px–480px+) and text scales, preview box ("Send USD, receive PKR.") rendered in the active font, interactive slider, and "Reset to defaults" action.
 
 **Spacing:** xs 4 … xxxl 32; radii 6 / 10 / 14 / 18 / pill 999.  
 **Motion:** fast 120 / normal 220 / medium 320 / slow 450; button press scale **0.96** (`AppMotion`); `AppButton` uses **0.945** over 110ms + 260ms `easeOutBack`.  
@@ -505,3 +530,5 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - KYC success: **Account Setup Complete!**
 - Dashboard: **YOUR MONEY, AT A GLANCE**, **RECENT ACTIVITY**
 - Cards: **PKR RECEIVED**, **TOTAL TRANSFERRED TO YOU**, awaiting verification uses em dash when null
+- Plan badges: "BASIC PLAN" text and hardcoded badges removed across all headers, drawer, and dashboard greetings.
+- Customer Score Card: Volume metric displays in single line formatted as `Rs. 1,169,570.67` with responsive flex (3:2:5) and `FittedBox` scale-down safeguard.

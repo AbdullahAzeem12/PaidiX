@@ -331,7 +331,7 @@ class _NavBarTabItemState extends State<_NavBarTabItem>
                     // Micro-Indicator Bar underneath active tab
                     AnimatedContainer(
                       duration: const Duration(milliseconds: 240),
-                      curve: Curves.easeOutBack,
+                      curve: Curves.easeOutCubic,
                       height: widget.isSelected ? 2.5 : 0.0,
                       width: widget.isSelected ? widget.indicatorWidth : 0.0,
                       decoration: BoxDecoration(

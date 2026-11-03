@@ -1,5 +1,7 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/phone_formatter.dart';
@@ -22,7 +24,8 @@ class Step1PersonalView extends StatefulWidget {
   State<Step1PersonalView> createState() => _Step1PersonalViewState();
 }
 
-class _Step1PersonalViewState extends State<Step1PersonalView> {
+class _Step1PersonalViewState extends State<Step1PersonalView>
+    with SingleTickerProviderStateMixin {
   late final TextEditingController _nameController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
@@ -30,41 +33,48 @@ class _Step1PersonalViewState extends State<Step1PersonalView> {
   late bool _smsConsent;
   late CountryCodeOption _selectedCountry;
 
+  // Tapped link tracking for immediate color-flash animation
+  String? _tappedLink; // 'privacy' | 'terms'
+
+  // Checkbox bounce animation
+  late final AnimationController _checkboxController;
+  late final Animation<double> _checkboxScale;
+
   @override
   void initState() {
     super.initState();
     _selectedCountry =
         CountryCodeOption.fromCodeOrDisplay(widget.personalInfo.countryCode);
 
-    final initialName = (widget.personalInfo.fullName == 'Abdullah Azeem')
-        ? ''
-        : widget.personalInfo.fullName;
+    final initialName = widget.personalInfo.fullName;
     _nameController = TextEditingController(text: initialName);
 
-    final rawPhone = (widget.personalInfo.phoneNumber == '+923217649976' ||
-            widget.personalInfo.phoneNumber == '923217649976' ||
-            widget.personalInfo.phoneNumber == '923 2176499')
-        ? ''
-        : widget.personalInfo.phoneNumber;
+    final rawPhone = widget.personalInfo.phoneNumber;
     final formattedPhone = rawPhone.isNotEmpty
         ? PhoneFormatter.format(rawPhone, isUs: _selectedCountry.isUs)
         : '';
     _phoneController = TextEditingController(text: formattedPhone);
 
-    final initialAddress =
-        (widget.personalInfo.address == 'Canalberg Housing Society')
-            ? ''
-            : (widget.personalInfo.address ?? '');
+    final initialAddress = widget.personalInfo.address ?? '';
     _addressController = TextEditingController(text: initialAddress);
 
-    final initialCity = (widget.personalInfo.city == 'لاہور')
-        ? ''
-        : (widget.personalInfo.city ?? '');
+    final initialCity = widget.personalInfo.city ?? '';
     _cityController = TextEditingController(text: initialCity);
 
-    _smsConsent = (widget.personalInfo.fullName == 'Abdullah Azeem')
-        ? false
-        : widget.personalInfo.smsConsent;
+    _smsConsent = widget.personalInfo.smsConsent;
+
+    _checkboxController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 120),
+      reverseDuration: const Duration(milliseconds: 280),
+    );
+    _checkboxScale = Tween<double>(begin: 1.0, end: 0.82).animate(
+      CurvedAnimation(
+        parent: _checkboxController,
+        curve: Curves.easeInCubic,
+        reverseCurve: Curves.easeOutBack,
+      ),
+    );
   }
 
   @override
@@ -73,6 +83,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView> {
     _phoneController.dispose();
     _addressController.dispose();
     _cityController.dispose();
+    _checkboxController.dispose();
     super.dispose();
   }
 
@@ -107,6 +118,40 @@ class _Step1PersonalViewState extends State<Step1PersonalView> {
     });
 
     _notifyChange();
+  }
+
+  void _toggleSmsConsent() {
+    HapticFeedback.selectionClick();
+    _checkboxController.forward().then((_) {
+      Future.delayed(const Duration(milliseconds: 60), () {
+        if (mounted) {
+          _checkboxController.reverse();
+          setState(() {
+            _smsConsent = !_smsConsent;
+          });
+          _notifyChange();
+        }
+      });
+    });
+  }
+
+  /// Opens a URL and briefly flashes the link color to give immediate feedback.
+  Future<void> _openLink(String linkKey, String url) async {
+    HapticFeedback.lightImpact();
+    setState(() => _tappedLink = linkKey);
+    // Flash for 320ms then revert smoothly
+    Future.delayed(const Duration(milliseconds: 320), () {
+      if (mounted) setState(() => _tappedLink = null);
+    });
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  /// Returns the current color for a link span based on tap state.
+  Color _linkColor(String linkKey, Color normal, Color active) {
+    return _tappedLink == linkKey ? active : normal;
   }
 
   @override
@@ -187,68 +232,146 @@ class _Step1PersonalViewState extends State<Step1PersonalView> {
               const SizedBox(height: 18),
 
               // SMS Consent Checkbox
-              InkWell(
-                onTap: () {
-                  setState(() {
-                    _smsConsent = !_smsConsent;
-                  });
-                  _notifyChange();
-                },
-                borderRadius: AppSpacing.radiusSm,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: 18,
-                        height: 18,
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: _smsConsent
-                              ? colors.emerald
-                              : colors.inputBackground,
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: _smsConsent
-                                ? colors.emerald
-                                : colors.border.withValues(alpha: 0.8),
-                            width: 1.2,
-                          ),
-                        ),
-                        child: _smsConsent
-                            ? const Icon(
-                                Icons.check_rounded,
-                                size: 14,
-                                color: Colors.white,
-                              )
-                            : null,
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final screenWidth = MediaQuery.of(context).size.width;
-                            final isVeryNarrow = screenWidth < 360 || constraints.maxWidth < 280;
-                            final fontSize = isVeryNarrow ? 10.0 : (screenWidth < 600 ? 11.0 : 11.5);
-                            final lineHeight = isVeryNarrow ? 1.40 : 1.48;
-
-                            return Text(
-                              'By checking this box, I agree to receive SMS text messages from Paidix Global at the phone number provided, including account and payment notifications, customer care, and marketing messages. Message frequency may vary. Msg & data rates may apply. Reply HELP for help or text HELP to +1 (336) 306-0546. Reply STOP to opt out at any time. Consent is not a condition of purchase. Your phone number will not be shared with third parties for marketing purposes. See our Privacy Policy and Terms of Service.',
-                              textAlign: TextAlign.justify,
-                              softWrap: true,
-                              style: TextStyle(
-                                color: colors.textSecondary.withValues(alpha: 0.85),
-                                fontSize: fontSize,
-                                height: lineHeight,
-                                letterSpacing: 0.1,
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Animated bouncy spongy checkbox box
+                    AnimatedBuilder(
+                      animation: _checkboxController,
+                      builder: (context, _) {
+                        return Transform.scale(
+                          scale: _checkboxScale.value,
+                          child: GestureDetector(
+                            onTap: _toggleSmsConsent,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              width: 20,
+                              height: 20,
+                              margin: const EdgeInsets.only(top: 2),
+                              decoration: BoxDecoration(
+                                color: _smsConsent
+                                    ? colors.aqua
+                                    : colors.inputBackground,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: _smsConsent
+                                      ? colors.aqua
+                                      : colors.border.withValues(alpha: 0.8),
+                                  width: 1.5,
+                                ),
+                                boxShadow: _smsConsent
+                                    ? [
+                                        BoxShadow(
+                                          color: colors.aqua
+                                              .withValues(alpha: 0.35),
+                                          blurRadius: 8,
+                                          spreadRadius: 1,
+                                        ),
+                                      ]
+                                    : null,
                               ),
-                            );
-                          },
-                        ),
+                              child: _smsConsent
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 15,
+                                      color: Color(0xFF031415),
+                                    )
+                                  : null,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final screenWidth = MediaQuery.of(context).size.width;
+                          final isVeryNarrow = screenWidth < 360 || constraints.maxWidth < 280;
+                          final fontSize = isVeryNarrow ? 10.0 : (screenWidth < 600 ? 11.0 : 11.5);
+                          final lineHeight = isVeryNarrow ? 1.40 : 1.48;
+
+                          final normalLinkColor = colors.aquaLight;
+                          final activeLinkColor = Colors.white;
+
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Main consent body text
+                              GestureDetector(
+                                onTap: _toggleSmsConsent,
+                                child: Text(
+                                  'By checking this box, I agree to receive SMS text messages from Paidix Global at the phone number provided, including account and payment notifications, customer care, and marketing messages. Message frequency may vary. Msg & data rates may apply. Reply HELP for help or text HELP to +1 (336) 306-0546. Reply STOP to opt out at any time. Consent is not a condition of purchase. Your phone number will not be shared with third parties for marketing purposes.',
+                                  textAlign: TextAlign.justify,
+                                  softWrap: true,
+                                  style: TextStyle(
+                                    color: colors.textSecondary.withValues(alpha: 0.85),
+                                    fontSize: fontSize,
+                                    height: lineHeight,
+                                    letterSpacing: 0.1,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 5),
+                              // "See our Privacy Policy and Terms of Service." on its own new line from the left side
+                              Text.rich(
+                                TextSpan(
+                                  style: TextStyle(
+                                    color: colors.textSecondary.withValues(alpha: 0.85),
+                                    fontSize: fontSize,
+                                    height: lineHeight,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  children: [
+                                    const TextSpan(text: 'See our '),
+                                    TextSpan(
+                                      text: 'Privacy Policy',
+                                      style: TextStyle(
+                                        decoration: TextDecoration.underline,
+                                        fontWeight: FontWeight.w600,
+                                        color: _linkColor(
+                                          'privacy',
+                                          normalLinkColor,
+                                          activeLinkColor,
+                                        ),
+                                      ),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () => _openLink(
+                                              'privacy',
+                                              'https://paidix.com/privacy',
+                                            ),
+                                    ),
+                                    const TextSpan(text: ' and '),
+                                    TextSpan(
+                                      text: 'Terms of Service',
+                                      style: TextStyle(
+                                        decoration: TextDecoration.underline,
+                                        fontWeight: FontWeight.w600,
+                                        color: _linkColor(
+                                          'terms',
+                                          normalLinkColor,
+                                          activeLinkColor,
+                                        ),
+                                      ),
+                                      recognizer: TapGestureRecognizer()
+                                        ..onTap = () => _openLink(
+                                              'terms',
+                                              'https://paidix.com/terms',
+                                            ),
+                                    ),
+                                    const TextSpan(text: '.'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),

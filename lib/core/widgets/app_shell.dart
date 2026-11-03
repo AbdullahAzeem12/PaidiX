@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
@@ -8,6 +10,7 @@ import '../../features/profile/data/user_profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
 import 'brand_logo.dart';
 import 'paidi_x_bottom_nav_bar.dart';
+import 'profile_menu_dialog.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -54,14 +57,14 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return ValueListenableBuilder<UserProfile>(
       valueListenable: UserProfileRepository.instance.profileNotifier,
       builder: (context, userProfile, _) {
         return LayoutBuilder(
           builder: (context, constraints) {
-            final isWide = constraints.maxWidth >= 768;
+            final isWide =
+                constraints.maxWidth >= 768 && constraints.maxHeight >= 520;
 
             if (isWide) {
               return Scaffold(
@@ -94,37 +97,17 @@ class _AppShellState extends State<AppShell> {
                 ),
                 actions: [
                   _buildThemeToggleButton(isSidebar: false),
-                  if (!isNarrowPhone) ...[
-                    Container(
-                      margin: const EdgeInsets.symmetric(vertical: 12),
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: isDark ? colors.cardDark : colors.cardHighlight,
-                        borderRadius: AppSpacing.radiusPill,
-                        border: Border.all(
-                          color: isDark ? colors.borderSubtle : colors.border,
-                          width: 1,
-                        ),
-                      ),
-                      child: Text(
-                        'BASIC PLAN',
-                        style: TextStyle(
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.1,
-                          color: isDark ? colors.aquaLight : colors.aqua,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                  ],
+                  const SizedBox(width: 4),
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
-                    onTap: () => context.go('/app/onboarding'),
+                    onTap: () => ProfileMenuDialog.show(
+                      context: context,
+                      userProfile: userProfile,
+                      isMobile: true,
+                    ),
                     child: _buildUserAvatar(
                       isSidebar: false,
-                      initial: userProfile.avatarInitial,
+                      userProfile: userProfile,
                     ),
                   ),
                   SizedBox(width: isNarrowPhone ? 10 : 16),
@@ -223,7 +206,7 @@ class _AppShellState extends State<AppShell> {
               children: [
                 if (!_isSidebarCollapsed)
                   const Expanded(
-                    child: BrandLogo(showPlanBadge: true, forceLightText: true),
+                    child: BrandLogo(showPlanBadge: false, forceLightText: true),
                   )
                 else
                   const BrandLogo(
@@ -379,7 +362,11 @@ class _AppShellState extends State<AppShell> {
 
   Widget _buildUserProfileFooter(UserProfile userProfile) {
     return InkWell(
-      onTap: () => context.go('/app/onboarding'),
+      onTap: () => ProfileMenuDialog.show(
+        context: context,
+        userProfile: userProfile,
+        isMobile: false,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: const BoxDecoration(
@@ -387,7 +374,10 @@ class _AppShellState extends State<AppShell> {
         ),
         child: Row(
           children: [
-            _buildUserAvatar(isSidebar: true, initial: userProfile.avatarInitial),
+            _buildUserAvatar(
+              isSidebar: true,
+              userProfile: userProfile,
+            ),
             if (!_isSidebarCollapsed) ...[
               const SizedBox(width: 10),
               Expanded(
@@ -428,10 +418,73 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildUserAvatar({required bool isSidebar, String initial = 'A'}) {
+  Widget _buildUserAvatar({
+    required bool isSidebar,
+    required UserProfile userProfile,
+  }) {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    if (userProfile.hasCustomAvatar) {
+      if (userProfile.avatarBytes != null &&
+          userProfile.avatarBytes!.isNotEmpty) {
+        return ClipOval(
+          child: Image.memory(
+            userProfile.avatarBytes!,
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+            alignment: const Alignment(0.0, -0.22),
+            cacheWidth: 96,
+            cacheHeight: 96,
+            errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+              isSidebar: isSidebar,
+              initial: userProfile.avatarInitial,
+              colors: colors,
+              isDark: isDark,
+            ),
+          ),
+        );
+      } else if (userProfile.avatarFilePath != null &&
+          userProfile.avatarFilePath!.isNotEmpty &&
+          !kIsWeb) {
+        final file = File(userProfile.avatarFilePath!);
+        if (file.existsSync()) {
+          return ClipOval(
+            child: Image.file(
+              file,
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              alignment: const Alignment(0.0, -0.22),
+              cacheWidth: 96,
+              cacheHeight: 96,
+              errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+                isSidebar: isSidebar,
+                initial: userProfile.avatarInitial,
+                colors: colors,
+                isDark: isDark,
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    return _buildFallbackAvatar(
+      isSidebar: isSidebar,
+      initial: userProfile.avatarInitial,
+      colors: colors,
+      isDark: isDark,
+    );
+  }
+
+  Widget _buildFallbackAvatar({
+    required bool isSidebar,
+    required String initial,
+    required PaidiXColorScheme colors,
+    required bool isDark,
+  }) {
     Color bg;
     Color fg;
 

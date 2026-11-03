@@ -348,19 +348,28 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final size = MediaQuery.of(context).size;
+    final isLandscape = size.width > size.height && size.height < 520;
     final isMobile = size.width < 720;
 
     return Center(
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: isMobile ? size.width * 0.95 : size.width * 0.92,
+          width: isMobile
+              ? size.width * (isLandscape ? 0.96 : 0.95)
+              : size.width * 0.92,
           constraints: BoxConstraints(
             maxWidth: 1060,
-            maxHeight: size.height * 0.92,
+            maxHeight: isLandscape ? size.height * 0.98 : size.height * 0.92,
           ),
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 16),
-          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          margin: EdgeInsets.symmetric(
+            horizontal: isLandscape ? 8 : 10,
+            vertical: isLandscape ? 3 : 16,
+          ),
+          padding: EdgeInsets.symmetric(
+            horizontal: isLandscape ? 12 : (isMobile ? 16 : 24),
+            vertical: isLandscape ? 6 : (isMobile ? 16 : 24),
+          ),
           decoration: BoxDecoration(
             color: colors.card,
             borderRadius: AppSpacing.radiusXl,
@@ -385,7 +394,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                     child: Text(
                       'Add several payments at once',
                       style: TextStyle(
-                        fontSize: isMobile ? 16 : 18,
+                        fontSize: isLandscape ? 14.5 : (isMobile ? 16 : 18),
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.3,
                         color: colors.textPrimary,
@@ -394,25 +403,37 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                   ),
                   IconButton(
                     icon: Icon(Icons.close_rounded,
-                        color: colors.textSecondary, size: 20),
+                        color: colors.textSecondary,
+                        size: isLandscape ? 18 : 20),
                     onPressed: () => Navigator.of(context).pop(),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: isLandscape ? 4 : 8),
 
               // Instructions subtitle
-              Text(
-                'Fill one row per payment. Each row is submitted as a separate payment for review — exactly like the single New Payment form, just faster. A screenshot and the transaction date are required on every row.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: colors.textMuted,
-                  height: 1.4,
+              if (!isLandscape)
+                Text(
+                  'Fill one row per payment. Each row is submitted as a separate payment for review — exactly like the single New Payment form, just faster. A screenshot and the transaction date are required on every row.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: colors.textMuted,
+                    height: 1.4,
+                  ),
+                )
+              else
+                Text(
+                  'Fill one row per payment. Screenshot and date required on each row.',
+                  style: TextStyle(
+                    fontSize: 10.5,
+                    color: colors.textMuted,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-              const SizedBox(height: 16),
+              SizedBox(height: isLandscape ? 4 : 16),
 
               // Scrollable grid/card content area
               Expanded(
@@ -425,12 +446,12 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                   child: isMobile ? _buildMobileList() : _buildDesktopTable(),
                 ),
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: isLandscape ? 4 : 12),
 
               // Row additions toolbar
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: isLandscape ? 6 : 8,
+                runSpacing: isLandscape ? 3 : 8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _buildActionButton(
@@ -449,23 +470,25 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                     colors: colors,
                   ),
                   Text(
-                    'Use the duplicate icon to copy a row, then change the txn ID + screenshot.',
+                    isLandscape
+                        ? 'Use duplicate to copy a row.'
+                        : 'Use the duplicate icon to copy a row, then change the txn ID + screenshot.',
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: isLandscape ? 10.5 : 11.5,
                       color: colors.textMuted,
                       fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              SizedBox(height: isLandscape ? 4 : 16),
 
               // Divider
               Divider(color: colors.divider, height: 1),
-              const SizedBox(height: 14),
+              SizedBox(height: isLandscape ? 4 : 14),
 
               // Footer: Stats & Action Buttons
-              _buildFooter(isMobile),
+              _buildFooter(isMobile, isLandscape),
             ],
           ),
         ),
@@ -1116,7 +1139,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
-  Widget _buildFooter(bool isMobile) {
+  Widget _buildFooter(bool isMobile, bool isLandscape) {
     final colors = AppColors.of(context);
 
     final statsBlock = Column(
@@ -1130,7 +1153,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
             Text(
               'Rows: ${_rows.length}',
               style: TextStyle(
-                fontSize: 12.5,
+                fontSize: isLandscape ? 11.5 : 12.5,
                 fontWeight: FontWeight.w700,
                 color: colors.textPrimary,
               ),
@@ -1138,21 +1161,23 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
             Text(
               'Total amount: \$ ${_totalAmount.toStringAsFixed(2)}',
               style: TextStyle(
-                fontSize: 13,
+                fontSize: isLandscape ? 12 : 13,
                 fontWeight: FontWeight.w800,
                 color: colors.aqua,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 3),
-        Text(
-          'Saved in this browser automatically — closing the window won\'t lose your rows (screenshots excluded).',
-          style: TextStyle(
-            fontSize: 10.5,
-            color: colors.textMuted,
+        if (!isLandscape) ...[
+          const SizedBox(height: 3),
+          Text(
+            'Saved in this browser automatically — closing the window won\'t lose your rows (screenshots excluded).',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: colors.textMuted,
+            ),
           ),
-        ),
+        ],
       ],
     );
 
@@ -1162,32 +1187,34 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
         TextButton.icon(
           onPressed: _clearAll,
           icon: Icon(Icons.delete_outline_rounded,
-              size: 15, color: colors.textSecondary),
+              size: isLandscape ? 14 : 15, color: colors.textSecondary),
           label: Text(
             'Clear all',
             style: TextStyle(
-              fontSize: 12,
+              fontSize: isLandscape ? 11 : 12,
               fontWeight: FontWeight.w600,
               color: colors.textSecondary,
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        SizedBox(width: isLandscape ? 4 : 8),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
             'Close',
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: isLandscape ? 11.5 : 12.5,
               fontWeight: FontWeight.w600,
               color: colors.textSecondary,
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        SizedBox(width: isLandscape ? 6 : 10),
         AppButton(
           text: _isSubmitting ? 'Submitting...' : 'Submit payments',
           variant: AppButtonVariant.primary,
+          height: isLandscape ? 34 : 44,
+          padding: EdgeInsets.symmetric(horizontal: isLandscape ? 10 : 18),
           icon: const Icon(Icons.check_rounded, size: 16),
           onPressed: _isSubmitting ? null : _handleSubmit,
         ),
@@ -1196,7 +1223,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (isMobile || constraints.maxWidth < 620) {
+        if (!isLandscape && (isMobile || constraints.maxWidth < 620)) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1216,8 +1243,12 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(child: statsBlock),
-            const SizedBox(width: 16),
-            actionButtons,
+            const SizedBox(width: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
+              child: actionButtons,
+            ),
           ],
         );
       },

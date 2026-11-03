@@ -56,12 +56,17 @@ class FinancialStatCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        title.toUpperCase(),
-                        style: AppTypography.cardTitle.copyWith(
-                          color: colors.textSecondary,
+                      Expanded(
+                        child: Text(
+                          title.toUpperCase(),
+                          style: AppTypography.cardTitle.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       Container(
                         width: 34,
                         height: 34,
@@ -79,10 +84,14 @@ class FinancialStatCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 14),
-                  Text(
-                    value,
-                    style: AppTypography.statValueLarge.copyWith(
-                      color: colors.textPrimary,
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      value,
+                      style: AppTypography.statValueLarge.copyWith(
+                        color: colors.textPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 4),

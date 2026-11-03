@@ -1,16 +1,21 @@
+import 'dart:typed_data';
 import '../../../core/widgets/status_badge.dart';
 
 enum DateRangeFilter {
-  allTime('All time'),
   today('Today'),
+  yesterday('Yesterday'),
   last3Days('Last 3 days'),
   thisWeek('This week'),
   lastWeek('Last week'),
   thisMonth('This month'),
   lastMonth('Last month'),
   last3Months('Last 3 months'),
+  last6Months('Last 6 months'),
+  last12Months('Last 12 months'),
   thisYear('This year'),
-  lastYear('Last year');
+  lastYear('Last year'),
+  allTime('All time'),
+  custom('Custom range...');
 
   final String label;
   const DateRangeFilter(this.label);
@@ -56,6 +61,8 @@ class PaymentItem {
   final DateTime transactionDate;
   final DateTime submittedDate;
   final String? proofFileName;
+  final String? proofFilePath;
+  final Uint8List? proofBytes;
 
   const PaymentItem({
     required this.id,
@@ -70,6 +77,8 @@ class PaymentItem {
     required this.transactionDate,
     required this.submittedDate,
     this.proofFileName,
+    this.proofFilePath,
+    this.proofBytes,
   });
 
   Map<String, dynamic> toJson() => {
@@ -85,6 +94,7 @@ class PaymentItem {
         'transactionDate': transactionDate.toIso8601String(),
         'submittedDate': submittedDate.toIso8601String(),
         'proofFileName': proofFileName,
+        'proofFilePath': proofFilePath,
       };
 }
 
@@ -96,6 +106,8 @@ class PaymentSubmission {
   final double amount;
   final DateTime transactionDate;
   final String? proofFileName;
+  final String? proofFilePath;
+  final Uint8List? proofBytes;
 
   const PaymentSubmission({
     required this.methodId,
@@ -105,6 +117,8 @@ class PaymentSubmission {
     required this.amount,
     required this.transactionDate,
     this.proofFileName,
+    this.proofFilePath,
+    this.proofBytes,
   });
 }
 
@@ -126,6 +140,8 @@ class PaymentFilter {
   final StatusFilterOption status;
   final String searchQuery;
   final bool isBitnexWeek;
+  final DateTime? fromDate;
+  final DateTime? toDate;
 
   const PaymentFilter({
     this.dateRange = DateRangeFilter.allTime,
@@ -133,6 +149,8 @@ class PaymentFilter {
     this.status = StatusFilterOption.all,
     this.searchQuery = '',
     this.isBitnexWeek = false,
+    this.fromDate,
+    this.toDate,
   });
 
   PaymentFilter copyWith({
@@ -141,6 +159,9 @@ class PaymentFilter {
     StatusFilterOption? status,
     String? searchQuery,
     bool? isBitnexWeek,
+    DateTime? fromDate,
+    DateTime? toDate,
+    bool clearDates = false,
   }) {
     return PaymentFilter(
       dateRange: dateRange ?? this.dateRange,
@@ -148,6 +169,8 @@ class PaymentFilter {
       status: status ?? this.status,
       searchQuery: searchQuery ?? this.searchQuery,
       isBitnexWeek: isBitnexWeek ?? this.isBitnexWeek,
+      fromDate: clearDates ? null : (fromDate ?? this.fromDate),
+      toDate: clearDates ? null : (toDate ?? this.toDate),
     );
   }
 
@@ -156,6 +179,8 @@ class PaymentFilter {
       dateRange == DateRangeFilter.allTime &&
       currency == CurrencyFilter.all &&
       status == StatusFilterOption.all &&
+      fromDate == null &&
+      toDate == null &&
       searchQuery.trim().isEmpty;
 
   int get activeFilterCount {
@@ -165,10 +190,10 @@ class PaymentFilter {
     } else if (dateRange != DateRangeFilter.allTime) {
       count++;
     }
+    if (fromDate != null || toDate != null) count++;
     if (currency != CurrencyFilter.all) count++;
     if (status != StatusFilterOption.all) count++;
     if (searchQuery.trim().isNotEmpty) count++;
     return count;
   }
 }
-

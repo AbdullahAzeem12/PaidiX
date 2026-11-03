@@ -7,6 +7,8 @@ import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/auth_primary_button.dart';
 import '../../../../core/widgets/auth_text_field.dart';
 import '../../../../core/widgets/spongy_tap.dart';
+import '../../../profile/data/user_profile_repository.dart';
+import '../../../profile/domain/user_profile.dart';
 import '../../domain/auth_validators.dart';
 
 class SignInPage extends StatefulWidget {
@@ -39,13 +41,50 @@ class _SignInPageState extends State<SignInPage> {
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // If new user or unverified account, routes to KYC Account Setup flow
-    if (_emailController.text.contains('admin') ||
-        _emailController.text.contains('verified')) {
-      context.go('/app/dashboard');
-    } else {
-      context.go('/kyc');
+    final inputEmail = _emailController.text.trim().toLowerCase();
+    final repo = UserProfileRepository.instance;
+    final registered =
+        await repo.findOrLoadUser(inputEmail) ?? repo.findUser(inputEmail);
+
+    // If registered user exists, activate their synchronized profile
+    if (registered != null) {
+      repo.setActiveUser(registered);
+      // If user has already completed KYC, route straight to Dashboard
+      if (registered.hasCompletedKyc) {
+        context.go('/app/dashboard');
+      } else {
+        context.go('/kyc');
+      }
+      return;
     }
+
+    // Fallback logic preserving admin/verified routes
+    if (inputEmail.contains('admin') || inputEmail.contains('verified')) {
+      final verifiedUser = UserProfile.defaultProfile().copyWith(
+        email: inputEmail,
+        hasCompletedKyc: true,
+      );
+      repo.setActiveUser(verifiedUser);
+      context.go('/app/dashboard');
+      return;
+    }
+
+    // New unverified customer signing in for the first time must complete KYC
+    final newUser = UserProfile(
+      fullName: inputEmail.split('@').first,
+      email: inputEmail,
+      countryCode: '+92',
+      phoneNumber: '',
+      cnicNumber: '',
+      city: '',
+      address: '',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      hasCompletedKyc: false,
+      kycStatus: KycReviewStatus.notStarted,
+    );
+    repo.setActiveUser(newUser);
+    context.go('/kyc');
   }
 
   void _showForgotPasswordDialog() {

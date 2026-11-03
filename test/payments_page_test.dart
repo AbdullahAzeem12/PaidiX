@@ -287,4 +287,126 @@ void main() {
       expect(find.text('Add several payments at once'), findsNothing);
     }
   });
+
+  testWidgets(
+      'BulkAddPaymentsDialog tilt mode and landscape orientations render with zero pixel overflow',
+      (WidgetTester tester) async {
+    final repo = PaymentsRepositoryImpl();
+    for (final size in [
+      const Size(740, 360),
+      const Size(800, 360),
+      const Size(850, 390),
+      const Size(896, 414),
+      const Size(640, 320),
+    ]) {
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: PaymentsPage(
+            key: ValueKey('page_${size.width}_${size.height}'),
+            paymentsRepository: repo,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Bulk add'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Add several payments at once'), findsOneWidget);
+      expect(find.text('Submit payments'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      // Close dialog
+      await tester.tap(find.text('Close'));
+      await tester.pumpAndSettle();
+      expect(find.text('Add several payments at once'), findsNothing);
+    }
+  });
+
+  testWidgets(
+      'PaymentsPage mock data, recycler view animation, and interactive Showing Rows Page pagination controls',
+      (WidgetTester tester) async {
+    final repo = PaymentsRepositoryImpl(seedMockData: true);
+
+    expect(repo.payments.length, equals(24));
+    expect(repo.payments[0].reference, equals('PBX-2026-001332'));
+    expect(repo.payments[0].sender, equals('Ward Trucking Atlanta Llc'));
+    expect(repo.payments[1].reference, equals('PBX-2026-001331'));
+    expect(repo.payments[2].reference, equals('PBX-2026-001333'));
+    expect(repo.payments[3].reference, equals('PBX-2026-001330'));
+
+    // 1. Wide Viewport (1024x1800)
+    tester.view.physicalSize = const Size(1024, 1800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: PaymentsPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify initial pagination state
+    expect(find.text('Showing 1–20 of 24'), findsOneWidget);
+    expect(find.text('Rows: '), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('20'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
+    expect(find.text('50'), findsOneWidget);
+    expect(find.text('100'), findsOneWidget);
+    expect(find.text('Custom'), findsOneWidget);
+
+    // 2. Change rows to 10
+    await tester.tap(find.text('10'));
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 1–10 of 24'), findsOneWidget);
+
+    // 3. Navigate forward to Page 2
+    await tester.tap(find.text('Next >'));
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 11–20 of 24'), findsOneWidget);
+
+    // 4. Navigate to last page via double arrow
+    await tester.tap(find.text('»'));
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 21–24 of 24'), findsOneWidget);
+
+    // 5. Navigate to first page via double arrow
+    await tester.tap(find.text('«'));
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 1–10 of 24'), findsOneWidget);
+
+    // 6. Tap Custom chip to open custom rows dialog
+    await tester.tap(find.text('Custom'));
+    await tester.pumpAndSettle();
+    expect(find.text('Custom rows per page'), findsOneWidget);
+
+    // Tap quick preset '5' in dialog
+    await tester.tap(find.text('5'));
+    await tester.pumpAndSettle();
+    expect(find.text('Showing 1–5 of 24'), findsOneWidget);
+
+    // 7. Mobile Viewport (360x800) with animated recycler list
+    tester.view.physicalSize = const Size(360, 800);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: PaymentsPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('PBX-2026-001332'), findsOneWidget);
+    expect(find.text('Showing 1–5 of 24'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }

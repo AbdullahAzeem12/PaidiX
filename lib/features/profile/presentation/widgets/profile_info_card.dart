@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../core/widgets/profile_menu_dialog.dart';
 import '../../domain/user_profile.dart';
 
 /// Card displaying the user's verified personal profile details,
@@ -40,31 +41,38 @@ class ProfileInfoCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Large Avatar Circle with Teal Background matching screenshot
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFF95DFDB),
-                  border: Border.all(
-                    color: colors.aqua.withValues(alpha: 0.4),
-                    width: 2,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF95DFDB).withValues(alpha: 0.25),
-                      blurRadius: 10,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
+              GestureDetector(
+                onTap: () => ProfileMenuDialog.show(
+                  context: context,
+                  userProfile: profile,
+                  isMobile: MediaQuery.of(context).size.width < 768,
                 ),
-                alignment: Alignment.center,
-                child: Text(
-                  profile.avatarInitial,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF031415),
+                child: Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFF95DFDB),
+                    border: Border.all(
+                      color: colors.aqua.withValues(alpha: 0.4),
+                      width: 2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF95DFDB).withValues(alpha: 0.25),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    profile.avatarInitial,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF031415),
+                    ),
                   ),
                 ),
               ),

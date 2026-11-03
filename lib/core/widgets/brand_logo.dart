@@ -116,32 +116,6 @@ class BrandLogo extends StatelessWidget {
             ),
           ],
         ),
-        if (showPlanBadge) ...[
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: forceLightText ? AppColors.sidebarHover : colors.cardDark,
-              borderRadius: AppSpacing.radiusPill,
-              border: Border.all(
-                color: forceLightText
-                    ? AppColors.sidebarLine
-                    : colors.borderSubtle,
-                width: 1,
-              ),
-            ),
-            child: Text(
-              'BASIC PLAN',
-              style: TextStyle(
-                fontSize: 9.5,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-                color:
-                    forceLightText ? const Color(0xFF95DFDB) : colors.aquaLight,
-              ),
-            ),
-          ),
-        ],
       ],
     );
   }

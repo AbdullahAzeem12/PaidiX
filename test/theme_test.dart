@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_colors.dart';
 import 'package:paidix/app/theme/app_theme.dart';
+import 'package:paidix/app/theme/app_typography.dart';
 import 'package:paidix/core/widgets/app_button.dart';
 import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/core/widgets/paidi_x_bottom_nav_bar.dart';
@@ -218,7 +219,7 @@ void main() {
         ),
       );
 
-      expect(find.text('BASIC PLAN'), findsWidgets);
+      expect(find.text('BASIC PLAN'), findsNothing);
       expect(find.text('Dashboard'), findsWidgets);
       expect(find.text('Content'), findsOneWidget);
     });
@@ -271,6 +272,46 @@ void main() {
         expect(find.text('New Payment'), findsOneWidget);
         expect(tester.takeException(), isNull);
       }
+    });
+
+    test('Typography Font Selection & Text Scale Suite: Global reactivity and styling', () {
+      expect(AppTheme.availableFonts.length, 10);
+      expect(AppTheme.availableFonts, containsAll([
+        'System default',
+        'Inter',
+        'Roboto',
+        'Poppins',
+        'Lato',
+        'Nunito',
+        'Open Sans',
+        'DM Sans',
+        'Source Sans 3',
+        'IBM Plex Sans',
+      ]));
+
+      // Select Inter
+      AppTheme.setFontFamily('Inter');
+      expect(AppTheme.currentFontFamily, 'Inter');
+      expect(AppTheme.fontFamilyNotifier.value, 'Inter');
+      expect(AppTypography.pageHeading.fontFamily, contains('Inter'));
+      expect(AppTheme.activeFontFamily, contains('Inter'));
+
+      // Select Poppins
+      AppTheme.setFontFamily('Poppins');
+      expect(AppTheme.currentFontFamily, 'Poppins');
+      expect(AppTypography.brandTitle.fontFamily, contains('Poppins'));
+      expect(AppTheme.activeFontFamily, contains('Poppins'));
+
+      // Adjust text scale
+      AppTheme.setTextScale(1.25);
+      expect(AppTheme.currentTextScale, 1.25);
+
+      // Reset to defaults
+      AppTheme.setFontFamily('System default');
+      AppTheme.setTextScale(1.0);
+      expect(AppTheme.currentFontFamily, 'System default');
+      expect(AppTheme.currentTextScale, 1.0);
+      expect(AppTheme.activeFontFamily, isNull);
     });
   });
 }

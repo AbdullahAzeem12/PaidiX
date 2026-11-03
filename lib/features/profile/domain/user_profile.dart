@@ -29,6 +29,7 @@ class UserProfile {
   final DateTime createdAt;
   final DateTime updatedAt;
   final KycReviewStatus kycStatus;
+  final bool hasCompletedKyc;
   final bool smsConsent;
 
   // Real uploaded or captured document assets
@@ -38,6 +39,10 @@ class UserProfile {
   final String? cnicFrontFilePath;
   final Uint8List? cnicBackBytes;
   final String? cnicBackFilePath;
+
+  // Custom profile avatar
+  final Uint8List? avatarBytes;
+  final String? avatarFilePath;
 
   // Linked payout bank details
   final String? bankName;
@@ -55,6 +60,7 @@ class UserProfile {
     required this.createdAt,
     required this.updatedAt,
     this.kycStatus = KycReviewStatus.pendingReview,
+    this.hasCompletedKyc = true,
     this.smsConsent = true,
     this.selfieBytes,
     this.selfieFilePath,
@@ -62,6 +68,8 @@ class UserProfile {
     this.cnicFrontFilePath,
     this.cnicBackBytes,
     this.cnicBackFilePath,
+    this.avatarBytes,
+    this.avatarFilePath,
     this.bankName,
     this.bankIban,
     this.bankBeneficiary,
@@ -80,6 +88,7 @@ class UserProfile {
       createdAt: DateTime(2026, 10, 29, 1, 9),
       updatedAt: DateTime(2026, 10, 29, 21, 33),
       kycStatus: KycReviewStatus.pendingReview,
+      hasCompletedKyc: true,
       smsConsent: true,
       bankName: 'Meezan Bank Limited',
       bankIban: null,
@@ -100,6 +109,11 @@ class UserProfile {
     if (trimmed.isEmpty) return 'P';
     return trimmed[0].toUpperCase();
   }
+
+  /// Whether the user has an uploaded custom profile photo
+  bool get hasCustomAvatar =>
+      (avatarBytes != null && avatarBytes!.isNotEmpty) ||
+      (avatarFilePath != null && avatarFilePath!.isNotEmpty);
 
   /// Formatted creation timestamp: e.g. "Oct 29, 2026, 01:09 AM"
   String get formattedCreatedAt => AppFormatters.formatDateTime(createdAt);
@@ -123,6 +137,7 @@ class UserProfile {
     DateTime? createdAt,
     DateTime? updatedAt,
     KycReviewStatus? kycStatus,
+    bool? hasCompletedKyc,
     bool? smsConsent,
     Uint8List? selfieBytes,
     String? selfieFilePath,
@@ -130,6 +145,9 @@ class UserProfile {
     String? cnicFrontFilePath,
     Uint8List? cnicBackBytes,
     String? cnicBackFilePath,
+    Uint8List? avatarBytes,
+    String? avatarFilePath,
+    bool clearAvatar = false,
     String? bankName,
     String? bankIban,
     String? bankBeneficiary,
@@ -145,6 +163,7 @@ class UserProfile {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       kycStatus: kycStatus ?? this.kycStatus,
+      hasCompletedKyc: hasCompletedKyc ?? this.hasCompletedKyc,
       smsConsent: smsConsent ?? this.smsConsent,
       selfieBytes: selfieBytes ?? this.selfieBytes,
       selfieFilePath: selfieFilePath ?? this.selfieFilePath,
@@ -152,9 +171,67 @@ class UserProfile {
       cnicFrontFilePath: cnicFrontFilePath ?? this.cnicFrontFilePath,
       cnicBackBytes: cnicBackBytes ?? this.cnicBackBytes,
       cnicBackFilePath: cnicBackFilePath ?? this.cnicBackFilePath,
+      avatarBytes: clearAvatar ? null : (avatarBytes ?? this.avatarBytes),
+      avatarFilePath:
+          clearAvatar ? null : (avatarFilePath ?? this.avatarFilePath),
       bankName: bankName ?? this.bankName,
       bankIban: bankIban ?? this.bankIban,
       bankBeneficiary: bankBeneficiary ?? this.bankBeneficiary,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'fullName': fullName,
+      'email': email,
+      'countryCode': countryCode,
+      'phoneNumber': phoneNumber,
+      'cnicNumber': cnicNumber,
+      'city': city,
+      'address': address,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
+      'kycStatus': kycStatus.name,
+      'hasCompletedKyc': hasCompletedKyc,
+      'smsConsent': smsConsent,
+      'selfieFilePath': selfieFilePath,
+      'cnicFrontFilePath': cnicFrontFilePath,
+      'cnicBackFilePath': cnicBackFilePath,
+      'avatarFilePath': avatarFilePath,
+      'bankName': bankName,
+      'bankIban': bankIban,
+      'bankBeneficiary': bankBeneficiary,
+    };
+  }
+
+  factory UserProfile.fromJson(Map<String, dynamic> json) {
+    return UserProfile(
+      fullName: json['fullName'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      countryCode: json['countryCode'] as String? ?? '+92',
+      phoneNumber: json['phoneNumber'] as String? ?? '',
+      cnicNumber: json['cnicNumber'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      address: json['address'] as String? ?? '',
+      createdAt: json['createdAt'] != null
+          ? (DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now())
+          : DateTime.now(),
+      updatedAt: json['updatedAt'] != null
+          ? (DateTime.tryParse(json['updatedAt'] as String) ?? DateTime.now())
+          : DateTime.now(),
+      kycStatus: KycReviewStatus.values.firstWhere(
+        (e) => e.name == json['kycStatus'],
+        orElse: () => KycReviewStatus.pendingReview,
+      ),
+      hasCompletedKyc: json['hasCompletedKyc'] as bool? ?? false,
+      smsConsent: json['smsConsent'] as bool? ?? true,
+      selfieFilePath: json['selfieFilePath'] as String?,
+      cnicFrontFilePath: json['cnicFrontFilePath'] as String?,
+      cnicBackFilePath: json['cnicBackFilePath'] as String?,
+      avatarFilePath: json['avatarFilePath'] as String?,
+      bankName: json['bankName'] as String?,
+      bankIban: json['bankIban'] as String?,
+      bankBeneficiary: json['bankBeneficiary'] as String?,
     );
   }
 }

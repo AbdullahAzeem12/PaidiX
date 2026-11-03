@@ -1,5 +1,7 @@
 import '../../../core/widgets/status_badge.dart';
 import '../../payments/domain/payments_repository.dart';
+import '../../profile/data/user_profile_repository.dart';
+import '../../profile/domain/user_profile.dart';
 import '../domain/dashboard_models.dart';
 import '../domain/dashboard_repository.dart';
 
@@ -11,31 +13,24 @@ class DashboardRepositoryImpl implements DashboardRepository {
   @override
   Future<CustomerScore?> getCustomerScore() async {
     final list = _paymentsRepository.payments;
+    final profile = UserProfileRepository.instance.profile;
+    final isKycVerified = profile.kycStatus == KycReviewStatus.verified;
+
     if (list.isEmpty) {
-      // Clean state: customer score is uncalculated / awaiting transactions
-      return const CustomerScore(
-        score: null, // Displays as em dash '—'
-        grade: null,
-        trustLabel: 'NEW ACCOUNT',
-        completedTransactions: 0,
-        completionRate: null,
-        totalVolumePkr: null,
-      );
+      // First-time sign up / fresh account: initial 50 points
+      return CustomerScore.starter();
     }
 
     final completed =
         list.where((p) => p.status == PaymentStatusType.completed).toList();
     final volume =
         completed.fold<double>(0.0, (acc, item) => acc + item.netPkr);
-    final rate = (completed.length / list.length) * 100.0;
 
-    return CustomerScore(
-      score: 79,
-      grade: 'B',
-      trustLabel: 'TRUSTED',
-      completedTransactions: completed.length,
-      completionRate: rate,
+    return CustomerScore.calculate(
+      totalTransactions: list.length,
+      completedCount: completed.length,
       totalVolumePkr: volume,
+      isKycVerified: isKycVerified,
     );
   }
 
@@ -84,4 +79,3 @@ class DashboardRepositoryImpl implements DashboardRepository {
     );
   }
 }
-

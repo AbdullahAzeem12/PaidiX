@@ -259,7 +259,7 @@ class AppColors {
 
   /// Global current scheme synchronized with [AppTheme.themeModeNotifier].
   static PaidiXColorScheme get current =>
-      AppTheme.themeModeNotifier.value == ThemeMode.light ? light : dark;
+      AppTheme.themeModeNotifier.value == ThemeMode.dark ? dark : light;
 
   // Adaptive getters delegating to active scheme
   static Color get background => current.background;
