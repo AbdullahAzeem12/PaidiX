@@ -49,3 +49,4 @@ When opening the app for the first time, iOS will prompt you to trust the profil
 PaidiX includes automated cloud Mac builds via GitHub Actions:
 - Located at `.github/workflows/build_ios.yml`.
 - Runs automatically on every push or manual trigger under **Actions > Build iOS App (IPA) > Run workflow**.
+

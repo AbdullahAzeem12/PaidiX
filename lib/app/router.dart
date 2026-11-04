@@ -14,7 +14,7 @@ import '../features/settings/presentation/pages/account_settings_page.dart';
 // Shared instance of the Payments repository for state synchronization with pre-seeded mock data
 final sharedPaymentsRepository = PaymentsRepositoryImpl(seedMockData: true);
 
-GoRouter createAppRouter({String initialLocation = '/signup'}) {
+GoRouter createAppRouter({String initialLocation = '/signin'}) {
   return GoRouter(
     initialLocation: initialLocation,
     routes: [
@@ -174,4 +174,4 @@ GoRouter createAppRouter({String initialLocation = '/signup'}) {
   );
 }
 
-final appRouter = createAppRouter(initialLocation: '/signup');
+final appRouter = createAppRouter(initialLocation: '/signin');

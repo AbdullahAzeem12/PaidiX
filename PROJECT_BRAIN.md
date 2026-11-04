@@ -180,7 +180,7 @@ lib/
 ```dart
 // lib/app/router.dart
 final sharedPaymentsRepository = PaymentsRepositoryImpl();
-final appRouter = createAppRouter(initialLocation: '/signup');
+final appRouter = createAppRouter(initialLocation: '/signin');
 ```
 
 Tests that need a clean router should call `createAppRouter(...)` with a fresh location; production uses `appRouter`.
@@ -195,8 +195,8 @@ Defined in `lib/app/router.dart`. Transitions: fade (most), slide+fade for `/app
 
 | Path | Shell? | Page | Notes |
 | :--- | :---: | :--- | :--- |
-| `/signup` | no | `SignUpPage` | **Default initialLocation** |
-| `/signin` | no | `SignInPage` | |
+| `/signin` | no | `SignInPage` | **Default initialLocation** |
+| `/signup` | no | `SignUpPage` | Accessible via "Create an account" link |
 | `/kyc` | no | `KycPage` | 4 steps, no app chrome |
 | `/app/dashboard` | **AppShell** | `DashboardPage` | |
 | `/app/onboarding` | **AppShell** | `OnboardingProfilePage` | Dynamic user profile & KYC review |
@@ -477,7 +477,7 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 2. Unavailable numbers → `—`, not `0` unless the field is a real zero count.
 3. One in-memory payments list shared by dashboard + payments + new payment.
 4. Design tokens stay aligned with `theme_test.dart`.
-5. App starts at **`/signup`**.
+5. App starts at **`/signin`**.
 6. Keep Impeller off + texture render mode unless explicitly changing graphics stack.
 
 **Gaps / traps**
