@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
@@ -15,6 +16,10 @@ class AuthTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final TextInputAction textInputAction;
   final bool enabled;
+  final Widget? prefix;
+  final Widget? prefixIcon;
+  final BoxConstraints? prefixIconConstraints;
+  final List<TextInputFormatter>? inputFormatters;
 
   const AuthTextField({
     super.key,
@@ -28,6 +33,10 @@ class AuthTextField extends StatelessWidget {
     this.validator,
     this.textInputAction = TextInputAction.next,
     this.enabled = true,
+    this.prefix,
+    this.prefixIcon,
+    this.prefixIconConstraints,
+    this.inputFormatters,
   });
 
   @override
@@ -48,9 +57,13 @@ class AuthTextField extends StatelessWidget {
           obscureText: isPassword && !isPasswordVisible,
           keyboardType: keyboardType,
           textInputAction: textInputAction,
+          inputFormatters: inputFormatters,
           validator: validator,
           style: AppTypography.inputText.copyWith(color: colors.textPrimary),
           decoration: InputDecoration(
+            prefix: prefix,
+            prefixIcon: prefixIcon,
+            prefixIconConstraints: prefixIconConstraints,
             hintText: placeholder,
             hintStyle: AppTypography.inputPlaceholder.copyWith(
               color: colors.textPlaceholder,

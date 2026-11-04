@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/app.dart';
 
 void main() {
-  testWidgets('Renders SignIn screen by default with all reference fields and navigates to SignUp', (WidgetTester tester) async {
+  testWidgets('Renders SignIn screen by default with all reference fields and navigates to SignUp with default +92 country code', (WidgetTester tester) async {
     await tester.pumpWidget(const PaidiXApp());
     await tester.pumpAndSettle();
 
@@ -29,5 +29,9 @@ void main() {
 
     expect(find.text('CREATE ACCOUNT'), findsOneWidget);
     expect(find.text('Start sending.'), findsOneWidget);
+
+    // Verify default +92 country code prefix is displayed
+    expect(find.text('+92'), findsOneWidget);
+    expect(find.text('PHONE (OPTIONAL)'), findsOneWidget);
   });
 }

@@ -1,10 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/utils/phone_formatter.dart';
 import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/auth_primary_button.dart';
 import '../../../../core/widgets/auth_text_field.dart';
@@ -74,11 +76,28 @@ class _SignUpPageState extends State<SignUpPage>
     if (!mounted) return;
     setState(() => _isLoading = false);
 
+    // Clean and normalize phone number with default PK (+92) country code
+    final rawPhone = _phoneController.text.trim();
+    String formattedPhone = '';
+    if (rawPhone.isNotEmpty) {
+      final cleanDigits = PhoneFormatter.clean(rawPhone);
+      // Strip leading 92 or 0 if user pasted it
+      String nationalDigits = cleanDigits;
+      if (nationalDigits.startsWith('92') && nationalDigits.length > 2) {
+        nationalDigits = nationalDigits.substring(2);
+      } else if (nationalDigits.startsWith('0') && nationalDigits.length > 1) {
+        nationalDigits = nationalDigits.substring(1);
+      }
+      if (nationalDigits.isNotEmpty) {
+        formattedPhone = '+92 $nationalDigits';
+      }
+    }
+
     // Sync signed-up user credentials into global repository
     UserProfileRepository.instance.syncFromSignUp(
       fullName: _fullNameController.text.trim(),
       email: _emailController.text.trim(),
-      phoneNumber: _phoneController.text.trim(),
+      phoneNumber: formattedPhone,
       smsConsent: _smsConsentChecked,
     );
 
@@ -172,12 +191,45 @@ class _SignUpPageState extends State<SignUpPage>
                       ),
                       const SizedBox(height: 20),
 
-                      // Phone (Optional) Field
+                      // Phone (Optional) Field with default +92 country code
                       AuthTextField(
                         label: 'Phone (Optional)',
-                        placeholder: '+92 300 1234567',
+                        placeholder: '300 1234567',
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          PhoneInputFormatter(isUs: false),
+                        ],
+                        prefixIconConstraints:
+                            const BoxConstraints(minWidth: 0, minHeight: 0),
+                        prefixIcon: Padding(
+                          padding: const EdgeInsets.only(left: 14, right: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Text(
+                                '🇵🇰',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                '+92',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Container(
+                                width: 1,
+                                height: 20,
+                                color: colors.border,
+                              ),
+                            ],
+                          ),
+                        ),
                         validator: AuthValidators.validatePhoneOptional,
                       ),
                       const SizedBox(height: 18),

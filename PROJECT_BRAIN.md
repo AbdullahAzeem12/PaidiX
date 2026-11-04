@@ -532,3 +532,4 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - Cards: **PKR RECEIVED**, **TOTAL TRANSFERRED TO YOU**, awaiting verification uses em dash when null
 - Plan badges: "BASIC PLAN" text and hardcoded badges removed across all headers, drawer, and dashboard greetings.
 - Customer Score Card: Volume metric displays in single line formatted as `Rs. 1,169,570.67` with responsive flex (3:2:5) and `FittedBox` scale-down safeguard.
+- Sign Up Phone: Defaults to `+92` country code prefix (`🇵🇰 +92 |`) so users don't type it manually; backend normalization strips duplicate prefixes.

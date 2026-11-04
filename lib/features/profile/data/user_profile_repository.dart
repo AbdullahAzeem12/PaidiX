@@ -270,8 +270,9 @@ class UserProfileRepository {
     final newProfile = current.copyWith(
       fullName: fullName.trim(),
       email: email.trim(),
+      countryCode: '+92',
       phoneNumber: (phoneNumber != null && phoneNumber.trim().isNotEmpty)
-          ? phoneNumber.trim()
+          ? (phoneNumber.trim().startsWith('+') ? phoneNumber.trim() : '+92 ${phoneNumber.trim().replaceAll(RegExp(r'\D'), '')}')
           : '',
       smsConsent: smsConsent,
       // For a brand new user, KYC is not completed yet
