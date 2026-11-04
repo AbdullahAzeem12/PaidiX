@@ -8,6 +8,7 @@ import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/settings/presentation/pages/account_settings_page.dart';
+import 'package:paidix/features/settings/domain/virtual_card_skin.dart';
 
 void main() {
   group('AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite', () {
@@ -65,7 +66,8 @@ void main() {
         expect(find.text('Dark'), findsOneWidget);
         expect(find.text('Light'), findsOneWidget);
         expect(find.text('System'), findsOneWidget);
-        expect(find.text('Aa Bb Cc'), findsWidgets);
+        expect(find.text('VIRTUAL CARD STUDIO'), findsOneWidget);
+        expect(find.text('Emerald Obsidian'), findsWidgets);
       });
     }
 
@@ -475,14 +477,13 @@ void main() {
       expect(circularRingFinder, findsNothing);
     });
 
-    testWidgets('Appearance Tab: Interactive Font Selection, Live Preview & Reset to Defaults',
+    testWidgets('Appearance Tab: Virtual Card Skins Studio Interactive Selection, Mask Details & Reset',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      AppTheme.setFontFamily('System default');
-      AppTheme.setTextScale(1.0);
+      VirtualCardPreferences.resetToDefault();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -499,36 +500,58 @@ void main() {
       await tester.tap(appearanceTab);
       await tester.pumpAndSettle();
 
-      expect(find.text('TYPOGRAPHY'), findsOneWidget);
-      expect(find.text('Send USD, receive PKR.'), findsOneWidget);
+      expect(find.text('VIRTUAL CARD STUDIO'), findsOneWidget);
+      expect(find.text('SELECT FINISH & TEXTURE'), findsOneWidget);
+      expect(find.text('1-LINK'), findsOneWidget);
+      expect(find.text('CARDHOLDER'), findsOneWidget);
 
-      // Select 'Inter' font
-      final interTile = find.widgetWithText(GestureDetector, 'Inter').first;
-      await tester.tap(interTile);
+      // Verify initial masked card number
+      expect(find.text('••••   ••••   ••••   2786'), findsOneWidget);
+      expect(find.text('Reveal Number'), findsOneWidget);
+
+      // Tap Reveal Number
+      await tester.tap(find.text('Reveal Number'));
       await tester.pumpAndSettle();
-      expect(AppTheme.currentFontFamily, equals('Inter'));
+      expect(find.text('4214   8890   1532   2786'), findsOneWidget);
+      expect(find.text('Mask Number'), findsOneWidget);
 
-      // Select 'Poppins' font
-      final poppinsTile = find.widgetWithText(GestureDetector, 'Poppins').first;
-      await tester.tap(poppinsTile);
+      // Tap Mask Number to re-mask
+      await tester.tap(find.text('Mask Number'));
       await tester.pumpAndSettle();
-      expect(AppTheme.currentFontFamily, equals('Poppins'));
+      expect(find.text('••••   ••••   ••••   2786'), findsOneWidget);
 
-      // Select 'Roboto' font
-      final robotoTile = find.widgetWithText(GestureDetector, 'Roboto').first;
-      await tester.tap(robotoTile);
+      // Select 'Prismatic Hologram'
+      final prismaticOption = find.widgetWithText(GestureDetector, 'Prismatic Hologram').first;
+      await tester.ensureVisible(prismaticOption);
       await tester.pumpAndSettle();
-      expect(AppTheme.currentFontFamily, equals('Roboto'));
+      await tester.tap(prismaticOption);
+      await tester.pumpAndSettle();
+      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.prismaticHologram));
 
-      // Tap 'Reset to defaults'
-      final resetBtn = find.text('Reset to defaults');
+      // Select 'Champagne Gold'
+      final goldOption = find.widgetWithText(GestureDetector, 'Champagne Gold').first;
+      await tester.ensureVisible(goldOption);
+      await tester.pumpAndSettle();
+      await tester.tap(goldOption);
+      await tester.pumpAndSettle();
+      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.champagneGold));
+
+      // Select 'Stealth Carbon'
+      final carbonOption = find.widgetWithText(GestureDetector, 'Stealth Carbon').first;
+      await tester.ensureVisible(carbonOption);
+      await tester.pumpAndSettle();
+      await tester.tap(carbonOption);
+      await tester.pumpAndSettle();
+      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.stealthCarbon));
+
+      // Tap 'Reset card to default'
+      final resetBtn = find.text('Reset card to default');
       await tester.ensureVisible(resetBtn);
       await tester.pumpAndSettle();
       await tester.tap(resetBtn);
       await tester.pumpAndSettle();
 
-      expect(AppTheme.currentFontFamily, equals('System default'));
-      expect(AppTheme.currentTextScale, equals(1.0));
+      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.emeraldObsidian));
       expect(tester.takeException(), isNull);
     });
 

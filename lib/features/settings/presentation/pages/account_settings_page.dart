@@ -16,6 +16,7 @@ import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
 import '../../../../features/profile/data/user_profile_repository.dart';
 import '../../../../features/profile/domain/bank_account_item.dart';
 import '../../../../features/profile/domain/user_profile.dart';
+import '../widgets/virtual_card_studio.dart';
 
 // ============================================================
 //  Account Settings Page — PaidiX
@@ -451,7 +452,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
       case _SettingsTab.paymentsPin:
         return _PaymentsPinSection(colors: colors, isMobile: isMobile);
       case _SettingsTab.appearance:
-        return _AppearanceSection(colors: colors, isMobile: isMobile);
+        return _AppearanceSection(colors: colors, profile: profile, isMobile: isMobile);
     }
   }
 
@@ -2883,9 +2884,14 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
 // ════════════════════════════════════════════════════════════════════════════
 class _AppearanceSection extends StatefulWidget {
   final PaidiXColorScheme colors;
+  final UserProfile profile;
   final bool isMobile;
 
-  const _AppearanceSection({required this.colors, required this.isMobile});
+  const _AppearanceSection({
+    required this.colors,
+    required this.profile,
+    required this.isMobile,
+  });
 
   @override
   State<_AppearanceSection> createState() => _AppearanceSectionState();
@@ -2893,29 +2899,17 @@ class _AppearanceSection extends StatefulWidget {
 
 class _AppearanceSectionState extends State<_AppearanceSection> {
   ThemeMode _selectedMode = AppTheme.themeModeNotifier.value;
-  int _selectedFont = 0;
-  double _textScale = 100.0;
-
-  static const _fonts = AppTheme.availableFonts;
 
   @override
   void initState() {
     super.initState();
     _selectedMode = AppTheme.currentThemeMode;
-    final idx = _fonts.indexOf(AppTheme.currentFontFamily);
-    _selectedFont = idx != -1 ? idx : 0;
-    _textScale = (AppTheme.currentTextScale * 100.0).clamp(80.0, 140.0);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _selectedMode = AppTheme.currentThemeMode;
-    final idx = _fonts.indexOf(AppTheme.currentFontFamily);
-    if (idx != -1 && idx != _selectedFont) {
-      _selectedFont = idx;
-    }
-    _textScale = (AppTheme.currentTextScale * 100.0).clamp(80.0, 140.0);
   }
 
   @override
@@ -2959,200 +2953,13 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
           const SizedBox(height: 16),
 
-          // Typography card
+          // Virtual Card Skins Studio
           _SettingsCard(
             colors: c,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _cardSectionLabel(c, 'TYPOGRAPHY'),
-                const SizedBox(height: 14),
-                // Font grid
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _fonts.length,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: widget.isMobile ? 2 : 3,
-                    childAspectRatio: widget.isMobile ? 2.2 : 2.6,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
-                  ),
-                  itemBuilder: (_, i) {
-                    final isSelected = _selectedFont == i;
-                    return GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() => _selectedFont = i);
-                        AppTheme.setFontFamily(_fonts[i]);
-                      },
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        curve: Curves.easeOutCubic,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? c.aqua.withValues(alpha: 0.12)
-                              : c.cardDark,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: isSelected
-                                ? c.aqua
-                                : c.border,
-                            width: isSelected ? 1.5 : 1,
-                          ),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Aa Bb Cc',
-                                style: AppTheme.getFontStyle(
-                                  _fonts[i],
-                                  baseStyle: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: isSelected ? c.aqua : c.textPrimary,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _fonts[i],
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w400,
-                                  color: isSelected
-                                      ? c.aqua.withValues(alpha: 0.85)
-                                      : c.textMuted,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Text size slider
-                _cardSectionLabel(c, 'TEXT SIZE'),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Text(
-                      '80%',
-                      style: TextStyle(fontSize: 11, color: c.textMuted),
-                    ),
-                    Expanded(
-                      child: SliderTheme(
-                        data: SliderTheme.of(context).copyWith(
-                          trackHeight: 3,
-                          thumbShape: const RoundSliderThumbShape(
-                              enabledThumbRadius: 8),
-                          overlayShape:
-                              const RoundSliderOverlayShape(overlayRadius: 16),
-                          activeTrackColor: c.aqua,
-                          inactiveTrackColor: c.border,
-                          thumbColor: c.aqua,
-                          overlayColor: c.aqua.withValues(alpha: 0.15),
-                        ),
-                        child: Slider(
-                          value: _textScale,
-                          min: 80,
-                          max: 140,
-                          divisions: 12,
-                          onChanged: (v) {
-                            setState(() => _textScale = v);
-                            AppTheme.setTextScale(v / 100.0);
-                          },
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '140%',
-                      style: TextStyle(fontSize: 11, color: c.textMuted),
-                    ),
-                  ],
-                ),
-                // Live preview
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: c.cardDark,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: c.border, width: 1),
-                  ),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Send USD, receive PKR.',
-                      style: AppTheme.getFontStyle(
-                        _fonts[_selectedFont],
-                        baseStyle: TextStyle(
-                          fontSize: (14 * _textScale / 100).clamp(9.0, 22.0),
-                          fontWeight: FontWeight.w600,
-                          color: c.textPrimary,
-                          letterSpacing: -0.2,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Reset + current scale indicator
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 12,
-                  runSpacing: 8,
-                  children: [
-                    Text(
-                      '${_textScale.round()}%',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: c.aqua,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        HapticFeedback.selectionClick();
-                        setState(() {
-                          _selectedFont = 0;
-                          _textScale = 100.0;
-                          _selectedMode = ThemeMode.light;
-                        });
-                        AppTheme.setThemeMode(ThemeMode.light);
-                        AppTheme.setFontFamily('System default');
-                        AppTheme.setTextScale(1.0);
-                      },
-                      child: Text(
-                        'Reset to defaults',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: c.textSecondary,
-                          decoration: TextDecoration.underline,
-                          decorationColor: c.textSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+            child: VirtualCardStudio(
+              colors: c,
+              profile: widget.profile,
+              isMobile: widget.isMobile,
             ),
           ),
         ],
