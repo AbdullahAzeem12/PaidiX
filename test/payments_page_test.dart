@@ -4,7 +4,7 @@ import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
 import 'package:paidix/features/payments/domain/payment_models.dart';
 import 'package:paidix/features/payments/presentation/pages/payments_page.dart';
-import 'package:paidix/features/payments/presentation/widgets/bulk_add_payments_dialog.dart';
+// import 'package:paidix/features/payments/presentation/widgets/bulk_add_payments_dialog.dart';
 import 'package:paidix/features/payments/presentation/widgets/payments_filter_bar.dart';
 
 void main() {
@@ -24,8 +24,8 @@ void main() {
     expect(find.text('My payments'), findsOneWidget);
     expect(find.text("Every incoming payment you've submitted."), findsOneWidget);
 
-    // Verify Actions
-    expect(find.text('Bulk add'), findsOneWidget);
+    // Verify Actions (Bulk add commented out as per requirement)
+    expect(find.text('Bulk add'), findsNothing);
     expect(find.text('New payment'), findsWidgets);
 
     // Verify Filter and Search
@@ -165,6 +165,11 @@ void main() {
     }
   });
 
+  // ===========================================================================
+  // BULK ADD TESTS (COMMENTED OUT)
+  // The Bulk Add dialog and functionality are commented out as requested.
+  // ===========================================================================
+  /*
   testWidgets(
       'Tapping Bulk add opens BulkAddPaymentsDialog with exact controls, computes totals, adds rows, and submits batch payments',
       (WidgetTester tester) async {
@@ -318,6 +323,7 @@ void main() {
       expect(find.text('Add several payments at once'), findsNothing);
     }
   });
+  */
 
   testWidgets(
       'PaymentsPage mock data, recycler view animation, and interactive Showing Rows Page pagination controls',

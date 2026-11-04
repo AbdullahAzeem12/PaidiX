@@ -1,3 +1,11 @@
+// =============================================================================
+// BULK ADD PAYMENTS DIALOG & LOGIC (COMMENTED OUT)
+// The complete Bulk Add section, data models, row controllers, calculations,
+// screenshot attachments, batch submission logic, and dialog UI are commented
+// out as requested by user.
+// =============================================================================
+
+/*
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1255,3 +1263,5 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 }
+
+*/

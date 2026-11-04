@@ -7,7 +7,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
-import '../widgets/bulk_add_payments_dialog.dart';
+// import '../widgets/bulk_add_payments_dialog.dart';
 import '../widgets/pagination_controls.dart';
 import '../widgets/payment_card.dart';
 import '../widgets/payments_filter_bar.dart';
@@ -229,6 +229,8 @@ class _PaymentsPageState extends State<PaymentsPage> {
           runSpacing: 8,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
+            // Bulk Add action commented out as per requirement
+            /*
             AppButton(
               text: 'Bulk add',
               icon: Icon(Icons.playlist_add_rounded,
@@ -240,6 +242,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
               ),
             ),
             const SizedBox(width: 10),
+            */
             AppButton(
               text: 'New payment',
               icon: Icon(Icons.add_circle_outline_rounded,
