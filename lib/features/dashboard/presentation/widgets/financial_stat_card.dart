@@ -10,6 +10,7 @@ class FinancialStatCard extends StatelessWidget {
   final String description;
   final Widget icon;
   final Color? iconBg;
+  final VoidCallback? onTap;
 
   const FinancialStatCard({
     super.key,
@@ -19,13 +20,15 @@ class FinancialStatCard extends StatelessWidget {
     required this.description,
     required this.icon,
     this.iconBg,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final isMasked = value.contains('••••');
 
-    return Container(
+    final card = Container(
       decoration: BoxDecoration(
         color: colors.card,
         borderRadius: AppSpacing.radiusLg,
@@ -91,6 +94,7 @@ class FinancialStatCard extends StatelessWidget {
                       value,
                       style: AppTypography.statValueLarge.copyWith(
                         color: colors.textPrimary,
+                        letterSpacing: isMasked ? 1.4 : null,
                       ),
                     ),
                   ),
@@ -120,5 +124,14 @@ class FinancialStatCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: card,
+      );
+    }
+    return card;
   }
 }

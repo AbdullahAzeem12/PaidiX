@@ -17,8 +17,14 @@ class FxDisplayPreferences {
   static final ValueNotifier<bool> compactFormatNotifier =
       ValueNotifier<bool>(false);
 
+  /// Synchronized real-time state across Dashboard for unmasking / revealing hidden amounts.
+  static final ValueNotifier<bool> dashboardBalanceRevealedNotifier =
+      ValueNotifier<bool>(false);
+
   static bool get isStealthMode => stealthModeNotifier.value;
   static bool get isCompactFormat => compactFormatNotifier.value;
+  static bool get isDashboardBalanceRevealed =>
+      dashboardBalanceRevealedNotifier.value;
 
   static bool _isInitialized = false;
 
@@ -48,6 +54,7 @@ class FxDisplayPreferences {
   static void toggleStealthMode() {
     HapticFeedback.lightImpact();
     stealthModeNotifier.value = !stealthModeNotifier.value;
+    dashboardBalanceRevealedNotifier.value = false;
     _persist();
   }
 
@@ -58,11 +65,24 @@ class FxDisplayPreferences {
     _persist();
   }
 
+  /// Toggle temporary synchronized balance unmask / peek state across Dashboard.
+  static void toggleDashboardBalanceRevealed() {
+    HapticFeedback.lightImpact();
+    dashboardBalanceRevealedNotifier.value =
+        !dashboardBalanceRevealedNotifier.value;
+  }
+
+  /// Set temporary synchronized balance unmask / peek state across Dashboard.
+  static void setDashboardBalanceRevealed(bool revealed) {
+    dashboardBalanceRevealedNotifier.value = revealed;
+  }
+
   /// Reset all display preferences to defaults.
   static void resetToDefault() {
     HapticFeedback.selectionClick();
     stealthModeNotifier.value = false;
     compactFormatNotifier.value = false;
+    dashboardBalanceRevealedNotifier.value = false;
     _persist();
   }
 
@@ -87,7 +107,7 @@ class FxDisplayPreferences {
   }
 
   /// Formats PKR amount according to user's real-time financial display preferences:
-  /// - If stealth mode is ON and not temporarily revealed: "Rs. ••••••••••"
+  /// - If stealth mode is ON and neither local override nor synchronized dashboard reveal is true: "Rs. ••••••••••"
   /// - Else if compact format is ON: "Rs. 1.17M"
   /// - Otherwise standard full precision: "Rs. 1,169,570.67"
   static String formatVolumePkr(
@@ -96,7 +116,9 @@ class FxDisplayPreferences {
     bool isTemporarilyRevealed = false,
   }) {
     if (amount == null) return 'Rs. 0.00';
-    if (allowStealth && isStealthMode && !isTemporarilyRevealed) {
+    final bool isRevealed =
+        isTemporarilyRevealed || dashboardBalanceRevealedNotifier.value;
+    if (allowStealth && isStealthMode && !isRevealed) {
       return 'Rs. ••••••••••';
     }
     if (isCompactFormat) {

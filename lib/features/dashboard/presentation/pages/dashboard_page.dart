@@ -1135,6 +1135,7 @@ class _DashboardPageState extends State<DashboardPage> {
       animation: Listenable.merge([
         FxDisplayPreferences.stealthModeNotifier,
         FxDisplayPreferences.compactFormatNotifier,
+        FxDisplayPreferences.dashboardBalanceRevealedNotifier,
       ]),
       builder: (context, _) {
         return LayoutBuilder(
@@ -1150,6 +1151,9 @@ class _DashboardPageState extends State<DashboardPage> {
               iconBg: colors.aquaLight,
               icon: Icon(Icons.account_balance_wallet_outlined,
                   color: colors.mintHeroText, size: 18),
+              onTap: FxDisplayPreferences.isStealthMode
+                  ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
+                  : null,
             );
 
             final card2 = FinancialStatCard(
@@ -1160,6 +1164,9 @@ class _DashboardPageState extends State<DashboardPage> {
                   "Everything we've sent to your bank account since joining PaidiX.",
               iconBg: colors.cardDark,
               icon: Icon(Icons.send_rounded, color: colors.aquaLight, size: 18),
+              onTap: FxDisplayPreferences.isStealthMode
+                  ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
+                  : null,
             );
 
             final card3 = FinancialStatCard(
@@ -1175,6 +1182,9 @@ class _DashboardPageState extends State<DashboardPage> {
               iconBg: colors.gold,
               icon: Icon(Icons.access_time_rounded,
                   color: colors.mintHeroText, size: 18),
+              onTap: FxDisplayPreferences.isStealthMode
+                  ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
+                  : null,
             );
 
             if (isWide) {

@@ -193,4 +193,63 @@ void main() {
     expect(find.text('Rs. 0.00'), findsOneWidget);
     expect(find.byIcon(Icons.visibility_off_outlined), findsNothing);
   });
+
+  testWidgets(
+      'Synchronized real-time balance reveal: Customer Score eye icon unmasks and masks below financial cards in sync',
+      (WidgetTester tester) async {
+    FxDisplayPreferences.resetToDefault();
+    // Seed mock data with completed payments so PKR RECEIVED and TOTAL TRANSFERRED are rendered
+    final repo = PaymentsRepositoryImpl(seedMockData: true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: DashboardPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Verify sections are visible
+    expect(find.text('CUSTOMER SCORE'), findsOneWidget);
+    expect(find.text('PKR RECEIVED'), findsOneWidget);
+    expect(find.text('TOTAL TRANSFERRED TO YOU'), findsOneWidget);
+
+    // Initial state: Stealth mode is OFF, values are shown
+    expect(find.text('Rs. ••••••••••'), findsNothing);
+
+    // 1. User enables Stealth Mode in preferences
+    FxDisplayPreferences.toggleStealthMode();
+    await tester.pumpAndSettle();
+
+    // All financial amounts (Customer Score Volume + below financial cards) are masked
+    expect(find.text('Rs. ••••••••••'), findsNWidgets(3));
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+
+    // 2. User clicks the eye icon on Customer Score VOLUME
+    await tester.tap(find.byIcon(Icons.visibility_off_outlined));
+    await tester.pumpAndSettle();
+
+    // All sections unmask SIMULTANEOUSLY!
+    expect(find.text('Rs. ••••••••••'), findsNothing);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+
+    // 3. User clicks the eye icon again to re-mask
+    await tester.tap(find.byIcon(Icons.visibility_outlined));
+    await tester.pumpAndSettle();
+
+    // All sections mask back to Rs. •••••••••• SIMULTANEOUSLY!
+    expect(find.text('Rs. ••••••••••'), findsNWidgets(3));
+    expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
+
+    // 4. Clicking any below card (e.g. PKR RECEIVED) also toggles synchronized reveal
+    await tester.tap(find.text('PKR RECEIVED'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Rs. ••••••••••'), findsNothing);
+    expect(find.byIcon(Icons.visibility_outlined), findsOneWidget);
+
+    // Reset preferences cleanly
+    FxDisplayPreferences.resetToDefault();
+    await tester.pumpAndSettle();
+  });
 }
