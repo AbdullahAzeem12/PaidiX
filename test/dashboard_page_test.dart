@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
+import 'package:paidix/features/dashboard/presentation/widgets/status_metric_card.dart';
 
 void main() {
   testWidgets('Dashboard renders clean empty state with accurate metrics',
@@ -242,6 +243,7 @@ void main() {
     expect(find.byIcon(Icons.visibility_off_outlined), findsOneWidget);
 
     // 4. Clicking any below card (e.g. PKR RECEIVED) also toggles synchronized reveal
+    await tester.ensureVisible(find.text('PKR RECEIVED'));
     await tester.tap(find.text('PKR RECEIVED'));
     await tester.pumpAndSettle();
 
@@ -251,5 +253,97 @@ void main() {
     // Reset preferences cleanly
     FxDisplayPreferences.resetToDefault();
     await tester.pumpAndSettle();
+  });
+  testWidgets(
+      'Interactive status summary cards filter Recent Activity with animations, highlighting, and list transitions',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = PaymentsRepositoryImpl(seedMockData: true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: DashboardPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Initial State: Counts for converted mock data
+    expect(find.text('TRANSACTIONS'), findsOneWidget);
+    expect(find.text('24'), findsWidgets); // Transactions count & customer score
+    expect(find.text('PENDING REVIEW'), findsOneWidget);
+    expect(find.text('3'), findsWidgets); // Pending Review count & Awaiting PKR count
+    expect(find.text('AWAITING PKR'), findsOneWidget);
+    expect(find.text('COMPLETED'), findsWidgets);
+    expect(find.text('18'), findsWidgets); // Completed count
+    expect(find.text('6 payments in progress'), findsOneWidget);
+
+    // Initial RECENT ACTIVITY shows top payments (Completed)
+    expect(find.text('PBX-2026-001332'), findsOneWidget);
+    expect(find.text('ACTIVE'), findsOneWidget); // TRANSACTIONS is active by default
+
+    final pendingCard = find.widgetWithText(StatusMetricCard, 'PENDING REVIEW');
+    final awaitingCard = find.widgetWithText(StatusMetricCard, 'AWAITING PKR');
+    final completedCard = find.widgetWithText(StatusMetricCard, 'COMPLETED');
+    final transactionsCard = find.widgetWithText(StatusMetricCard, 'TRANSACTIONS');
+
+    // 2. Tap PENDING REVIEW card
+    await tester.ensureVisible(pendingCard);
+    await tester.tap(pendingCard);
+    await tester.pumpAndSettle();
+
+    // Active status filter banner appears
+    expect(find.text('Showing Pending Review payments (3)'), findsOneWidget);
+    // Recent activity list now only shows pending review items!
+    expect(find.text('PBX-2026-001329'), findsOneWidget); // Swift Logistics LLC ($350)
+    expect(find.text('PBX-2026-001327'), findsOneWidget); // Falcon Express Lines ($240)
+    expect(find.text('PBX-2026-001324'), findsOneWidget); // Metro Cargo Corp ($75)
+    expect(find.text('PBX-2026-001332'), findsNothing); // Completed item not shown
+
+    // 3. Tap AWAITING PKR card
+    await tester.ensureVisible(awaitingCard);
+    await tester.tap(awaitingCard);
+    await tester.pumpAndSettle();
+
+    // Active status filter banner updates
+    expect(find.text('Showing Awaiting PKR payments (3)'), findsOneWidget);
+    // Recent activity list now only shows awaiting PKR items!
+    expect(find.text('PBX-2026-001328'), findsOneWidget); // Apex Freight Express ($85)
+    expect(find.text('PBX-2026-001325'), findsOneWidget); // Titan Haulers LLC ($520)
+    expect(find.text('PBX-2026-001322'), findsOneWidget); // Prime Line Dispatch ($310)
+    expect(find.text('PBX-2026-001329'), findsNothing); // Pending review item not shown
+
+    // 4. Tap COMPLETED card
+    await tester.ensureVisible(completedCard);
+    await tester.tap(completedCard);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing Completed payments (18)'), findsOneWidget);
+    expect(find.text('PBX-2026-001332'), findsOneWidget); // Completed item shown again
+    expect(find.text('PBX-2026-001328'), findsNothing); // Awaiting PKR item not shown
+
+    // 5. Tap TRANSACTIONS card to reset filter to all
+    await tester.ensureVisible(transactionsCard);
+    await tester.tap(transactionsCard);
+    await tester.pumpAndSettle();
+
+    // Active filter banner is cleared
+    expect(find.text('Showing Completed payments (18)'), findsNothing);
+    expect(find.text('PBX-2026-001332'), findsOneWidget);
+
+    // 6. Tap active card again to toggle back to all
+    await tester.tap(pendingCard);
+    await tester.pumpAndSettle();
+    expect(find.text('Showing Pending Review payments (3)'), findsOneWidget);
+
+    // Tap PENDING REVIEW again -> toggles back to all
+    await tester.tap(pendingCard);
+    await tester.pumpAndSettle();
+    expect(find.text('Showing Pending Review payments (3)'), findsNothing);
+    expect(find.text('PBX-2026-001332'), findsOneWidget);
   });
 }

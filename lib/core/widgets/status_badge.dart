@@ -46,7 +46,10 @@ class StatusBadge extends StatelessWidget {
         bg = colors.statusPendingBg;
         fg = colors.statusPendingText;
         dot = colors.statusPendingDot;
-        label = customLabel ?? 'Under Review';
+        label = customLabel ??
+            (status == PaymentStatusType.pendingReview
+                ? 'Pending Review'
+                : 'Under Review');
         break;
       case PaymentStatusType.verified:
         bg = const Color(0xFF0B3330);
@@ -59,7 +62,10 @@ class StatusBadge extends StatelessWidget {
         bg = colors.statusAwaitingBg;
         fg = colors.statusAwaitingText;
         dot = colors.statusAwaitingDot;
-        label = customLabel ?? 'PKR Sent';
+        label = customLabel ??
+            (status == PaymentStatusType.awaitingPkr
+                ? 'Awaiting PKR'
+                : 'PKR Sent');
         break;
       case PaymentStatusType.completed:
         bg = colors.statusCompletedBg;

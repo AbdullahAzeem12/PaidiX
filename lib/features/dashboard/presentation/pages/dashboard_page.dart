@@ -66,7 +66,6 @@ class _DashboardPageState extends State<DashboardPage> {
     int completed = 0;
     double pkrReceived = 0.0;
     double totalTransferred = 0.0;
-    double awaitingVerificationAmount = 0.0;
 
     for (final item in list) {
       switch (item.status) {
@@ -78,12 +77,10 @@ class _DashboardPageState extends State<DashboardPage> {
         case PaymentStatusType.underReview:
         case PaymentStatusType.pendingReview:
           pendingReview++;
-          awaitingVerificationAmount += item.amount;
           break;
         case PaymentStatusType.pkrSent:
         case PaymentStatusType.awaitingPkr:
           awaitingPkr++;
-          awaitingVerificationAmount += item.amount;
           break;
         case PaymentStatusType.submitted:
         case PaymentStatusType.verified:
@@ -97,9 +94,7 @@ class _DashboardPageState extends State<DashboardPage> {
       pkrReceived: pkrReceived,
       paymentsCompleted: completed,
       totalTransferred: totalTransferred,
-      awaitingVerificationAmount: (pendingReview + awaitingPkr) > 0
-          ? awaitingVerificationAmount
-          : null,
+      awaitingVerificationAmount: null, // em dash per design specs and PROJECT_BRAIN
       awaitingVerificationCount: pendingReview + awaitingPkr,
       transactionsCount: list.length,
       pendingReviewCount: pendingReview,
@@ -124,10 +119,17 @@ class _DashboardPageState extends State<DashboardPage> {
                 final isKycApproved =
                     userProfile.kycStatus == KycReviewStatus.verified;
 
-                // Reactive real-time filtered payments & summary
+                // Unfiltered by status for category metrics cards
+                final statusUnfilteredPayments = widget.paymentsRepository
+                    .filterPayments(_currentFilter.copyWith(
+                  status: StatusFilterOption.all,
+                ));
+                final summary = _computeSummary(statusUnfilteredPayments);
+
+                // Filtered payments taking all filters (including status) into account
                 final filteredPayments =
                     widget.paymentsRepository.filterPayments(_currentFilter);
-                final summary = _computeSummary(filteredPayments);
+                final isRepoEmpty = widget.paymentsRepository.payments.isEmpty;
 
                 return Scaffold(
                   backgroundColor: colors.background,
@@ -165,8 +167,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           ),
                           const SizedBox(height: 14),
 
-                          // If payments are empty (Initial state shown in screenshot)
-                          if (filteredPayments.isEmpty) ...[
+                          // If payments repository is truly empty (clean onboarding state)
+                          if (isRepoEmpty) ...[
                             // Empty Transactions Card Container
                             _buildEmptyTransactionsCard(colors),
                             const SizedBox(height: 20),
@@ -204,27 +206,51 @@ class _DashboardPageState extends State<DashboardPage> {
                             ),
                             const SizedBox(height: 14),
 
-                            // Payments table or cards
-                            LayoutBuilder(
-                              builder: (context, constraints) {
-                                if (constraints.maxWidth >= 768) {
-                                  return PaymentsTable(
-                                    items: filteredPayments.take(5).toList(),
-                                  );
-                                }
-                                final recentList =
-                                    filteredPayments.take(4).toList();
-                                return Column(
-                                  children: List.generate(
-                                    recentList.length,
-                                    (idx) => SmoothAnimatedListItem(
-                                      index: idx,
-                                      child: PaymentCard(item: recentList[idx]),
-                                    ),
+                            // Active Filter Notification Banner
+                            if (_selectedStatus != StatusFilterOption.all)
+                              _buildActiveStatusFilterBanner(
+                                  colors,
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark,
+                                  filteredPayments.length),
+
+                            // Filtered empty state or payments list
+                            if (filteredPayments.isEmpty)
+                              _buildFilteredEmptyState(colors)
+                            else
+                              AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 280),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                child: KeyedSubtree(
+                                  key: ValueKey(
+                                    'recent_${_selectedStatus.name}_${filteredPayments.length}',
                                   ),
-                                );
-                              },
-                            ),
+                                  child: LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      if (constraints.maxWidth >= 768) {
+                                        return PaymentsTable(
+                                          items: filteredPayments
+                                              .take(5)
+                                              .toList(),
+                                        );
+                                      }
+                                      final recentList =
+                                          filteredPayments.take(4).toList();
+                                      return Column(
+                                        children: List.generate(
+                                          recentList.length,
+                                          (idx) => SmoothAnimatedListItem(
+                                            index: idx,
+                                            child: PaymentCard(
+                                                item: recentList[idx]),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
                           ],
                         ],
                       ),
@@ -603,6 +629,172 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildActiveStatusFilterBanner(
+      PaidiXColorScheme colors, bool isDark, int count) {
+    String statusLabel = 'Filtered';
+    Color chipColor = colors.aqua;
+
+    if (_selectedStatus == StatusFilterOption.underReview ||
+        _selectedStatus == StatusFilterOption.pendingReview) {
+      statusLabel = 'Pending Review';
+      chipColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+    } else if (_selectedStatus == StatusFilterOption.pkrSent ||
+        _selectedStatus == StatusFilterOption.awaitingPkr) {
+      statusLabel = 'Awaiting PKR';
+      chipColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+    } else if (_selectedStatus == StatusFilterOption.completed) {
+      statusLabel = 'Completed';
+      chipColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: chipColor.withValues(alpha: isDark ? 0.15 : 0.08),
+        borderRadius: AppSpacing.radiusMd,
+        border: Border.all(
+          color: chipColor.withValues(alpha: isDark ? 0.45 : 0.35),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: chipColor,
+              boxShadow: [
+                BoxShadow(
+                  color: chipColor.withValues(alpha: 0.6),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Showing $statusLabel payments ($count)',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: chipColor,
+              ),
+            ),
+          ),
+          SpongyTap(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedStatus = StatusFilterOption.all;
+              });
+            },
+            pressScale: 0.90,
+            borderRadius: AppSpacing.radiusPill,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: chipColor.withValues(alpha: isDark ? 0.25 : 0.15),
+                borderRadius: AppSpacing.radiusPill,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.close_rounded, size: 12, color: chipColor),
+                  const SizedBox(width: 3),
+                  Text(
+                    'Clear',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: chipColor,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilteredEmptyState(PaidiXColorScheme colors) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: AppSpacing.radiusXl,
+        border: Border.all(
+          color: colors.border.withValues(alpha: 0.8),
+          width: 1.2,
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.filter_list_off_rounded,
+            size: 32,
+            color: colors.textSecondary,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No payments match this filter',
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Try clearing filters or selecting another status to see your payments.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 12,
+              color: colors.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SpongyTap(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              setState(() {
+                _selectedStatus = StatusFilterOption.all;
+                _selectedRange = DateRangeFilter.allTime;
+                _selectedCurrency = CurrencyFilter.all;
+                _fromDate = null;
+                _toDate = null;
+              });
+            },
+            pressScale: 0.94,
+            borderRadius: AppSpacing.radiusPill,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.aqua,
+                borderRadius: AppSpacing.radiusPill,
+              ),
+              child: Text(
+                'Show all payments',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: colors.mintHeroText,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1184,7 +1376,17 @@ class _DashboardPageState extends State<DashboardPage> {
                   color: colors.mintHeroText, size: 18),
               onTap: FxDisplayPreferences.isStealthMode
                   ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
-                  : null,
+                  : () {
+                      HapticFeedback.selectionClick();
+                      setState(() {
+                        if (_selectedStatus == StatusFilterOption.underReview ||
+                            _selectedStatus == StatusFilterOption.pkrSent) {
+                          _selectedStatus = StatusFilterOption.all;
+                        } else {
+                          _selectedStatus = StatusFilterOption.underReview;
+                        }
+                      });
+                    },
             );
 
             if (isWide) {
@@ -1218,6 +1420,17 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget _buildStatusSummaryGrid(
       BuildContext context, FinancialSummary summary) {
     final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final isAllSelected = _selectedStatus == StatusFilterOption.all;
+    final isPendingSelected =
+        _selectedStatus == StatusFilterOption.underReview ||
+            _selectedStatus == StatusFilterOption.pendingReview;
+    final isAwaitingSelected =
+        _selectedStatus == StatusFilterOption.pkrSent ||
+            _selectedStatus == StatusFilterOption.awaitingPkr;
+    final isCompletedSelected =
+        _selectedStatus == StatusFilterOption.completed;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1229,6 +1442,14 @@ class _DashboardPageState extends State<DashboardPage> {
           iconBgColor: colors.aquaLight,
           icon: Icon(Icons.description_outlined,
               color: colors.mintHeroText, size: 16),
+          isSelected: isAllSelected,
+          activeColor: colors.aqua,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              _selectedStatus = StatusFilterOption.all;
+            });
+          },
         );
 
         final item2 = StatusMetricCard(
@@ -1237,6 +1458,20 @@ class _DashboardPageState extends State<DashboardPage> {
           iconBgColor: colors.aquaLight,
           icon: Icon(Icons.access_time_rounded,
               color: colors.mintHeroText, size: 16),
+          isSelected: isPendingSelected,
+          activeColor: isDark
+              ? const Color(0xFFFBBF24)
+              : const Color(0xFFD97706),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              if (isPendingSelected) {
+                _selectedStatus = StatusFilterOption.all;
+              } else {
+                _selectedStatus = StatusFilterOption.underReview;
+              }
+            });
+          },
         );
 
         final item3 = StatusMetricCard(
@@ -1245,6 +1480,20 @@ class _DashboardPageState extends State<DashboardPage> {
           iconBgColor: colors.aquaLight,
           icon: Icon(Icons.arrow_outward_rounded,
               color: colors.mintHeroText, size: 16),
+          isSelected: isAwaitingSelected,
+          activeColor: isDark
+              ? const Color(0xFF38BDF8)
+              : const Color(0xFF0284C7),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              if (isAwaitingSelected) {
+                _selectedStatus = StatusFilterOption.all;
+              } else {
+                _selectedStatus = StatusFilterOption.pkrSent;
+              }
+            });
+          },
         );
 
         final item4 = StatusMetricCard(
@@ -1253,6 +1502,20 @@ class _DashboardPageState extends State<DashboardPage> {
           iconBgColor: colors.statusCompletedDot,
           icon: Icon(Icons.check_circle_outline,
               color: colors.mintHeroText, size: 16),
+          isSelected: isCompletedSelected,
+          activeColor: isDark
+              ? const Color(0xFF34D399)
+              : const Color(0xFF059669),
+          onTap: () {
+            HapticFeedback.selectionClick();
+            setState(() {
+              if (isCompletedSelected) {
+                _selectedStatus = StatusFilterOption.all;
+              } else {
+                _selectedStatus = StatusFilterOption.completed;
+              }
+            });
+          },
         );
 
         if (isWide) {
