@@ -597,11 +597,13 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               fontWeight: FontWeight.w600,
             ),
             decoration: InputDecoration(
-              hintText: '35202-0450463-2',
+              hintText: '42101-1234567-1',
               hintStyle: TextStyle(
-                color: colors.textMuted,
+                color: colors.textMuted.withValues(alpha: 0.5),
                 fontSize: 13.5,
+                fontWeight: FontWeight.w400,
                 fontFamily: 'monospace',
+                letterSpacing: 1.0,
               ),
               border: InputBorder.none,
               contentPadding:
@@ -1144,7 +1146,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
 
     final displayCnic = _cnicController.text.isNotEmpty
         ? CnicValidator.format(_cnicController.text)
-        : '35202-0450461-5';
+        : '42101-1234567-1';
 
     // High fidelity synthetic CNIC illustration with real user CNIC
     return Padding(

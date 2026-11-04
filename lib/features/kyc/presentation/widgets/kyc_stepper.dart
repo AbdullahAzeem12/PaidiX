@@ -17,135 +17,169 @@ class KycStepper extends StatelessWidget {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    final steps = KycStep.values;
+    const circleSize = 32.0;
+    const circleRadius = circleSize / 2;
+
+    // Theme palette
+    final activeColor = isDark ? colors.aquaLight : colors.aqua;
+    final completedColor = colors.emerald;
+    final inactiveBorderColor = colors.border.withValues(alpha: 0.7);
+    final inactiveLineColor = colors.border.withValues(alpha: 0.45);
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalWidth = constraints.maxWidth;
         final isCompact = totalWidth < 460;
         final isVeryNarrow = totalWidth < 350;
 
-        return Column(
-          children: [
-            // Stepper Items
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: isCompact ? 6 : 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: KycStep.values.map((step) {
+        // Outer horizontal padding
+        final horizontalPadding = isCompact ? 10.0 : 20.0;
+        const columnPadding = 4.0;
+        // Exact center X of the first and last circles relative to the padded container
+        const firstCircleCenterX = columnPadding + circleRadius;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Stack(
+            children: [
+              // 1. Prominent Connecting Lines Layer (Centered at circle Y = 16)
+              Positioned(
+                top: circleRadius - 1.5,
+                left: firstCircleCenterX,
+                right: firstCircleCenterX,
+                child: Row(
+                  children: [
+                    for (int i = 0; i < steps.length - 1; i++) ...[
+                      Expanded(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutCubic,
+                          height: steps[i].stepNumber < currentStep.stepNumber ? 3.2 : 2.0,
+                          decoration: BoxDecoration(
+                            color: steps[i].stepNumber < currentStep.stepNumber
+                                ? completedColor
+                                : inactiveLineColor,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              // 2. Interactive Circles & Step Labels Layer
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: steps.map((step) {
                   final isCompleted = step.stepNumber < currentStep.stepNumber;
                   final isActive = step == currentStep;
-                  final showLabel = !isVeryNarrow || isActive;
+                  final canTap = isCompleted && onStepTapped != null;
 
-                  return Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isCompact ? 4 : 8,
-                    ),
-                    child: InkWell(
-                      onTap: isCompleted && onStepTapped != null
-                          ? () => onStepTapped!(step)
-                          : null,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isCompact ? 5 : 8,
-                          vertical: 4,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // Circle Indicator
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              curve: Curves.easeOutCubic,
-                              width: isCompact ? 22 : 26,
-                              height: isCompact ? 22 : 26,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
+                  return InkWell(
+                    onTap: canTap ? () => onStepTapped!(step) : null,
+                    borderRadius: BorderRadius.circular(24),
+                    splashColor: activeColor.withValues(alpha: 0.15),
+                    highlightColor: Colors.transparent,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: columnPadding),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Step Circle:
+                          // - Completed: FILLED solid with checkmark
+                          // - Active: HOLLOW with thick prominent border for user to fill
+                          // - Inactive: Subtle hollow circle
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 280),
+                            curve: Curves.easeOutCubic,
+                            width: circleSize,
+                            height: circleSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: isCompleted
+                                  ? completedColor
+                                  : colors.background,
+                              border: Border.all(
                                 color: isCompleted
-                                    ? colors.emerald
+                                    ? completedColor
                                     : isActive
-                                        ? (isDark ? Colors.white : colors.brand900)
-                                        : Colors.transparent,
-                                border: Border.all(
-                                  color: isCompleted
-                                      ? colors.emerald
-                                      : isActive
-                                          ? (isDark ? Colors.white : colors.brand900)
-                                          : colors.textMuted.withValues(alpha: 0.4),
-                                  width: 1.5,
-                                ),
+                                        ? activeColor
+                                        : inactiveBorderColor,
+                                width: isActive ? 3.0 : (isCompleted ? 1.5 : 1.5),
                               ),
-                              child: Center(
-                                child: isCompleted
-                                    ? Icon(
-                                        Icons.check_rounded,
-                                        size: isCompact ? 13 : 16,
-                                        color: Colors.white,
-                                      )
-                                    : Text(
-                                        '${step.stepNumber}',
-                                        style: TextStyle(
-                                          color: isActive
-                                              ? (isDark ? const Color(0xFF021B19) : Colors.white)
-                                              : colors.textMuted,
-                                          fontSize: isCompact ? 10.5 : 12,
-                                          fontWeight: FontWeight.w700,
-                                        ),
+                              boxShadow: isActive
+                                  ? [
+                                      BoxShadow(
+                                        color: activeColor.withValues(alpha: 0.35),
+                                        blurRadius: 8,
+                                        spreadRadius: 1,
                                       ),
+                                    ]
+                                  : (isCompleted
+                                      ? [
+                                          BoxShadow(
+                                            color: completedColor.withValues(alpha: 0.25),
+                                            blurRadius: 6,
+                                          ),
+                                        ]
+                                      : null),
+                            ),
+                            child: Center(
+                              child: isCompleted
+                                  ? const Icon(
+                                      Icons.check_rounded,
+                                      size: 18,
+                                      color: Colors.white,
+                                    )
+                                  : Text(
+                                      '${step.stepNumber}',
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? (isDark ? colors.aquaLight : activeColor)
+                                            : colors.textMuted,
+                                        fontSize: 13,
+                                        fontWeight: isActive
+                                            ? FontWeight.w900
+                                            : FontWeight.w600,
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+
+                          // Step Label
+                          SizedBox(
+                            width: isVeryNarrow ? 58 : (isCompact ? 68 : 84),
+                            child: Text(
+                              step.label,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: isVeryNarrow ? 10.5 : (isCompact ? 11.5 : 12.5),
+                                fontWeight: isActive
+                                    ? FontWeight.w800
+                                    : (isCompleted ? FontWeight.w600 : FontWeight.w500),
+                                color: isActive
+                                    ? colors.textPrimary
+                                    : (isCompleted
+                                        ? colors.textPrimary
+                                        : colors.textMuted),
+                                letterSpacing: isActive ? -0.2 : 0,
                               ),
                             ),
-                            if (showLabel) ...[
-                              SizedBox(width: isCompact ? 5 : 8),
-                              // Step Label
-                              Text(
-                                step.label,
-                                style: TextStyle(
-                                  color: isCompleted
-                                      ? (isDark ? Colors.white : colors.textPrimary)
-                                      : isActive
-                                          ? (isDark ? Colors.white : colors.textPrimary)
-                                          : colors.textMuted,
-                                  fontSize: isCompact ? 11.5 : 13,
-                                  fontWeight:
-                                      isActive ? FontWeight.w600 : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 }).toList(),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // Bottom Continuous Progress Line with Active Segment Highlight
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: isCompact ? 12 : 24),
-              child: Stack(
-                children: [
-                  // Background Track
-                  Container(
-                    height: 2,
-                    width: totalWidth,
-                    color: colors.border.withValues(alpha: 0.4),
-                  ),
-                  // Active Progress Fill
-                  AnimatedContainer(
-                    duration: const Duration(milliseconds: 350),
-                    curve: Curves.easeOutCubic,
-                    height: 2,
-                    width: ((totalWidth * (currentStep.stepNumber - 0.5) / KycStep.values.length))
-                        .clamp(0.0, totalWidth),
-                    color: isDark ? Colors.white : colors.brand900,
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

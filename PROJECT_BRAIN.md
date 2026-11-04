@@ -533,3 +533,5 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - Plan badges: "BASIC PLAN" text and hardcoded badges removed across all headers, drawer, and dashboard greetings.
 - Customer Score Card: Volume metric displays in single line formatted as `Rs. 1,169,570.67` with responsive flex (3:2:5) and `FittedBox` scale-down safeguard.
 - Sign Up Phone: Defaults to `+92` country code prefix (`🇵🇰 +92 |`) so users don't type it manually; backend normalization strips duplicate prefixes.
+- KYC Stepper: Prominent horizontal connecting lines (1-2-3-4). Completed steps are solid filled with checkmarks, connected by thick 3.2px prominent lines; active step circle is hollow with 3px border for user to fill first; inactive steps/lines remain subtle.
+- CNIC Hint: Fake sample placeholder `42101-1234567-1` rendered in normal font weight (w400) without bold styling.

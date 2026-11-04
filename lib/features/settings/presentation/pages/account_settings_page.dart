@@ -1748,7 +1748,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     final isBack = label.contains('BACK');
     final displayCnic = widget.profile.cnicNumber.isNotEmpty
         ? CnicValidator.format(widget.profile.cnicNumber)
-        : '35202-0450461-5';
+        : '42101-1234567-1';
 
     return Container(
       color: const Color(0xFF072B2B),
