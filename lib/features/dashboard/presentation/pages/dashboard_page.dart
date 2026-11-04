@@ -39,7 +39,6 @@ class _DashboardPageState extends State<DashboardPage> {
   DateRangeFilter _selectedRange = DateRangeFilter.allTime;
   CurrencyFilter _selectedCurrency = CurrencyFilter.all;
   StatusFilterOption _selectedStatus = StatusFilterOption.all;
-  bool _isBitnexWeek = false;
   DateTime? _fromDate;
   DateTime? _toDate;
 
@@ -53,7 +52,6 @@ class _DashboardPageState extends State<DashboardPage> {
         dateRange: _selectedRange,
         currency: _selectedCurrency,
         status: _selectedStatus,
-        isBitnexWeek: _isBitnexWeek,
         fromDate: _fromDate,
         toDate: _toDate,
       );
@@ -464,7 +462,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ],
                       const Spacer(),
                       // Prominent 'Bitnex week' button just beside toggle chevron
-                      _buildBitnexWeekButton(context, colors, isDark, isMobile),
+                      _buildHeaderResetButton(context, colors, isDark, isMobile),
                       const SizedBox(width: 6),
                       AnimatedRotation(
                         turns: _isFiltersExpanded ? 0.5 : 0.0,
@@ -511,8 +509,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                   defaultValue: DateRangeFilter.allTime,
                                   items: DateRangeFilter.values,
                                   labelPrefix: 'Range: ',
-                                  displayValue: _isBitnexWeek ? '—' : null,
-                                  isActiveOverride: _isBitnexWeek || _selectedRange != DateRangeFilter.allTime,
                                   itemLabel: (v) => v.label,
                                   onChanged: (val) {
                                     if (val == DateRangeFilter.custom) {
@@ -520,7 +516,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                     } else {
                                       setState(() {
                                         _selectedRange = val;
-                                        _isBitnexWeek = false;
                                         _fromDate = null;
                                         _toDate = null;
                                       });
@@ -596,11 +591,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                   colors: colors,
                                 ),
 
-                                // 6. Reset Chip
-                                if (!_currentFilter.isDefault) ...[
-                                  const SizedBox(width: 10),
-                                  _buildResetChip(context, colors),
-                                ],
+
                               ],
                             ),
                           ),
@@ -615,17 +606,22 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  Widget _buildBitnexWeekButton(BuildContext context, PaidiXColorScheme colors,
-      bool isDark, bool isMobile) {
-    final isActive = _isBitnexWeek;
+  Widget _buildHeaderResetButton(
+    BuildContext context,
+    PaidiXColorScheme colors,
+    bool isDark,
+    bool isMobile,
+  ) {
+    final hasActiveFilters = !_currentFilter.isDefault;
 
     return SpongyTap(
       onTap: () {
         setState(() {
-          _isBitnexWeek = !_isBitnexWeek;
-          if (_isBitnexWeek) {
-            _selectedRange = DateRangeFilter.allTime;
-          }
+          _selectedRange = DateRangeFilter.allTime;
+          _selectedCurrency = CurrencyFilter.all;
+          _selectedStatus = StatusFilterOption.all;
+          _fromDate = null;
+          _toDate = null;
         });
       },
       pressScale: 0.93,
@@ -634,22 +630,24 @@ class _DashboardPageState extends State<DashboardPage> {
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 7 : 10,
-          vertical: 3.5,
+          horizontal: isMobile ? 8 : 11,
+          vertical: 4,
         ),
         decoration: BoxDecoration(
-          color: isActive
-              ? colors.aqua
+          color: hasActiveFilters
+              ? (isDark
+                  ? colors.aquaDark.withValues(alpha: 0.35)
+                  : colors.cardHighlight)
               : (isDark ? colors.cardDark : colors.cardHighlight),
           borderRadius: AppSpacing.radiusPill,
           border: Border.all(
-            color: isActive ? colors.aqua : colors.borderSubtle,
+            color: hasActiveFilters ? colors.aqua : colors.borderSubtle,
             width: 1,
           ),
-          boxShadow: isActive
+          boxShadow: hasActiveFilters
               ? [
                   BoxShadow(
-                    color: colors.aqua.withValues(alpha: 0.35),
+                    color: colors.aqua.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 1),
                   ),
@@ -659,22 +657,18 @@ class _DashboardPageState extends State<DashboardPage> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isActive) ...[
-              const Icon(
-                Icons.check_rounded,
-                size: 12,
-                color: Color(0xFF022F32),
-              ),
-              const SizedBox(width: 3),
-            ],
+            Icon(
+              Icons.rotate_left_rounded,
+              size: isMobile ? 12 : 14,
+              color: hasActiveFilters ? colors.aqua : colors.textSecondary,
+            ),
+            const SizedBox(width: 4),
             Text(
-              'Bitnex week',
+              'Reset',
               style: TextStyle(
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                color: isActive
-                    ? const Color(0xFF022F32)
-                    : colors.textSecondary,
+                fontWeight: hasActiveFilters ? FontWeight.w800 : FontWeight.w600,
+                color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),
             ),
@@ -819,53 +813,6 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResetChip(BuildContext context, PaidiXColorScheme colors) {
-    return SpongyTap(
-      onTap: () {
-        setState(() {
-          _selectedRange = DateRangeFilter.allTime;
-          _selectedCurrency = CurrencyFilter.all;
-          _selectedStatus = StatusFilterOption.all;
-          _isBitnexWeek = false;
-          _fromDate = null;
-          _toDate = null;
-        });
-      },
-      pressScale: 0.94,
-      borderRadius: AppSpacing.radiusMd,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: colors.cardDark,
-          borderRadius: AppSpacing.radiusMd,
-          border: Border.all(
-            color: colors.borderSubtle,
-            width: 1.1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.close_rounded,
-              size: 14,
-              color: colors.textSecondary,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'Reset',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: colors.textSecondary,
-              ),
-            ),
-          ],
         ),
       ),
     );

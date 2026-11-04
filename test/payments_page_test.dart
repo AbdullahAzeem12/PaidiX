@@ -86,28 +86,18 @@ void main() {
     await tester.tap(find.text('This month'));
     await tester.pumpAndSettle();
 
-    // 7. Range chip now displays 'This month' and active badge & Reset chip appear
+    // 7. Range chip now displays 'This month' and active badge appears
     expect(find.text('This month'), findsOneWidget);
     expect(find.text('Reset'), findsOneWidget);
     expect(find.text('1'), findsOneWidget); // active count
 
-    // 8. Scroll to Reset chip and tap it
-    await tester.ensureVisible(find.text('Reset'));
-    await tester.pumpAndSettle();
+    // 8. Tap Reset button in the header
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
     expect(find.text('All time'), findsOneWidget);
-    expect(find.text('Reset'), findsNothing);
+    expect(find.text('1'), findsNothing);
 
-    // 9. Tap Bitnex week button in the header
-    await tester.tap(find.text('Bitnex week'));
-    await tester.pumpAndSettle();
-
-    // 10. Bitnex week is active: Range shows '—'
-    expect(find.text('—'), findsOneWidget);
-    expect(find.text('Reset'), findsOneWidget);
-
-    // 11. Tap FILTERS to collapse
+    // 9. Tap FILTERS to collapse
     await tester.tap(find.text('FILTERS'));
     await tester.pumpAndSettle();
     expect(find.text('Range: '), findsNothing);

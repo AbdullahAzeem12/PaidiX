@@ -101,7 +101,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                       ],
                       const Spacer(),
                       // "Bitnex week" button at the most right side, just beside the toggle chevron
-                      _buildBitnexWeekButton(context, colors, isDark, isMobile),
+                      _buildHeaderResetButton(context, colors, isDark, isMobile),
                       const SizedBox(width: 5),
                       AnimatedRotation(
                         turns: _isExpanded ? 0.5 : 0.0,
@@ -152,16 +152,11 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                                   defaultValue: DateRangeFilter.allTime,
                                   items: DateRangeFilter.values,
                                   labelPrefix: 'Range: ',
-                                  displayValue: widget.filter.isBitnexWeek
-                                      ? '—'
-                                      : null,
-                                  isActiveOverride: widget.filter.isBitnexWeek,
                                   itemLabel: (v) => v.label,
                                   onChanged: (val) {
                                     widget.onFilterChanged(
                                       widget.filter.copyWith(
                                         dateRange: val,
-                                        isBitnexWeek: false,
                                       ),
                                     );
                                   },
@@ -199,11 +194,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                                   },
                                 ),
 
-                                // Reset Button
-                                if (!widget.filter.isDefault) ...[
-                                  const SizedBox(width: 10),
-                                  _buildResetChip(context, colors),
-                                ],
+
                               ],
                             ),
                           ),
@@ -218,44 +209,40 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
     );
   }
 
-  Widget _buildBitnexWeekButton(BuildContext context, PaidiXColorScheme colors,
-      bool isDark, bool isMobile) {
-    final isActive = widget.filter.isBitnexWeek;
+  Widget _buildHeaderResetButton(
+    BuildContext context,
+    PaidiXColorScheme colors,
+    bool isDark,
+    bool isMobile,
+  ) {
+    final hasActiveFilters = !widget.filter.isDefault;
 
     return SpongyTap(
-      onTap: () {
-        final willBeActive = !isActive;
-        widget.onFilterChanged(
-          widget.filter.copyWith(
-            isBitnexWeek: willBeActive,
-            dateRange: willBeActive
-                ? DateRangeFilter.allTime
-                : widget.filter.dateRange,
-          ),
-        );
-      },
+      onTap: widget.onReset,
       pressScale: 0.93,
       borderRadius: AppSpacing.radiusPill,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         padding: EdgeInsets.symmetric(
-          horizontal: isMobile ? 7 : 10,
-          vertical: 3.5,
+          horizontal: isMobile ? 8 : 11,
+          vertical: 4,
         ),
         decoration: BoxDecoration(
-          color: isActive
-              ? colors.aqua
+          color: hasActiveFilters
+              ? (isDark
+                  ? colors.aquaDark.withValues(alpha: 0.35)
+                  : colors.cardHighlight)
               : (isDark ? colors.cardDark : colors.cardHighlight),
           borderRadius: AppSpacing.radiusPill,
           border: Border.all(
-            color: isActive ? colors.aqua : colors.borderSubtle,
+            color: hasActiveFilters ? colors.aqua : colors.borderSubtle,
             width: 1,
           ),
-          boxShadow: isActive
+          boxShadow: hasActiveFilters
               ? [
                   BoxShadow(
-                    color: colors.aqua.withValues(alpha: 0.35),
+                    color: colors.aqua.withValues(alpha: 0.25),
                     blurRadius: 8,
                     offset: const Offset(0, 1),
                   ),
@@ -265,22 +252,18 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isActive) ...[
-              const Icon(
-                Icons.check_rounded,
-                size: 12,
-                color: Color(0xFF022F32),
-              ),
-              const SizedBox(width: 3),
-            ],
+            Icon(
+              Icons.rotate_left_rounded,
+              size: isMobile ? 12 : 14,
+              color: hasActiveFilters ? colors.aqua : colors.textSecondary,
+            ),
+            const SizedBox(width: 4),
             Text(
-              'Bitnex week',
+              'Reset',
               style: TextStyle(
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
-                color: isActive
-                    ? const Color(0xFF022F32)
-                    : colors.textSecondary,
+                fontWeight: hasActiveFilters ? FontWeight.w800 : FontWeight.w600,
+                color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),
             ),
@@ -430,41 +413,4 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
     );
   }
 
-  Widget _buildResetChip(BuildContext context, PaidiXColorScheme colors) {
-    return SpongyTap(
-      onTap: widget.onReset,
-      pressScale: 0.94,
-      borderRadius: AppSpacing.radiusMd,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-        decoration: BoxDecoration(
-          color: colors.cardDark,
-          borderRadius: AppSpacing.radiusMd,
-          border: Border.all(
-            color: colors.borderSubtle,
-            width: 1.1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.close_rounded,
-              size: 14,
-              color: colors.textSecondary,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              'Reset',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: colors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

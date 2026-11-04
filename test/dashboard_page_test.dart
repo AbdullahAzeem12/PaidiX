@@ -86,7 +86,7 @@ void main() {
   });
 
   testWidgets(
-      'Dashboard Customer Score blinking yellow star and prominent Filters bar with Bitnex week & Currency chips',
+      'Dashboard Customer Score blinking yellow star and prominent Filters bar with header Reset button & Currency chips',
       (WidgetTester tester) async {
     final repo = PaymentsRepositoryImpl();
 
@@ -107,33 +107,37 @@ void main() {
     expect(find.text('RATE'), findsOneWidget);
     expect(find.text('VOLUME'), findsOneWidget);
 
-    // 3. Verify prominent Filters bar header
+    // 3. Verify prominent Filters bar header with Reset button
     expect(find.text('FILTERS'), findsOneWidget);
     expect(find.byIcon(Icons.filter_list_rounded), findsOneWidget);
-    expect(find.text('Bitnex week'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
 
-    // 4. Tap 'Bitnex week' to activate filter and check active count badge
-    await tester.tap(find.text('Bitnex week'));
+    // 4. Expand Filters bar
+    await tester.tap(find.text('FILTERS'));
+    await tester.pumpAndSettle();
+
+    // Verify chips: Range, Currency, Status, From, — To
+    expect(find.text('Currency: '), findsOneWidget);
+    expect(find.text('Status: '), findsOneWidget);
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('— To'), findsOneWidget);
+
+    // 5. Tap on Currency chip to apply a filter
+    await tester.tap(find.text('Currency: '));
+    await tester.pumpAndSettle();
+
+    // Select USD
+    await tester.tap(find.text('USD'));
     await tester.pumpAndSettle();
 
     // Active count badge '1' appears
     expect(find.text('1'), findsOneWidget);
 
-    // 5. Expand Filters bar
-    await tester.tap(find.text('FILTERS'));
-    await tester.pumpAndSettle();
-
-    // Verify chips: Range, Currency, Status, From, — To, and Reset
-    expect(find.text('Currency: '), findsOneWidget);
-    expect(find.text('Status: '), findsOneWidget);
-    expect(find.text('From'), findsOneWidget);
-    expect(find.text('— To'), findsOneWidget);
-    expect(find.text('Reset'), findsOneWidget);
-
-    // 6. Tap Reset to clear filters
+    // 6. Tap header Reset to clear all filters
     await tester.tap(find.text('Reset'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Reset'), findsNothing);
+    // Active count badge is removed
+    expect(find.text('1'), findsNothing);
   });
 }
