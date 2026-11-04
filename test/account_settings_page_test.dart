@@ -48,24 +48,24 @@ void main() {
         expect(find.text('CURRENT PASSWORD'), findsOneWidget);
         expect(find.text('Update password'), findsOneWidget);
 
-        // 3. Payments PIN Tab
-        await selectTab('Payments PIN');
-        expect(find.text('Payments PIN'), findsWidgets);
-
-        // 4. Appearance Tab
-        await selectTab('Appearance');
-        expect(find.text('Dark'), findsOneWidget);
-        expect(find.text('Light'), findsOneWidget);
-        expect(find.text('System'), findsOneWidget);
-        expect(find.text('Aa Bb Cc'), findsWidgets);
-
-        // 5. Bank Accounts Tab
+        // 3. Bank Accounts Tab
         await selectTab('Bank Accounts');
         expect(find.text('Bank accounts.'), findsOneWidget);
         expect(find.text('PKR RECEIVING (PAKISTAN)'), findsOneWidget);
         expect(find.text('Add account'), findsOneWidget);
         expect(find.text('JAZZCASH (MOBILINK MICROFINANCE BANK)'), findsOneWidget);
         expect(find.text('Primary'), findsOneWidget);
+
+        // 4. Payments PIN Tab
+        await selectTab('Payments PIN');
+        expect(find.text('Payments PIN'), findsWidgets);
+
+        // 5. Appearance Tab
+        await selectTab('Appearance');
+        expect(find.text('Dark'), findsOneWidget);
+        expect(find.text('Light'), findsOneWidget);
+        expect(find.text('System'), findsOneWidget);
+        expect(find.text('Aa Bb Cc'), findsWidgets);
       });
     }
 

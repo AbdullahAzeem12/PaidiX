@@ -88,7 +88,8 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: colors.border.withValues(alpha: 0.8), width: 1.2),
+        side:
+            BorderSide(color: colors.border.withValues(alpha: 0.8), width: 1.2),
       ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 320),
@@ -166,7 +167,8 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
 
               // ─── Compact Status Pill ────────────────────────────────
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
                 decoration: BoxDecoration(
                   color: colors.emerald.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
@@ -230,13 +232,16 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
                           Icon(
                             Icons.dashboard_rounded,
                             size: 16,
-                            color: isDark ? const Color(0xFF021B19) : Colors.white,
+                            color:
+                                isDark ? const Color(0xFF021B19) : Colors.white,
                           ),
                           const SizedBox(width: 8),
                           Text(
                             'Go to Dashboard',
                             style: TextStyle(
-                              color: isDark ? const Color(0xFF021B19) : Colors.white,
+                              color: isDark
+                                  ? const Color(0xFF021B19)
+                                  : Colors.white,
                               fontSize: 13.5,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.2,

@@ -19,10 +19,10 @@ import '../../../../features/profile/domain/user_profile.dart';
 
 // ============================================================
 //  Account Settings Page — PaidiX
-//  5 tabs: Profile · Security · Payments PIN · Appearance · Bank Accounts
+//  5 tabs: Profile · Security · Bank Accounts · Payments PIN · Appearance
 // ============================================================
 
-enum _SettingsTab { profile, security, paymentsPin, appearance, bankAccounts }
+enum _SettingsTab { profile, security, bankAccounts, paymentsPin, appearance }
 
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
@@ -342,6 +342,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                   ),
                   _buildSideNavItem(
                     colors: colors,
+                    tab: _SettingsTab.bankAccounts,
+                    icon: Icons.account_balance_outlined,
+                    activeIcon: Icons.account_balance_rounded,
+                  ),
+                  _buildSideNavItem(
+                    colors: colors,
                     tab: _SettingsTab.paymentsPin,
                     icon: Icons.tag_rounded,
                     activeIcon: Icons.tag_rounded,
@@ -351,25 +357,6 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                     tab: _SettingsTab.appearance,
                     icon: Icons.palette_outlined,
                     activeIcon: Icons.palette_rounded,
-                  ),
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                    child: Text(
-                      'MY DATA',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.4,
-                        color: colors.textMuted,
-                      ),
-                    ),
-                  ),
-                  _buildSideNavItem(
-                    colors: colors,
-                    tab: _SettingsTab.bankAccounts,
-                    icon: Icons.account_balance_outlined,
-                    activeIcon: Icons.account_balance_rounded,
                   ),
                 ],
               ),
@@ -458,13 +445,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
             colors: colors, profile: profile, isMobile: isMobile);
       case _SettingsTab.security:
         return _SecuritySection(colors: colors, isMobile: isMobile);
+      case _SettingsTab.bankAccounts:
+        return _BankAccountsSection(
+            colors: colors, profile: profile, isMobile: isMobile);
       case _SettingsTab.paymentsPin:
         return _PaymentsPinSection(colors: colors, isMobile: isMobile);
       case _SettingsTab.appearance:
         return _AppearanceSection(colors: colors, isMobile: isMobile);
-      case _SettingsTab.bankAccounts:
-        return _BankAccountsSection(
-            colors: colors, profile: profile, isMobile: isMobile);
     }
   }
 
@@ -474,12 +461,12 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
         return 'Profile';
       case _SettingsTab.security:
         return 'Security';
+      case _SettingsTab.bankAccounts:
+        return 'Bank Accounts';
       case _SettingsTab.paymentsPin:
         return 'Payments PIN';
       case _SettingsTab.appearance:
         return 'Appearance';
-      case _SettingsTab.bankAccounts:
-        return 'Bank Accounts';
     }
   }
 }
