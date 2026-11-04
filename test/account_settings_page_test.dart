@@ -66,8 +66,8 @@ void main() {
         expect(find.text('Dark'), findsOneWidget);
         expect(find.text('Light'), findsOneWidget);
         expect(find.text('System'), findsOneWidget);
-        expect(find.text('LIVE FX & PAYOUT ESTIMATOR'), findsOneWidget);
-        expect(find.text('USD'), findsWidgets);
+        expect(find.text('FINANCIAL DISPLAY & PRIVACY'), findsOneWidget);
+        expect(find.text('Stealth Privacy Mode'), findsOneWidget);
       });
     }
 
@@ -477,7 +477,7 @@ void main() {
       expect(circularRingFinder, findsNothing);
     });
 
-    testWidgets('Appearance Tab: Live FX Rates & Net Payout Estimator Studio with Display Privacy Controls',
+    testWidgets('Appearance Tab: Financial Display & Privacy with Stealth Mode & Compact Notation',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -500,30 +500,12 @@ void main() {
       await tester.tap(appearanceTab);
       await tester.pumpAndSettle();
 
-      expect(find.text('LIVE FX & PAYOUT ESTIMATOR'), findsOneWidget);
-      expect(find.text('SELECT SENDING CURRENCY'), findsOneWidget);
-      expect(find.text('TRANSFER AMOUNT'), findsOneWidget);
-      expect(find.text('ESTIMATED NET BANK PAYOUT'), findsOneWidget);
       expect(find.text('FINANCIAL DISPLAY & PRIVACY'), findsOneWidget);
-
-      // Verify default USD amount & calculation ($500 gross -> $60 fee -> Rs. 122,540.00 net)
-      expect(find.text('Rs. 122,540.00'), findsOneWidget);
-
-      // Select EUR currency chip
-      final eurChip = find.widgetWithText(GestureDetector, 'EUR').first;
-      await tester.ensureVisible(eurChip);
-      await tester.pumpAndSettle();
-      await tester.tap(eurChip);
-      await tester.pumpAndSettle();
-      expect(FxDisplayPreferences.selectedCurrency.code, equals('EUR'));
-
-      // Tap preset amount \$1000
-      final preset1000 = find.text('€1000');
-      await tester.ensureVisible(preset1000);
-      await tester.pumpAndSettle();
-      await tester.tap(preset1000);
-      await tester.pumpAndSettle();
-      expect(FxDisplayPreferences.calculatorAmount, equals(1000.0));
+      expect(find.text('Stealth Privacy Mode'), findsOneWidget);
+      expect(find.text('Compact Currency Notation'), findsOneWidget);
+      expect(find.text('LIVE PREVIEW (CUSTOMER SCORE VOLUME)'), findsOneWidget);
+      expect(find.text('Standard Display'), findsOneWidget);
+      expect(find.text('Rs. 1,169,570.67'), findsOneWidget);
 
       // Toggle Stealth Privacy Mode
       final stealthToggle = find.text('Stealth Privacy Mode');
@@ -552,8 +534,8 @@ void main() {
 
       expect(FxDisplayPreferences.isStealthMode, isFalse);
       expect(FxDisplayPreferences.isCompactFormat, isFalse);
-      expect(FxDisplayPreferences.selectedCurrency.code, equals('USD'));
-      expect(FxDisplayPreferences.calculatorAmount, equals(500.0));
+      expect(find.text('Standard Display'), findsOneWidget);
+      expect(find.text('Rs. 1,169,570.67'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 

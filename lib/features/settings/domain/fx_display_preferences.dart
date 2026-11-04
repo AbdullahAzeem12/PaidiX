@@ -3,68 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import '../../../../core/utils/formatters.dart';
 
-/// Supported foreign currencies for live FX calculation & payout breakdown.
-class FxCurrency {
-  final String code;
-  final String name;
-  final String symbol;
-  final double rateToPkr;
-  final String trendPercent;
-  final bool isPositiveTrend;
-
-  const FxCurrency({
-    required this.code,
-    required this.name,
-    required this.symbol,
-    required this.rateToPkr,
-    required this.trendPercent,
-    required this.isPositiveTrend,
-  });
-}
-
-/// Reactive state manager & persistent storage for Financial Display & FX Converter Studio.
+/// Reactive state manager & persistent storage for Financial Display & Privacy Preferences.
 class FxDisplayPreferences {
   FxDisplayPreferences._();
   static final FxDisplayPreferences instance = FxDisplayPreferences._();
-
-  static const List<FxCurrency> supportedCurrencies = [
-    FxCurrency(
-      code: 'USD',
-      name: 'US Dollar',
-      symbol: '\$',
-      rateToPkr: 278.50,
-      trendPercent: '+0.42%',
-      isPositiveTrend: true,
-    ),
-    FxCurrency(
-      code: 'EUR',
-      name: 'Euro',
-      symbol: '€',
-      rateToPkr: 301.20,
-      trendPercent: '+0.18%',
-      isPositiveTrend: true,
-    ),
-    FxCurrency(
-      code: 'GBP',
-      name: 'British Pound',
-      symbol: '£',
-      rateToPkr: 352.40,
-      trendPercent: '-0.05%',
-      isPositiveTrend: false,
-    ),
-    FxCurrency(
-      code: 'AED',
-      name: 'UAE Dirham',
-      symbol: 'AED',
-      rateToPkr: 75.85,
-      trendPercent: '+0.10%',
-      isPositiveTrend: true,
-    ),
-  ];
-
-  /// Standard PaidiX cross-border platform fee (12%).
-  static const double platformFeePercent = 12.0;
 
   // ── Reactive Notifiers ──────────────────────────────────────────────────
   static final ValueNotifier<bool> stealthModeNotifier =
@@ -73,18 +17,8 @@ class FxDisplayPreferences {
   static final ValueNotifier<bool> compactFormatNotifier =
       ValueNotifier<bool>(false);
 
-  static final ValueNotifier<int> selectedCurrencyIndexNotifier =
-      ValueNotifier<int>(0);
-
-  static final ValueNotifier<double> calculatorAmountNotifier =
-      ValueNotifier<double>(500.0);
-
   static bool get isStealthMode => stealthModeNotifier.value;
   static bool get isCompactFormat => compactFormatNotifier.value;
-  static int get selectedCurrencyIndex => selectedCurrencyIndexNotifier.value;
-  static FxCurrency get selectedCurrency =>
-      supportedCurrencies[selectedCurrencyIndex];
-  static double get calculatorAmount => calculatorAmountNotifier.value;
 
   static bool _isInitialized = false;
 
@@ -101,17 +35,8 @@ class FxDisplayPreferences {
           stealthModeNotifier.value = data['stealth_mode'] as bool? ?? false;
         }
         if (data.containsKey('compact_format')) {
-          compactFormatNotifier.value = data['compact_format'] as bool? ?? false;
-        }
-        if (data.containsKey('currency_index')) {
-          final idx = data['currency_index'] as int? ?? 0;
-          if (idx >= 0 && idx < supportedCurrencies.length) {
-            selectedCurrencyIndexNotifier.value = idx;
-          }
-        }
-        if (data.containsKey('amount')) {
-          final amt = (data['amount'] as num?)?.toDouble() ?? 500.0;
-          calculatorAmountNotifier.value = amt.clamp(50.0, 10000.0);
+          compactFormatNotifier.value =
+              data['compact_format'] as bool? ?? false;
         }
       }
     } catch (_) {
@@ -133,38 +58,54 @@ class FxDisplayPreferences {
     _persist();
   }
 
-  /// Switch calculator base currency with haptics.
-  static void setCurrencyIndex(int index) {
-    if (index == selectedCurrencyIndexNotifier.value) return;
-    HapticFeedback.selectionClick();
-    selectedCurrencyIndexNotifier.value =
-        index.clamp(0, supportedCurrencies.length - 1);
-    _persist();
-  }
-
-  /// Update calculator amount.
-  static void setAmount(double amount) {
-    calculatorAmountNotifier.value = amount.clamp(50.0, 10000.0);
-    _persist();
-  }
-
-  /// Calculate net PKR payout based on gross amount, fee, and rate.
-  static double calculateNetPkr({double? amount, FxCurrency? currency}) {
-    final amt = amount ?? calculatorAmount;
-    final curr = currency ?? selectedCurrency;
-    final fee = amt * (platformFeePercent / 100.0);
-    final netForeign = amt - fee;
-    return netForeign * curr.rateToPkr;
-  }
-
-  /// Reset all display & FX preferences to defaults.
+  /// Reset all display preferences to defaults.
   static void resetToDefault() {
     HapticFeedback.selectionClick();
     stealthModeNotifier.value = false;
     compactFormatNotifier.value = false;
-    selectedCurrencyIndexNotifier.value = 0;
-    calculatorAmountNotifier.value = 500.0;
     _persist();
+  }
+
+  /// Format an amount into compact notation (e.g. 1169570.67 -> "1.17M", 45000 -> "45.0K").
+  static String formatCompactNumber(double amount) {
+    final abs = amount.abs();
+    if (abs >= 1000000000) {
+      final val = amount / 1000000000;
+      return '${val.toStringAsFixed(2)}B';
+    } else if (abs >= 1000000) {
+      final val = amount / 1000000;
+      return '${val.toStringAsFixed(2)}M';
+    } else if (abs >= 1000) {
+      final val = amount / 1000;
+      final fixed = val.toStringAsFixed(1);
+      return fixed.endsWith('.0')
+          ? '${fixed.substring(0, fixed.length - 2)}K'
+          : '${fixed}K';
+    } else {
+      return amount.toStringAsFixed(2);
+    }
+  }
+
+  /// Formats PKR amount according to user's real-time financial display preferences:
+  /// - If stealth mode is ON and not temporarily revealed: "Rs. ••••••••••"
+  /// - Else if compact format is ON: "Rs. 1.17M"
+  /// - Otherwise standard full precision: "Rs. 1,169,570.67"
+  static String formatVolumePkr(
+    double? amount, {
+    bool allowStealth = true,
+    bool isTemporarilyRevealed = false,
+  }) {
+    if (amount == null) return 'Rs. 0.00';
+    if (allowStealth && isStealthMode && !isTemporarilyRevealed) {
+      return 'Rs. ••••••••••';
+    }
+    if (isCompactFormat) {
+      return 'Rs. ${formatCompactNumber(amount)}';
+    }
+    final raw = AppFormatters.formatPkr(amount);
+    return raw.startsWith('Rs ')
+        ? raw.replaceFirst('Rs ', 'Rs. ')
+        : (raw.startsWith('Rs.') ? raw : 'Rs. $raw');
   }
 
   static Future<File> _getPrefsFile() async {
@@ -178,8 +119,6 @@ class FxDisplayPreferences {
       final data = {
         'stealth_mode': stealthModeNotifier.value,
         'compact_format': compactFormatNotifier.value,
-        'currency_index': selectedCurrencyIndexNotifier.value,
-        'amount': calculatorAmountNotifier.value,
         'updated_at': DateTime.now().toIso8601String(),
       };
       await file.writeAsString(jsonEncode(data), flush: true);
@@ -188,4 +127,3 @@ class FxDisplayPreferences {
     }
   }
 }
-

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_typography.dart';
-import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
@@ -16,6 +15,7 @@ import '../../../payments/presentation/widgets/payments_table.dart';
 import '../../../payments/presentation/widgets/smooth_animated_list_item.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../../profile/domain/user_profile.dart';
+import '../../../settings/domain/fx_display_preferences.dart';
 import '../../data/dashboard_repository_impl.dart';
 import '../../domain/dashboard_models.dart';
 import '../widgets/customer_score_card.dart';
@@ -1131,65 +1131,75 @@ class _DashboardPageState extends State<DashboardPage> {
       BuildContext context, FinancialSummary summary) {
     final colors = AppColors.of(context);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 850;
+    return AnimatedBuilder(
+      animation: Listenable.merge([
+        FxDisplayPreferences.stealthModeNotifier,
+        FxDisplayPreferences.compactFormatNotifier,
+      ]),
+      builder: (context, _) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 850;
 
-        final card1 = FinancialStatCard(
-          title: 'PKR RECEIVED',
-          value: AppFormatters.formatPkr(summary.pkrReceived),
-          subtext: '${summary.paymentsCompleted} payments completed',
-          description:
-              'Net PKR deposited to your bank account from completed transactions.',
-          iconBg: colors.aquaLight,
-          icon: Icon(Icons.account_balance_wallet_outlined,
-              color: colors.mintHeroText, size: 18),
-        );
+            final card1 = FinancialStatCard(
+              title: 'PKR RECEIVED',
+              value: FxDisplayPreferences.formatVolumePkr(summary.pkrReceived),
+              subtext: '${summary.paymentsCompleted} payments completed',
+              description:
+                  'Net PKR deposited to your bank account from completed transactions.',
+              iconBg: colors.aquaLight,
+              icon: Icon(Icons.account_balance_wallet_outlined,
+                  color: colors.mintHeroText, size: 18),
+            );
 
-        final card2 = FinancialStatCard(
-          title: 'TOTAL TRANSFERRED TO YOU',
-          value: AppFormatters.formatPkr(summary.totalTransferred),
-          subtext: 'Lifetime PKR',
-          description:
-              "Everything we've sent to your bank account since joining PaidiX.",
-          iconBg: colors.cardDark,
-          icon: Icon(Icons.send_rounded, color: colors.aquaLight, size: 18),
-        );
+            final card2 = FinancialStatCard(
+              title: 'TOTAL TRANSFERRED TO YOU',
+              value: FxDisplayPreferences.formatVolumePkr(summary.totalTransferred),
+              subtext: 'Lifetime PKR',
+              description:
+                  "Everything we've sent to your bank account since joining PaidiX.",
+              iconBg: colors.cardDark,
+              icon: Icon(Icons.send_rounded, color: colors.aquaLight, size: 18),
+            );
 
-        final card3 = FinancialStatCard(
-          title: 'AWAITING VERIFICATION',
-          value: summary.awaitingVerificationAmount != null
-              ? AppFormatters.formatPkr(summary.awaitingVerificationAmount)
-              : '—',
-          subtext: '${summary.awaitingVerificationCount} payments in progress',
-          description:
-              'Payments still being processed. Foreign-currency amounts are shown below.',
-          iconBg: colors.gold,
-          icon: Icon(Icons.access_time_rounded,
-              color: colors.mintHeroText, size: 18),
-        );
+            final card3 = FinancialStatCard(
+              title: 'AWAITING VERIFICATION',
+              value: summary.awaitingVerificationAmount != null
+                  ? FxDisplayPreferences.formatVolumePkr(
+                      summary.awaitingVerificationAmount)
+                  : '—',
+              subtext:
+                  '${summary.awaitingVerificationCount} payments in progress',
+              description:
+                  'Payments still being processed. Foreign-currency amounts are shown below.',
+              iconBg: colors.gold,
+              icon: Icon(Icons.access_time_rounded,
+                  color: colors.mintHeroText, size: 18),
+            );
 
-        if (isWide) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: card1),
-              const SizedBox(width: 14),
-              Expanded(child: card2),
-              const SizedBox(width: 14),
-              Expanded(child: card3),
-            ],
-          );
-        }
+            if (isWide) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: card1),
+                  const SizedBox(width: 14),
+                  Expanded(child: card2),
+                  const SizedBox(width: 14),
+                  Expanded(child: card3),
+                ],
+              );
+            }
 
-        return Column(
-          children: [
-            card1,
-            const SizedBox(height: 14),
-            card2,
-            const SizedBox(height: 14),
-            card3,
-          ],
+            return Column(
+              children: [
+                card1,
+                const SizedBox(height: 14),
+                card2,
+                const SizedBox(height: 14),
+                card3,
+              ],
+            );
+          },
         );
       },
     );

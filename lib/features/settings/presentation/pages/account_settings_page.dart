@@ -2953,7 +2953,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
           const SizedBox(height: 16),
 
-          // Live FX Rates & Net Payout Calculator Studio
+          // Financial Display & Privacy Preferences Studio
           _SettingsCard(
             colors: c,
             child: FxConverterStudio(
