@@ -637,17 +637,39 @@ class _DashboardPageState extends State<DashboardPage> {
     String statusLabel = 'Filtered';
     Color chipColor = colors.aqua;
 
-    if (_selectedStatus == StatusFilterOption.underReview ||
-        _selectedStatus == StatusFilterOption.pendingReview) {
-      statusLabel = 'Pending Review';
-      chipColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
-    } else if (_selectedStatus == StatusFilterOption.pkrSent ||
-        _selectedStatus == StatusFilterOption.awaitingPkr) {
-      statusLabel = 'Awaiting PKR';
-      chipColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
-    } else if (_selectedStatus == StatusFilterOption.completed) {
-      statusLabel = 'Completed';
-      chipColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+    switch (_selectedStatus) {
+      case StatusFilterOption.submitted:
+        statusLabel = 'Submitted';
+        chipColor = const Color(0xFF38BDF8);
+        break;
+      case StatusFilterOption.underReview:
+        statusLabel = 'Pending Review';
+        chipColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+        break;
+      case StatusFilterOption.verified:
+        statusLabel = 'Verified';
+        chipColor = colors.aqua;
+        break;
+      case StatusFilterOption.pkrSent:
+        statusLabel = 'Awaiting PKR';
+        chipColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+        break;
+      case StatusFilterOption.completed:
+        statusLabel = 'Completed';
+        chipColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
+        break;
+      case StatusFilterOption.onHold:
+        statusLabel = 'On Hold';
+        chipColor = isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C);
+        break;
+      case StatusFilterOption.rejected:
+        statusLabel = 'Rejected';
+        chipColor = colors.statusErrorDot;
+        break;
+      case StatusFilterOption.all:
+        statusLabel = 'All';
+        chipColor = colors.aqua;
+        break;
     }
 
     return Container(

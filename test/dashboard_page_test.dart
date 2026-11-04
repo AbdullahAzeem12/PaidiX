@@ -274,7 +274,7 @@ void main() {
 
     // 1. Initial State: Counts for converted mock data
     expect(find.text('TRANSACTIONS'), findsOneWidget);
-    expect(find.text('24'), findsWidgets); // Transactions count & customer score
+    expect(find.text('32'), findsWidgets); // Transactions count & customer score
     expect(find.text('PENDING REVIEW'), findsOneWidget);
     expect(find.text('3'), findsWidgets); // Pending Review count & Awaiting PKR count
     expect(find.text('AWAITING PKR'), findsOneWidget);
@@ -345,5 +345,89 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Showing Pending Review payments (3)'), findsNothing);
     expect(find.text('PBX-2026-001332'), findsOneWidget);
+  });
+  testWidgets(
+      'Dashboard filters dropdown supports all statuses (On Hold, Submitted, Verified, Rejected) with active banner and matching lists',
+      (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(800, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final repo = PaymentsRepositoryImpl(seedMockData: true);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.darkTheme,
+        home: DashboardPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Expand FILTERS bar
+    await tester.tap(find.text('FILTERS'));
+    await tester.pumpAndSettle();
+
+    // 2. Tap Status dropdown
+    await tester.tap(find.text('Status: '));
+    await tester.pumpAndSettle();
+
+    // Verify all 8 statuses are available in the dropdown
+    expect(find.text('All statuses'), findsWidgets);
+    expect(find.text('Submitted'), findsOneWidget);
+    expect(find.text('Under Review'), findsOneWidget);
+    expect(find.text('Verified'), findsOneWidget);
+    expect(find.text('PKR Sent'), findsOneWidget);
+    expect(find.text('Completed'), findsWidgets);
+    expect(find.text('On Hold'), findsOneWidget);
+    expect(find.text('Rejected'), findsOneWidget);
+
+    // 3. Select 'On Hold' (matching user screenshot)
+    await tester.tap(find.text('On Hold'));
+    await tester.pumpAndSettle();
+
+    // Active status filter banner appears with On Hold
+    expect(find.text('Showing On Hold payments (2)'), findsOneWidget);
+    // Recent activity list displays the On Hold mock payments
+    expect(find.text('PBX-2026-001305'), findsOneWidget); // Blue Star Transport ($260)
+    expect(find.text('PBX-2026-001304'), findsOneWidget); // Direct Route Logistics ($175)
+    expect(find.text('PBX-2026-001332'), findsNothing); // Completed not shown
+
+    // 4. Select 'Submitted'
+    await tester.tap(find.text('Status: '));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Submitted'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing Submitted payments (2)'), findsOneWidget);
+    expect(find.text('PBX-2026-001309'), findsOneWidget); // Atlas Freight Solutions ($210)
+    expect(find.text('PBX-2026-001308'), findsOneWidget); // Pinnacle Transport Inc ($180)
+
+    // 5. Select 'Verified'
+    await tester.tap(find.text('Status: '));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Verified'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing Verified payments (2)'), findsOneWidget);
+    expect(find.text('PBX-2026-001307'), findsOneWidget); // Silverline Logistics LLC ($340)
+    expect(find.text('PBX-2026-001306'), findsOneWidget); // Crest Hauling Corp ($125)
+
+    // 6. Select 'Rejected'
+    await tester.tap(find.text('Status: '));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rejected'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing Rejected payments (2)'), findsOneWidget);
+    expect(find.text('PBX-2026-001303'), findsOneWidget); // Continental Express ($380)
+    expect(find.text('PBX-2026-001302'), findsOneWidget); // Vanguard Freight ($295)
+
+    // 7. Clear filter via header Reset button
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Showing Rejected payments (2)'), findsNothing);
+    expect(find.text('PBX-2026-001332'), findsOneWidget); // All recent payments restored
   });
 }

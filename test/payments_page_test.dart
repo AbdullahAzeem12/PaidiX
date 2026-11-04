@@ -330,7 +330,7 @@ void main() {
       (WidgetTester tester) async {
     final repo = PaymentsRepositoryImpl(seedMockData: true);
 
-    expect(repo.payments.length, equals(24));
+    expect(repo.payments.length, equals(32));
     expect(repo.payments[0].reference, equals('PBX-2026-001332'));
     expect(repo.payments[0].sender, equals('Ward Trucking Atlanta Llc'));
     expect(repo.payments[1].reference, equals('PBX-2026-001331'));
@@ -352,7 +352,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify initial pagination state
-    expect(find.text('Showing 1–20 of 24'), findsOneWidget);
+    expect(find.text('Showing 1–20 of 32'), findsOneWidget);
     expect(find.text('Rows: '), findsOneWidget);
     expect(find.text('10'), findsOneWidget);
     expect(find.text('20'), findsOneWidget);
@@ -364,22 +364,22 @@ void main() {
     // 2. Change rows to 10
     await tester.tap(find.text('10'));
     await tester.pumpAndSettle();
-    expect(find.text('Showing 1–10 of 24'), findsOneWidget);
+    expect(find.text('Showing 1–10 of 32'), findsOneWidget);
 
     // 3. Navigate forward to Page 2
     await tester.tap(find.text('Next >'));
     await tester.pumpAndSettle();
-    expect(find.text('Showing 11–20 of 24'), findsOneWidget);
+    expect(find.text('Showing 11–20 of 32'), findsOneWidget);
 
     // 4. Navigate to last page via double arrow
     await tester.tap(find.text('»'));
     await tester.pumpAndSettle();
-    expect(find.text('Showing 21–24 of 24'), findsOneWidget);
+    expect(find.text('Showing 31–32 of 32'), findsOneWidget);
 
     // 5. Navigate to first page via double arrow
     await tester.tap(find.text('«'));
     await tester.pumpAndSettle();
-    expect(find.text('Showing 1–10 of 24'), findsOneWidget);
+    expect(find.text('Showing 1–10 of 32'), findsOneWidget);
 
     // 6. Tap Custom chip to open custom rows dialog
     await tester.tap(find.text('Custom'));
@@ -389,7 +389,7 @@ void main() {
     // Tap quick preset '5' in dialog
     await tester.tap(find.text('5'));
     await tester.pumpAndSettle();
-    expect(find.text('Showing 1–5 of 24'), findsOneWidget);
+    expect(find.text('Showing 1–5 of 32'), findsOneWidget);
 
     // 7. Mobile Viewport (360x800) with animated recycler list
     tester.view.physicalSize = const Size(360, 800);
@@ -402,7 +402,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('PBX-2026-001332'), findsOneWidget);
-    expect(find.text('Showing 1–5 of 24'), findsOneWidget);
+    expect(find.text('Showing 1–5 of 32'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
