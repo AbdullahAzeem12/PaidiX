@@ -10,6 +10,7 @@ import 'package:paidix/features/kyc/presentation/widgets/kyc_file_picker_tile.da
 import 'package:paidix/features/kyc/presentation/widgets/kyc_header.dart';
 import 'package:paidix/features/kyc/presentation/widgets/kyc_permission_dialog.dart';
 import 'package:paidix/features/kyc/presentation/widgets/kyc_stepper.dart';
+import 'package:paidix/features/kyc/presentation/widgets/kyc_success_dialog.dart';
 
 void main() {
   group('CNIC Utilities & Realtime Validation', () {
@@ -484,6 +485,33 @@ void main() {
       final phoneWidget = tester.widget<TextField>(find.byType(TextField).at(1));
       expect(phoneWidget.controller?.text, equals('(336) 306-0546'));
       expect(find.text('Valid United States Phone Number'), findsOneWidget);
+    });
+    testWidgets('KycSuccessDialog renders concise square layout with animated checkmark and spongy dashboard button', (tester) async {
+      tester.view.physicalSize = const Size(360, 640);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () => KycSuccessDialog.show(context),
+              child: const Text('Show Kyc Dialog'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show Kyc Dialog'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Account Setup Complete!'), findsOneWidget);
+      expect(find.text('Your identity & bank details have been securely submitted.'), findsOneWidget);
+      expect(find.text('Submitted & Under Review'), findsOneWidget);
+      expect(find.text('Go to Dashboard'), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }
