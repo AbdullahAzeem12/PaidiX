@@ -96,8 +96,6 @@ class _AppShellState extends State<AppShell> {
                   showTagline: false,
                 ),
                 actions: [
-                  _buildThemeToggleButton(isSidebar: false),
-                  const SizedBox(width: 4),
                   InkWell(
                     borderRadius: BorderRadius.circular(16),
                     onTap: () => ProfileMenuDialog.show(

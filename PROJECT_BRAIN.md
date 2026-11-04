@@ -17,7 +17,7 @@ When you change behavior, **update this file in the same change** (routes, formu
 1. Answer from this brain. Open source files only for the files you will edit.
 2. Flutter app root is **`PaidiX/`** (nested). Workspace root is the parent folder that also contains `.agents/` and `.idea/`.
 3. Ignore generated trees: `build/`, `.dart_tool/`, `android/.gradle/`, `*/ephemeral/`.
-4. Default theme is **light** (with toggle in header and Appearance settings). Sidebar chrome is **never inverted** (`AppColors.sidebar*`).
+4. Default theme is **light** (with toggle in profile menu dialog and Appearance settings). Sidebar chrome is **never inverted** (`AppColors.sidebar*`).
 5. Prefer `AppColors.of(context)` in widgets; static `AppColors.*` getters follow `themeModeNotifier` (default `ThemeMode.light`).
 6. Empty money values render as **`—`** (`AppFormatters`). Do not invent demo transactions.
 7. After UI/logic changes: `flutter test` from `PaidiX/`. Theme token tests live in `test/theme_test.dart`.
@@ -354,7 +354,8 @@ Typography: heavy headings (w800/w900), tabular-looking stats, uppercase eyebrow
 
 | File | Role |
 | :--- | :--- |
-| `app_shell.dart` | Responsive chrome + theme toggle |
+| `app_shell.dart` | Responsive chrome (brand logo + profile avatar) |
+| `profile_menu_dialog.dart` | Compact profile dialog with user info, Account Settings, Theme Changer toggle, and Logout |
 | `paidi_x_bottom_nav_bar.dart` | Custom bottom nav (not `NavigationBar`) |
 | `brand_logo.dart` | PX mark (P white, X gold) + “PaidiX” + tagline |
 | `app_button.dart` | Variants: primary, secondary, outline, text, success |
@@ -539,3 +540,4 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - Customer Score Card Star Animation: Eye-catching continuous yellow blinking and breathing animation (scale 0.88-1.25x, opacity 0.55-1.0, amber-to-radiant-gold ColorTween #F59E0B -> #FFE600, with glowing radial box-shadow halo).
 - Customer Score Card Layout & Spacing: Generous 10px vertical gap separating COMPLETED, RATE, and VOLUME labels from their values, with uppercase letter-spaced headings, bold 16.5px numeric values, and 10px column spacing with left-aligned FittedBox scale-down safeguards.
 - Filters Bar Header Reset: 'Bitnex week' removed completely from filter bars. 'Reset' option moved into its header position beside the toggle chevron across both Dashboard and Payments pages, with illuminated active styling and spongy one-tap reset logic restoring all applied filters (Range, Currency, Status, From, To) to defaults in real time.
+- Theme Changer: Relocated from mobile top bar to profile popup dialog (`ProfileMenuDialog`), featuring an animated rotating sun/moon icon, live 'Dark Mode' / 'Light Mode' label, animated pill switch, and smooth 350ms global theme transition with `Curves.easeInOutCubic` across `MaterialApp.router`.

@@ -85,5 +85,64 @@ void main() {
     expect(navigatedToSignIn, isTrue);
     expect(find.text('Sign In Page'), findsOneWidget);
   });
-}
 
+  testWidgets('ProfileMenuDialog contains theme changer option and toggles theme smoothly',
+      (WidgetTester tester) async {
+    final profile = UserProfile(
+      fullName: 'Hassan Azeem',
+      email: 'hassnazeem560@gmail.com',
+      phoneNumber: '+923001234567',
+      cnicNumber: '35202-0450461-5',
+      city: 'Lahore',
+      address: 'Canalberg',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    AppTheme.setThemeMode(ThemeMode.light);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        home: Scaffold(
+          body: Builder(
+            builder: (ctx) => ElevatedButton(
+              onPressed: () {
+                ProfileMenuDialog.show(
+                  context: ctx,
+                  userProfile: profile,
+                  isMobile: true,
+                );
+              },
+              child: const Text('Open Profile Menu'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Open Profile Menu'));
+    await tester.pumpAndSettle();
+
+    // Verify Dark Mode tile is displayed initially under light theme
+    expect(find.text('Dark Mode'), findsOneWidget);
+    expect(find.byIcon(Icons.dark_mode_rounded), findsOneWidget);
+
+    // Tap theme toggle option
+    await tester.tap(find.text('Dark Mode'));
+    await tester.pumpAndSettle();
+
+    // Verify theme changed to dark mode and tile displays Light Mode option
+    expect(AppTheme.currentThemeMode, ThemeMode.dark);
+    expect(find.text('Light Mode'), findsOneWidget);
+    expect(find.byIcon(Icons.light_mode_rounded), findsOneWidget);
+
+    // Toggle back to light mode
+    await tester.tap(find.text('Light Mode'));
+    await tester.pumpAndSettle();
+    expect(AppTheme.currentThemeMode, ThemeMode.light);
+    expect(find.text('Dark Mode'), findsOneWidget);
+  });
+}

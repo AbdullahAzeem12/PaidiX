@@ -35,6 +35,8 @@ class _PaidiXAppState extends State<PaidiXApp> {
           theme: AppTheme.getLightTheme(font),
           darkTheme: AppTheme.getDarkTheme(font),
           themeMode: themeMode,
+          themeAnimationDuration: const Duration(milliseconds: 350),
+          themeAnimationCurve: Curves.easeInOutCubic,
           routerConfig: appRouter,
           builder: (context, child) {
             final mediaQuery = MediaQuery.of(context);
