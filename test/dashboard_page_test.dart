@@ -84,4 +84,56 @@ void main() {
       expect(find.text('COMPLETED'), findsWidgets);
     }
   });
+
+  testWidgets(
+      'Dashboard Customer Score blinking yellow star and prominent Filters bar with Bitnex week & Currency chips',
+      (WidgetTester tester) async {
+    final repo = PaymentsRepositoryImpl();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme,
+        home: DashboardPage(paymentsRepository: repo),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 1. Verify Star next to Customer Score
+    expect(find.text('CUSTOMER SCORE'), findsOneWidget);
+    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
+
+    // 2. Verify Completed, Rate, Volume labels
+    expect(find.text('COMPLETED'), findsWidgets);
+    expect(find.text('RATE'), findsOneWidget);
+    expect(find.text('VOLUME'), findsOneWidget);
+
+    // 3. Verify prominent Filters bar header
+    expect(find.text('FILTERS'), findsOneWidget);
+    expect(find.byIcon(Icons.filter_list_rounded), findsOneWidget);
+    expect(find.text('Bitnex week'), findsOneWidget);
+
+    // 4. Tap 'Bitnex week' to activate filter and check active count badge
+    await tester.tap(find.text('Bitnex week'));
+    await tester.pumpAndSettle();
+
+    // Active count badge '1' appears
+    expect(find.text('1'), findsOneWidget);
+
+    // 5. Expand Filters bar
+    await tester.tap(find.text('FILTERS'));
+    await tester.pumpAndSettle();
+
+    // Verify chips: Range, Currency, Status, From, — To, and Reset
+    expect(find.text('Currency: '), findsOneWidget);
+    expect(find.text('Status: '), findsOneWidget);
+    expect(find.text('From'), findsOneWidget);
+    expect(find.text('— To'), findsOneWidget);
+    expect(find.text('Reset'), findsOneWidget);
+
+    // 6. Tap Reset to clear filters
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reset'), findsNothing);
+  });
 }

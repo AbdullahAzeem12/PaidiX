@@ -7,6 +7,7 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
+import '../../../../core/widgets/spongy_tap.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../payments/data/payments_repository_impl.dart';
 import '../../../payments/domain/payment_models.dart';
@@ -36,7 +37,9 @@ class _DashboardPageState extends State<DashboardPage> {
   // Filters section is closed by default as per requirement
   bool _isFiltersExpanded = false;
   DateRangeFilter _selectedRange = DateRangeFilter.allTime;
+  CurrencyFilter _selectedCurrency = CurrencyFilter.all;
   StatusFilterOption _selectedStatus = StatusFilterOption.all;
+  bool _isBitnexWeek = false;
   DateTime? _fromDate;
   DateTime? _toDate;
 
@@ -48,7 +51,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   PaymentFilter get _currentFilter => PaymentFilter(
         dateRange: _selectedRange,
+        currency: _selectedCurrency,
         status: _selectedStatus,
+        isBitnexWeek: _isBitnexWeek,
         fromDate: _fromDate,
         toDate: _toDate,
       );
@@ -391,247 +396,426 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Collapsible FILTERS bar (Closed by default, expanding to reveal Range, From/To Calendar pickers, and Status dropdowns)
   Widget _buildFiltersBar(PaidiXColorScheme colors) {
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: colors.card,
-        borderRadius: AppSpacing.radiusLg,
-        border: Border.all(
-          color: colors.border.withValues(alpha: 0.8),
-          width: 1.2,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Filter toggle header (tapping expands/collapses)
-          InkWell(
-            onTap: () => setState(() => _isFiltersExpanded = !_isFiltersExpanded),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final activeCount = _currentFilter.activeFilterCount;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 600;
+        final headerHPad = isMobile ? 12.0 : 16.0;
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: colors.card,
             borderRadius: AppSpacing.radiusLg,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+            border: Border.all(
+              color: colors.border.withValues(alpha: 0.8),
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Filter toggle header (tapping expands/collapses)
+              InkWell(
+                onTap: () => setState(() => _isFiltersExpanded = !_isFiltersExpanded),
+                borderRadius: AppSpacing.radiusLg,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: headerHPad,
+                    vertical: 10.5,
+                  ),
+                  child: Row(
                     children: [
                       Icon(
-                        Icons.tune_rounded,
-                        size: 15,
-                        color: colors.textSecondary,
+                        Icons.filter_list_rounded,
+                        size: isMobile ? 15 : 18,
+                        color: colors.aqua,
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Text(
                         'FILTERS',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: isMobile ? 10.5 : 11,
                           fontWeight: FontWeight.w800,
-                          letterSpacing: 1.2,
+                          letterSpacing: isMobile ? 0.8 : 1.5,
+                          color: colors.textSecondary,
+                        ),
+                      ),
+                      if (activeCount > 0) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: colors.aquaDark,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Text(
+                            '$activeCount',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: colors.aquaLight,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      // Prominent 'Bitnex week' button just beside toggle chevron
+                      _buildBitnexWeekButton(context, colors, isDark, isMobile),
+                      const SizedBox(width: 6),
+                      AnimatedRotation(
+                        turns: _isFiltersExpanded ? 0.5 : 0.0,
+                        duration: const Duration(milliseconds: 250),
+                        curve: Curves.easeInOutCubic,
+                        child: Icon(
+                          Icons.keyboard_arrow_down_rounded,
+                          size: 18,
                           color: colors.textSecondary,
                         ),
                       ),
                     ],
                   ),
-                  AnimatedRotation(
-                    turns: _isFiltersExpanded ? 0.5 : 0.0,
-                    duration: const Duration(milliseconds: 250),
-                    curve: Curves.easeInOutCubic,
-                    child: Icon(
-                      Icons.keyboard_arrow_down_rounded,
-                      size: 18,
-                      color: colors.textSecondary,
-                    ),
+                ),
+              ),
+
+              // Collapsible filter body with smooth size transition
+              AnimatedSize(
+                duration: const Duration(milliseconds: 280),
+                curve: Curves.easeInOutCubic,
+                child: _isFiltersExpanded
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: headerHPad),
+                            child: Divider(
+                              color: colors.divider.withValues(alpha: 0.6),
+                              height: 1,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            physics: const BouncingScrollPhysics(),
+                            padding: EdgeInsets.fromLTRB(headerHPad, 0, headerHPad, 14),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 1. Range Dropdown Chip
+                                _buildFilterChip<DateRangeFilter>(
+                                  context: context,
+                                  value: _selectedRange,
+                                  defaultValue: DateRangeFilter.allTime,
+                                  items: DateRangeFilter.values,
+                                  labelPrefix: 'Range: ',
+                                  displayValue: _isBitnexWeek ? '—' : null,
+                                  isActiveOverride: _isBitnexWeek || _selectedRange != DateRangeFilter.allTime,
+                                  itemLabel: (v) => v.label,
+                                  onChanged: (val) {
+                                    if (val == DateRangeFilter.custom) {
+                                      _pickCustomRange(context, colors);
+                                    } else {
+                                      setState(() {
+                                        _selectedRange = val;
+                                        _isBitnexWeek = false;
+                                        _fromDate = null;
+                                        _toDate = null;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 2. Currency Dropdown Chip (prominent styling matching Picture 2)
+                                _buildFilterChip<CurrencyFilter>(
+                                  context: context,
+                                  value: _selectedCurrency,
+                                  defaultValue: CurrencyFilter.all,
+                                  items: CurrencyFilter.values,
+                                  labelPrefix: 'Currency: ',
+                                  itemLabel: (v) => v.label,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _selectedCurrency = val;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 3. Status Dropdown Chip
+                                _buildFilterChip<StatusFilterOption>(
+                                  context: context,
+                                  value: _selectedStatus,
+                                  defaultValue: StatusFilterOption.all,
+                                  items: StatusFilterOption.values,
+                                  labelPrefix: 'Status: ',
+                                  itemLabel: (v) => v.label,
+                                  onChanged: (val) {
+                                    setState(() {
+                                      _selectedStatus = val;
+                                    });
+                                  },
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 4. From Label + Input with Calendar Icon
+                                _buildDateInput(
+                                  context: context,
+                                  label: 'From',
+                                  date: _fromDate,
+                                  onTap: () => _pickFromDate(context, colors),
+                                  onClear: () {
+                                    setState(() {
+                                      _fromDate = null;
+                                      if (_toDate == null) {
+                                        _selectedRange = DateRangeFilter.allTime;
+                                      }
+                                    });
+                                  },
+                                  colors: colors,
+                                ),
+                                const SizedBox(width: 10),
+
+                                // 5. — To Label + Input with Calendar Icon
+                                _buildDateInput(
+                                  context: context,
+                                  label: '— To',
+                                  date: _toDate,
+                                  onTap: () => _pickToDate(context, colors),
+                                  onClear: () {
+                                    setState(() {
+                                      _toDate = null;
+                                      if (_fromDate == null) {
+                                        _selectedRange = DateRangeFilter.allTime;
+                                      }
+                                    });
+                                  },
+                                  colors: colors,
+                                ),
+
+                                // 6. Reset Chip
+                                if (!_currentFilter.isDefault) ...[
+                                  const SizedBox(width: 10),
+                                  _buildResetChip(context, colors),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBitnexWeekButton(BuildContext context, PaidiXColorScheme colors,
+      bool isDark, bool isMobile) {
+    final isActive = _isBitnexWeek;
+
+    return SpongyTap(
+      onTap: () {
+        setState(() {
+          _isBitnexWeek = !_isBitnexWeek;
+          if (_isBitnexWeek) {
+            _selectedRange = DateRangeFilter.allTime;
+          }
+        });
+      },
+      pressScale: 0.93,
+      borderRadius: AppSpacing.radiusPill,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        padding: EdgeInsets.symmetric(
+          horizontal: isMobile ? 7 : 10,
+          vertical: 3.5,
+        ),
+        decoration: BoxDecoration(
+          color: isActive
+              ? colors.aqua
+              : (isDark ? colors.cardDark : colors.cardHighlight),
+          borderRadius: AppSpacing.radiusPill,
+          border: Border.all(
+            color: isActive ? colors.aqua : colors.borderSubtle,
+            width: 1,
+          ),
+          boxShadow: isActive
+              ? [
+                  BoxShadow(
+                    color: colors.aqua.withValues(alpha: 0.35),
+                    blurRadius: 8,
+                    offset: const Offset(0, 1),
                   ),
-                ],
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isActive) ...[
+              const Icon(
+                Icons.check_rounded,
+                size: 12,
+                color: Color(0xFF022F32),
+              ),
+              const SizedBox(width: 3),
+            ],
+            Text(
+              'Bitnex week',
+              style: TextStyle(
+                fontSize: isMobile ? 10 : 11,
+                fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+                color: isActive
+                    ? const Color(0xFF022F32)
+                    : colors.textSecondary,
+                letterSpacing: 0.2,
               ),
             ),
-          ),
-
-          // Collapsible filter body
-          AnimatedSize(
-            duration: const Duration(milliseconds: 280),
-            curve: Curves.easeInOutCubic,
-            child: _isFiltersExpanded
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Divider(
-                          color: colors.divider.withValues(alpha: 0.6),
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 1. Range Dropdown Button
-                            _buildRangeDropdown(context, colors),
-                            const SizedBox(width: 14),
-
-                            // 2. From Label + Input with Calendar Icon
-                            _buildDateInput(
-                              context: context,
-                              label: 'From',
-                              date: _fromDate,
-                              onTap: () => _pickFromDate(context, colors),
-                              onClear: () {
-                                setState(() {
-                                  _fromDate = null;
-                                  if (_toDate == null) {
-                                    _selectedRange = DateRangeFilter.thisMonth;
-                                  }
-                                });
-                              },
-                              colors: colors,
-                            ),
-                            const SizedBox(width: 14),
-
-                            // 3. — To Label + Input with Calendar Icon
-                            _buildDateInput(
-                              context: context,
-                              label: '— To',
-                              date: _toDate,
-                              onTap: () => _pickToDate(context, colors),
-                              onClear: () {
-                                setState(() {
-                                  _toDate = null;
-                                  if (_fromDate == null) {
-                                    _selectedRange = DateRangeFilter.thisMonth;
-                                  }
-                                });
-                              },
-                              colors: colors,
-                            ),
-                            const SizedBox(width: 14),
-
-                            // 4. Status Dropdown Button
-                            _buildStatusDropdown(context, colors),
-                          ],
-                        ),
-                      ),
-                    ],
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// Range Dropdown button showing Range: selected and opening full 14 options
-  Widget _buildRangeDropdown(BuildContext context, PaidiXColorScheme colors) {
+  Widget _buildFilterChip<T>({
+    required BuildContext context,
+    required T value,
+    required T defaultValue,
+    required List<T> items,
+    required String labelPrefix,
+    required String Function(T) itemLabel,
+    required ValueChanged<T> onChanged,
+    String? displayValue,
+    bool? isActiveOverride,
+  }) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isActive = isActiveOverride ?? (value != defaultValue);
+    final shownValue = displayValue ?? itemLabel(value);
+
     return Theme(
       data: Theme.of(context).copyWith(
         popupMenuTheme: PopupMenuThemeData(
           color: colors.cardDark,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: AppSpacing.radiusMd,
             side: BorderSide(
-              color: colors.border.withValues(alpha: 0.9),
-              width: 1.1,
+              color: colors.aqua.withValues(alpha: 0.35),
+              width: 1.2,
             ),
           ),
           elevation: 10,
+          shadowColor: isDark
+              ? Colors.black.withValues(alpha: 0.6)
+              : const Color(0xFF022F32).withValues(alpha: 0.15),
         ),
       ),
-      child: PopupMenuButton<DateRangeFilter>(
+      child: PopupMenuButton<T>(
+        initialValue: value,
         tooltip: '',
         offset: const Offset(0, 42),
-        color: colors.cardDark,
         elevation: 10,
+        color: colors.cardDark,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppSpacing.radiusMd,
           side: BorderSide(
-            color: colors.border.withValues(alpha: 0.9),
-            width: 1.1,
+            color: colors.aqua.withValues(alpha: 0.35),
+            width: 1.2,
           ),
         ),
-        onSelected: (val) {
-          if (val == DateRangeFilter.custom) {
-            _pickCustomRange(context, colors);
-          } else {
-            setState(() {
-              _selectedRange = val;
-              _fromDate = null;
-              _toDate = null;
-            });
-          }
-        },
+        onSelected: onChanged,
         itemBuilder: (ctx) {
-          return DateRangeFilter.values.map((range) {
-            final isSelected = range == _selectedRange && _fromDate == null && _toDate == null ||
-                (range == DateRangeFilter.custom && (_fromDate != null || _toDate != null));
-            return PopupMenuItem<DateRangeFilter>(
-              value: range,
-              height: 38,
-              padding: EdgeInsets.zero,
-              child: Container(
-                width: double.infinity,
-                height: 38,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                color: isSelected
-                    ? colors.cardHighlight
-                    : Colors.transparent,
-                child: Text(
-                  range.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? colors.aquaLight : colors.textPrimary,
+          return items.map((item) {
+            final isItemActive = item == value;
+            return PopupMenuItem<T>(
+              value: item,
+              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isItemActive
+                        ? Icons.check_circle_rounded
+                        : Icons.circle_outlined,
+                    size: 16,
+                    color: isItemActive
+                        ? colors.aqua
+                        : colors.textMuted.withValues(alpha: 0.4),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Text(
+                    itemLabel(item),
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      fontWeight:
+                          isItemActive ? FontWeight.w700 : FontWeight.w500,
+                      color: isItemActive
+                          ? colors.aquaLight
+                          : colors.textPrimary,
+                    ),
+                  ),
+                ],
               ),
             );
           }).toList();
         },
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: colors.cardDark,
-            borderRadius: BorderRadius.circular(8),
+            color: isActive
+                ? (isDark
+                    ? colors.aquaDark.withValues(alpha: 0.3)
+                    : colors.cardHighlight)
+                : colors.inputFill,
+            borderRadius: AppSpacing.radiusMd,
             border: Border.all(
-              color: colors.border.withValues(alpha: 0.9),
-              width: 1.1,
+              color: isActive
+                  ? colors.aqua
+                  : colors.border.withValues(alpha: 0.9),
+              width: 1.2,
             ),
+            boxShadow: isActive
+                ? [
+                    BoxShadow(
+                      color: colors.aqua.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Range: ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colors.aqua,
-                      ),
-                    ),
-                    TextSpan(
-                      text: _selectedRange.label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                  ],
+              Text(
+                labelPrefix,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colors.textSecondary,
+                ),
+              ),
+              Text(
+                shownValue,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: isActive ? colors.aqua : colors.textPrimary,
                 ),
               ),
               const SizedBox(width: 6),
               Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 16,
-                color: colors.aqua,
+                color: isActive ? colors.aqua : colors.textSecondary,
               ),
             ],
           ),
@@ -640,7 +824,53 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  /// Date picker input displaying From/To [ mm/dd/yyyy ] with interactive calendar
+  Widget _buildResetChip(BuildContext context, PaidiXColorScheme colors) {
+    return SpongyTap(
+      onTap: () {
+        setState(() {
+          _selectedRange = DateRangeFilter.allTime;
+          _selectedCurrency = CurrencyFilter.all;
+          _selectedStatus = StatusFilterOption.all;
+          _isBitnexWeek = false;
+          _fromDate = null;
+          _toDate = null;
+        });
+      },
+      pressScale: 0.94,
+      borderRadius: AppSpacing.radiusMd,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.cardDark,
+          borderRadius: AppSpacing.radiusMd,
+          border: Border.all(
+            color: colors.borderSubtle,
+            width: 1.1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.close_rounded,
+              size: 14,
+              color: colors.textSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              'Reset',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: colors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDateInput({
     required BuildContext context,
     required String label,
@@ -660,26 +890,35 @@ class _DashboardPageState extends State<DashboardPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: FontWeight.w500,
             color: colors.textSecondary,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 7),
         InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: AppSpacing.radiusMd,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
+            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7.5),
             decoration: BoxDecoration(
-              color: colors.cardDark,
-              borderRadius: BorderRadius.circular(8),
+              color: hasDate ? colors.cardHighlight : colors.inputFill,
+              borderRadius: AppSpacing.radiusMd,
               border: Border.all(
                 color: hasDate
-                    ? colors.aqua.withValues(alpha: 0.6)
+                    ? colors.aqua
                     : colors.border.withValues(alpha: 0.9),
-                width: 1.1,
+                width: 1.2,
               ),
+              boxShadow: hasDate
+                  ? [
+                      BoxShadow(
+                        color: colors.aqua.withValues(alpha: 0.12),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -687,15 +926,15 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(
                   dateText,
                   style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: hasDate ? FontWeight.w600 : FontWeight.w400,
+                    fontSize: 12,
+                    fontWeight: hasDate ? FontWeight.w700 : FontWeight.w400,
                     color: hasDate
-                        ? colors.textPrimary
+                        ? colors.aqua
                         : colors.textSecondary.withValues(alpha: 0.7),
                     letterSpacing: hasDate ? 0.3 : 0.8,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 if (hasDate)
                   GestureDetector(
                     onTap: onClear,
@@ -708,7 +947,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 else
                   Icon(
                     Icons.calendar_today_outlined,
-                    size: 15,
+                    size: 14,
                     color: colors.textSecondary,
                   ),
               ],
@@ -716,115 +955,6 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ],
-    );
-  }
-
-  /// Status Dropdown button showing Status: selected and opening 8 statuses
-  Widget _buildStatusDropdown(BuildContext context, PaidiXColorScheme colors) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        popupMenuTheme: PopupMenuThemeData(
-          color: colors.cardDark,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-            side: BorderSide(
-              color: colors.border.withValues(alpha: 0.9),
-              width: 1.1,
-            ),
-          ),
-          elevation: 10,
-        ),
-      ),
-      child: PopupMenuButton<StatusFilterOption>(
-        tooltip: '',
-        offset: const Offset(0, 42),
-        color: colors.cardDark,
-        elevation: 10,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: BorderSide(
-            color: colors.border.withValues(alpha: 0.9),
-            width: 1.1,
-          ),
-        ),
-        onSelected: (val) {
-          setState(() {
-            _selectedStatus = val;
-          });
-        },
-        itemBuilder: (ctx) {
-          return StatusFilterOption.values.map((status) {
-            final isSelected = status == _selectedStatus;
-            return PopupMenuItem<StatusFilterOption>(
-              value: status,
-              height: 38,
-              padding: EdgeInsets.zero,
-              child: Container(
-                width: double.infinity,
-                height: 38,
-                alignment: Alignment.centerLeft,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                color: isSelected
-                    ? colors.cardHighlight
-                    : Colors.transparent,
-                child: Text(
-                  status.label,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight:
-                        isSelected ? FontWeight.w700 : FontWeight.w500,
-                    color: isSelected ? colors.aquaLight : colors.textPrimary,
-                  ),
-                ),
-              ),
-            );
-          }).toList();
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7.5),
-          decoration: BoxDecoration(
-            color: colors.cardDark,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: colors.border.withValues(alpha: 0.9),
-              width: 1.1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: 'Status: ',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: colors.aqua,
-                      ),
-                    ),
-                    TextSpan(
-                      text: _selectedStatus.label,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        color: colors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 6),
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 16,
-                color: colors.aqua,
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
