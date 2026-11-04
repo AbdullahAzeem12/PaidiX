@@ -16,7 +16,7 @@ import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
 import '../../../../features/profile/data/user_profile_repository.dart';
 import '../../../../features/profile/domain/bank_account_item.dart';
 import '../../../../features/profile/domain/user_profile.dart';
-import '../widgets/virtual_card_studio.dart';
+import '../widgets/fx_converter_studio.dart';
 
 // ============================================================
 //  Account Settings Page — PaidiX
@@ -2953,10 +2953,10 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
           ),
           const SizedBox(height: 16),
 
-          // Virtual Card Skins Studio
+          // Live FX Rates & Net Payout Calculator Studio
           _SettingsCard(
             colors: c,
-            child: VirtualCardStudio(
+            child: FxConverterStudio(
               colors: c,
               profile: widget.profile,
               isMobile: widget.isMobile,

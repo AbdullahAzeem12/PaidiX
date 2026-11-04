@@ -8,7 +8,7 @@ import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/settings/presentation/pages/account_settings_page.dart';
-import 'package:paidix/features/settings/domain/virtual_card_skin.dart';
+import 'package:paidix/features/settings/domain/fx_display_preferences.dart';
 
 void main() {
   group('AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite', () {
@@ -66,8 +66,8 @@ void main() {
         expect(find.text('Dark'), findsOneWidget);
         expect(find.text('Light'), findsOneWidget);
         expect(find.text('System'), findsOneWidget);
-        expect(find.text('VIRTUAL CARD STUDIO'), findsOneWidget);
-        expect(find.text('Emerald Obsidian'), findsWidgets);
+        expect(find.text('LIVE FX & PAYOUT ESTIMATOR'), findsOneWidget);
+        expect(find.text('USD'), findsWidgets);
       });
     }
 
@@ -477,13 +477,13 @@ void main() {
       expect(circularRingFinder, findsNothing);
     });
 
-    testWidgets('Appearance Tab: Virtual Card Skins Studio Interactive Selection, Mask Details & Reset',
+    testWidgets('Appearance Tab: Live FX Rates & Net Payout Estimator Studio with Display Privacy Controls',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
-      VirtualCardPreferences.resetToDefault();
+      FxDisplayPreferences.resetToDefault();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -500,58 +500,60 @@ void main() {
       await tester.tap(appearanceTab);
       await tester.pumpAndSettle();
 
-      expect(find.text('VIRTUAL CARD STUDIO'), findsOneWidget);
-      expect(find.text('SELECT FINISH & TEXTURE'), findsOneWidget);
-      expect(find.text('1-LINK'), findsOneWidget);
-      expect(find.text('CARDHOLDER'), findsOneWidget);
+      expect(find.text('LIVE FX & PAYOUT ESTIMATOR'), findsOneWidget);
+      expect(find.text('SELECT SENDING CURRENCY'), findsOneWidget);
+      expect(find.text('TRANSFER AMOUNT'), findsOneWidget);
+      expect(find.text('ESTIMATED NET BANK PAYOUT'), findsOneWidget);
+      expect(find.text('FINANCIAL DISPLAY & PRIVACY'), findsOneWidget);
 
-      // Verify initial masked card number
-      expect(find.text('••••   ••••   ••••   2786'), findsOneWidget);
-      expect(find.text('Reveal Number'), findsOneWidget);
+      // Verify default USD amount & calculation ($500 gross -> $60 fee -> Rs. 122,540.00 net)
+      expect(find.text('Rs. 122,540.00'), findsOneWidget);
 
-      // Tap Reveal Number
-      await tester.tap(find.text('Reveal Number'));
+      // Select EUR currency chip
+      final eurChip = find.widgetWithText(GestureDetector, 'EUR').first;
+      await tester.ensureVisible(eurChip);
       await tester.pumpAndSettle();
-      expect(find.text('4214   8890   1532   2786'), findsOneWidget);
-      expect(find.text('Mask Number'), findsOneWidget);
+      await tester.tap(eurChip);
+      await tester.pumpAndSettle();
+      expect(FxDisplayPreferences.selectedCurrency.code, equals('EUR'));
 
-      // Tap Mask Number to re-mask
-      await tester.tap(find.text('Mask Number'));
+      // Tap preset amount \$1000
+      final preset1000 = find.text('€1000');
+      await tester.ensureVisible(preset1000);
       await tester.pumpAndSettle();
-      expect(find.text('••••   ••••   ••••   2786'), findsOneWidget);
+      await tester.tap(preset1000);
+      await tester.pumpAndSettle();
+      expect(FxDisplayPreferences.calculatorAmount, equals(1000.0));
 
-      // Select 'Prismatic Hologram'
-      final prismaticOption = find.widgetWithText(GestureDetector, 'Prismatic Hologram').first;
-      await tester.ensureVisible(prismaticOption);
+      // Toggle Stealth Privacy Mode
+      final stealthToggle = find.text('Stealth Privacy Mode');
+      await tester.ensureVisible(stealthToggle);
       await tester.pumpAndSettle();
-      await tester.tap(prismaticOption);
+      await tester.tap(stealthToggle);
       await tester.pumpAndSettle();
-      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.prismaticHologram));
+      expect(FxDisplayPreferences.isStealthMode, isTrue);
+      expect(find.text('Stealth Active'), findsOneWidget);
+      expect(find.text('Rs. ••••••••••'), findsOneWidget);
 
-      // Select 'Champagne Gold'
-      final goldOption = find.widgetWithText(GestureDetector, 'Champagne Gold').first;
-      await tester.ensureVisible(goldOption);
+      // Toggle Compact Currency Notation
+      final compactToggle = find.text('Compact Currency Notation');
+      await tester.ensureVisible(compactToggle);
       await tester.pumpAndSettle();
-      await tester.tap(goldOption);
+      await tester.tap(compactToggle);
       await tester.pumpAndSettle();
-      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.champagneGold));
+      expect(FxDisplayPreferences.isCompactFormat, isTrue);
 
-      // Select 'Stealth Carbon'
-      final carbonOption = find.widgetWithText(GestureDetector, 'Stealth Carbon').first;
-      await tester.ensureVisible(carbonOption);
-      await tester.pumpAndSettle();
-      await tester.tap(carbonOption);
-      await tester.pumpAndSettle();
-      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.stealthCarbon));
-
-      // Tap 'Reset card to default'
-      final resetBtn = find.text('Reset card to default');
+      // Tap 'Reset display to defaults'
+      final resetBtn = find.text('Reset display to defaults');
       await tester.ensureVisible(resetBtn);
       await tester.pumpAndSettle();
       await tester.tap(resetBtn);
       await tester.pumpAndSettle();
 
-      expect(VirtualCardPreferences.currentSkin, equals(VirtualCardSkin.emeraldObsidian));
+      expect(FxDisplayPreferences.isStealthMode, isFalse);
+      expect(FxDisplayPreferences.isCompactFormat, isFalse);
+      expect(FxDisplayPreferences.selectedCurrency.code, equals('USD'));
+      expect(FxDisplayPreferences.calculatorAmount, equals(500.0));
       expect(tester.takeException(), isNull);
     });
 
