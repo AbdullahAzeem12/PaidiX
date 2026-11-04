@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Paidix</string>
+	<string>PaidiX</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -43,7 +43,7 @@
 					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
 					<key>UISceneStoryboardFile</key>
 					<string>Main</string>
-				</dict>
+</dict>
 			</array>
 		</dict>
 	</dict>
@@ -66,5 +66,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>PaidiX requires access to your camera to take selfie photos and document pictures for KYC identity verification.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>PaidiX requires access to your photo library to select identity documents, profile photos, and payment receipt screenshots.</string>
 </dict>
 </plist>

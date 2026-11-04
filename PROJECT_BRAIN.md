@@ -485,7 +485,7 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 - No backend, no secure storage, passwords stay in memory of the form only.
 - Auth “success” is a timer.
 - KYC enhancement and CNIC registry are simulated.
-- iOS privacy usage strings missing.
+- iOS privacy usage strings configured in Info.plist (NSCameraUsageDescription & NSPhotoLibraryUsageDescription); automated iOS IPA cloud builds via GitHub Actions (.github/workflows/build_ios.yml).
 - Release APK signed with debug keystore.
 - `CurrencyFilter` unused in `filterPayments`.
 - Dashboard PKR received / transferred stay 0 after completed payments.
