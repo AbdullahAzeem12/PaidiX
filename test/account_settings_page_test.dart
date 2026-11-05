@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/router.dart';
+import 'package:paidix/app/theme/app_colors.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -422,6 +423,44 @@ void main() {
       expect(
         find.text('Profile picture removed. Initial restored.'),
         findsOneWidget,
+      );
+    });
+
+    testWidgets('Profile Picture dialog renders refined light theme styling without dark background artifacts',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(375.0, 900.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      UserProfileRepository.instance.updateProfile(
+        avatarBytes: Uint8List.fromList([10, 20, 30]),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const AccountSettingsPage(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final cameraBadge = find.byIcon(Icons.camera_alt_outlined);
+      await tester.ensureVisible(cameraBadge);
+      await tester.pumpAndSettle();
+      await tester.tap(cameraBadge);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Profile Picture'), findsOneWidget);
+      expect(find.text('Update Profile Picture'), findsOneWidget);
+      expect(find.text('Remove Profile Picture'), findsOneWidget);
+
+      final removeTitle = tester.widget<Text>(find.text('Remove Profile Picture'));
+      expect(removeTitle.style?.color, const Color(0xFFBE123C));
+
+      final updateTitle = tester.widget<Text>(find.text('Update Profile Picture'));
+      expect(
+        updateTitle.style?.color,
+        AppTheme.lightTheme.extension<PaidiXColorsExtension>()?.colors.textPrimary,
       );
     });
 

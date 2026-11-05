@@ -639,6 +639,87 @@ class _ProfileSectionState extends State<_ProfileSection> {
     required VoidCallback onTap,
     bool isDestructive = false,
   }) {
+    final isDark = colors.brightness == Brightness.dark;
+    final Color bgColor;
+    final Color borderColor;
+    final Color iconHaloBg;
+    final Color iconHaloBorder;
+    final Color iconColor;
+    final Color titleColor;
+    final Color subtitleColor;
+    final Color chevronColor;
+    final List<BoxShadow> shadows;
+
+    if (isDestructive) {
+      if (isDark) {
+        bgColor = const Color(0xFF261217);
+        borderColor = colors.ruby.withValues(alpha: 0.45);
+        iconHaloBg = colors.ruby.withValues(alpha: 0.22);
+        iconHaloBorder = colors.ruby.withValues(alpha: 0.45);
+        iconColor = colors.ruby;
+        titleColor = colors.ruby;
+        subtitleColor = colors.textSecondary;
+        chevronColor = colors.ruby.withValues(alpha: 0.80);
+        shadows = [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ];
+      } else {
+        bgColor = const Color(0xFFFFF1F3);
+        borderColor = const Color(0xFFFDA4AF);
+        iconHaloBg = const Color(0xFFFFE4E6);
+        iconHaloBorder = colors.ruby.withValues(alpha: 0.35);
+        iconColor = const Color(0xFFE11D48);
+        titleColor = const Color(0xFFBE123C);
+        subtitleColor = const Color(0xFF881337).withValues(alpha: 0.85);
+        chevronColor = const Color(0xFFE11D48).withValues(alpha: 0.75);
+        shadows = [
+          BoxShadow(
+            color: const Color(0xFFE11D48).withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      }
+    } else {
+      if (isDark) {
+        bgColor = colors.cardDark;
+        borderColor = colors.borderSubtle;
+        iconHaloBg = colors.aqua.withValues(alpha: 0.18);
+        iconHaloBorder = colors.aqua.withValues(alpha: 0.40);
+        iconColor = colors.aqua;
+        titleColor = colors.textPrimary;
+        subtitleColor = colors.textSecondary;
+        chevronColor = colors.textMuted;
+        shadows = [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.28),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ];
+      } else {
+        bgColor = colors.card;
+        borderColor = colors.border.withValues(alpha: 0.95);
+        iconHaloBg = colors.aqua.withValues(alpha: 0.12);
+        iconHaloBorder = colors.aqua.withValues(alpha: 0.30);
+        iconColor = colors.aqua;
+        titleColor = colors.textPrimary;
+        subtitleColor = colors.textSecondary;
+        chevronColor = colors.textMuted;
+        shadows = [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ];
+      }
+    }
+
     return SpongyTap(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -650,21 +731,13 @@ class _ProfileSectionState extends State<_ProfileSection> {
         curve: Curves.easeOutCubic,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isDestructive ? const Color(0xFF261014) : colors.cardDark,
+          color: bgColor,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isDestructive
-                ? const Color(0xFFEF4444).withValues(alpha: 0.6)
-                : colors.border.withValues(alpha: 0.9),
+            color: borderColor,
             width: 1.2,
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.22),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
+          boxShadow: shadows,
         ),
         child: Row(
           children: [
@@ -672,14 +745,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: isDestructive
-                    ? const Color(0xFFEF4444).withValues(alpha: 0.15)
-                    : colors.aqua.withValues(alpha: 0.14),
+                color: iconHaloBg,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isDestructive
-                      ? const Color(0xFFEF4444).withValues(alpha: 0.4)
-                      : colors.aqua.withValues(alpha: 0.35),
+                  color: iconHaloBorder,
                   width: 1.2,
                 ),
               ),
@@ -687,7 +756,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
               child: Icon(
                 icon,
                 size: 22,
-                color: isDestructive ? const Color(0xFFEF4444) : colors.aqua,
+                color: iconColor,
               ),
             ),
             const SizedBox(width: 14),
@@ -701,9 +770,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: isDestructive
-                          ? const Color(0xFFEF4444)
-                          : colors.textPrimary,
+                      color: titleColor,
                       letterSpacing: -0.2,
                     ),
                   ),
@@ -712,9 +779,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDestructive
-                          ? colors.textMuted
-                          : colors.textSecondary,
+                      color: subtitleColor,
                     ),
                   ),
                 ],
@@ -723,9 +788,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
             Icon(
               Icons.arrow_forward_ios_rounded,
               size: 13,
-              color: isDestructive
-                  ? const Color(0xFFEF4444).withValues(alpha: 0.6)
-                  : colors.textMuted,
+              color: chevronColor,
             ),
           ],
         ),
@@ -735,30 +798,51 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
   void _showAvatarOptionsDialog(UserProfile p) {
     final c = widget.colors;
+    final isDark = c.brightness == Brightness.dark;
     showDialog(
       context: context,
+      barrierColor: Colors.black.withValues(alpha: isDark ? 0.70 : 0.45),
       builder: (ctx) => AlertDialog(
         backgroundColor: c.card,
+        surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: c.border.withValues(alpha: 0.9), width: 1.2),
+          borderRadius: BorderRadius.circular(22),
+          side: BorderSide(
+            color: isDark
+                ? c.border.withValues(alpha: 0.7)
+                : c.border.withValues(alpha: 0.9),
+            width: 1.2,
+          ),
         ),
+        titlePadding: const EdgeInsets.fromLTRB(22, 22, 22, 8),
+        contentPadding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+        actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                color: c.aqua.withValues(alpha: 0.15),
+                color: isDark
+                    ? c.aqua.withValues(alpha: 0.18)
+                    : c.aqua.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
+                border: Border.all(
+                  color: c.aqua.withValues(alpha: isDark ? 0.35 : 0.25),
+                  width: 1.2,
+                ),
               ),
-              child: Icon(Icons.account_circle_outlined, size: 22, color: c.aqua),
+              child: Icon(
+                Icons.account_circle_outlined,
+                size: 22,
+                color: isDark ? c.aqua : c.aquaDark,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Text(
                 'Profile Picture',
                 style: TextStyle(
-                  fontSize: 17.5,
+                  fontSize: 18,
                   fontWeight: FontWeight.w800,
                   color: c.textPrimary,
                   letterSpacing: -0.3,
@@ -808,12 +892,19 @@ class _ProfileSectionState extends State<_ProfileSection> {
         ),
         actions: [
           TextButton(
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
             onPressed: () => Navigator.of(ctx).pop(),
             child: Text(
               'Cancel',
               style: TextStyle(
                 color: c.textSecondary,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
               ),
             ),
           ),
