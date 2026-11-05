@@ -8,6 +8,7 @@ import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_theme.dart';
 import '../../features/profile/data/user_profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
+import '../services/session_timeout_service.dart';
 import 'brand_logo.dart';
 import 'paidi_x_bottom_nav_bar.dart';
 import 'profile_menu_dialog.dart';
@@ -28,6 +29,26 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   bool _isSidebarCollapsed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    SessionTimeoutService.instance.startSession(context);
+  }
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.currentPath != oldWidget.currentPath) {
+      SessionTimeoutService.instance.recordUserActivity();
+    }
+  }
+
+  @override
+  void dispose() {
+    SessionTimeoutService.instance.stopSession();
+    super.dispose();
+  }
 
   int _calculateSelectedIndex() {
     final p = widget.currentPath;
@@ -58,7 +79,17 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return ValueListenableBuilder<UserProfile>(
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => SessionTimeoutService.instance.recordUserActivity(),
+      onPointerMove: (_) => SessionTimeoutService.instance.recordUserActivity(),
+      onPointerHover: (_) => SessionTimeoutService.instance.recordUserActivity(),
+      child: Focus(
+        onKeyEvent: (node, event) {
+          SessionTimeoutService.instance.recordUserActivity();
+          return KeyEventResult.ignored;
+        },
+        child: ValueListenableBuilder<UserProfile>(
       valueListenable: UserProfileRepository.instance.profileNotifier,
       builder: (context, userProfile, _) {
         return LayoutBuilder(
@@ -146,7 +177,9 @@ class _AppShellState extends State<AppShell> {
           },
         );
       },
-    );
+    ),
+  ),
+);
   }
 
   Widget _buildThemeToggleButton({bool isCompact = false, bool isSidebar = false}) {

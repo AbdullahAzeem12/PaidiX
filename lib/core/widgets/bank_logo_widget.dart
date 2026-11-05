@@ -20,8 +20,7 @@ class BankLogoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBank =
-        bank ?? findPakistaniBank(bankName ?? 'JazzCash');
+    final effectiveBank = bank ?? findPakistaniBank(bankName ?? 'JazzCash');
     final isWallet = effectiveBank.category == BankCategory.fintech ||
         effectiveBank.category == BankCategory.microfinance;
 

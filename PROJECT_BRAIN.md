@@ -211,6 +211,7 @@ Defined in `lib/app/router.dart`. Transitions: fade (most), slide+fade for `/app
 - Sign in: if email contains `admin` or `verified`, or account has completed KYC (`hasCompletedKyc == true`) → `/app/dashboard`; else unverified new user → `/kyc`
 - Forgot password: dialog only (“instructions will be sent”)
 - Sign-up SMS consent is a checkbox; phone is optional
+- **Active Session Inactivity Timeout (5 Minutes Idle Security):** Monitored automatically via `SessionTimeoutService.instance` and transparent `Listener` + `Focus` hooks in `AppShell`. Every pointer touch, scroll, drag, gesture, keystroke, and tab switch resets the 5-minute timer. If the user leaves the application idle with 0 interaction for 5 continuous minutes while in an authenticated session, the active session locks and displays `SessionTimeoutDialog` (non-dismissible modal with `PopScope(canPop: false)`, illuminated gold timer halo, eyebrow badge `SESSION EXPIRED • 5 MIN INACTIVITY`, and financial reassurance copy). Tapping **"Log In Again"** executes immediate logout, clears local repository states, navigates cleanly to `/signin`, and displays a top PaidiX warning notification (`Session expired due to 5 minutes of inactivity. Please sign in again.`).
 
 **KYC:**
 

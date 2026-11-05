@@ -15,8 +15,12 @@ import '../features/settings/presentation/pages/account_settings_page.dart';
 // Shared instance of the Payments repository for state synchronization with pre-seeded mock data
 final sharedPaymentsRepository = PaymentsRepositoryImpl(seedMockData: true);
 
+/// Root navigator key for modal overlays, global toasts, and security timeout dialogs
+final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'rootNavigator');
+
 GoRouter createAppRouter({String initialLocation = '/signin'}) {
   return GoRouter(
+    navigatorKey: rootNavigatorKey,
     initialLocation: initialLocation,
     routes: [
       GoRoute(
