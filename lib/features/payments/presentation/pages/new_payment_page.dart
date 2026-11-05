@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/info_banner.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/selectable_tile.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
@@ -190,24 +191,17 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   Future<void> _handleSubmit() async {
     // Validate method
     if (_selectedMethodId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select a payment method.'),
-          backgroundColor: AppColors.of(context).borderError,
-        ),
-      );
+      PaidiXToast.showWarning(context, 'Please select a payment method.');
       return;
     }
 
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      PaidiXToast.showWarning(context, 'Please verify all payment details.');
+      return;
+    }
 
     if (_selectedDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please select the transaction date.'),
-          backgroundColor: AppColors.of(context).borderError,
-        ),
-      );
+      PaidiXToast.showWarning(context, 'Please select the transaction date.');
       return;
     }
 
@@ -248,44 +242,19 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle_outline,
-                  color: Colors.white, size: 18),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Payment ${created.reference} submitted successfully!',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF0E7C7B),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
+      PaidiXToast.showSuccess(
+        context,
+        'Payment ${created.reference} submitted successfully!',
       );
 
       context.go('/app/payments');
     } catch (e) {
       if (!mounted) return;
       setState(() => _isSubmitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Submission failed: $e'),
-          backgroundColor: AppColors.borderError,
-        ),
+      PaidiXToast.showServerError(
+        context,
+        message: 'Payment submission failed: $e',
+        onRetry: () => _handleSubmit(),
       );
     }
   }

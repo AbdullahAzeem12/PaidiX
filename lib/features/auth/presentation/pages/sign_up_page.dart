@@ -10,6 +10,7 @@ import '../../../../core/utils/phone_formatter.dart';
 import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/auth_primary_button.dart';
 import '../../../../core/widgets/auth_text_field.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../domain/auth_validators.dart';
@@ -68,7 +69,18 @@ class _SignUpPageState extends State<SignUpPage>
   }
 
   Future<void> _handleSignUp() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      PaidiXToast.showWarning(context, 'Please complete all required fields.');
+      return;
+    }
+
+    if (!_smsConsentChecked) {
+      PaidiXToast.showWarning(
+        context,
+        'Please check the box to agree to SMS notifications and terms.',
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     // Real integration endpoint boundary
@@ -99,6 +111,11 @@ class _SignUpPageState extends State<SignUpPage>
       email: _emailController.text.trim(),
       phoneNumber: formattedPhone,
       smsConsent: _smsConsentChecked,
+    );
+
+    PaidiXToast.showSuccess(
+      context,
+      'Account created successfully! Proceeding to KYC verification.',
     );
 
     // Newly registered accounts proceed to regulatory KYC verification

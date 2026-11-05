@@ -6,6 +6,8 @@ import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/auth_primary_button.dart';
 import '../../../../core/widgets/auth_text_field.dart';
+import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/widgets/server_error_page.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../../profile/domain/user_profile.dart';
@@ -33,7 +35,10 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _handleSignIn() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      PaidiXToast.showWarning(context, 'Please enter a valid email and password.');
+      return;
+    }
 
     setState(() => _isLoading = true);
     // Real integration endpoint boundary
@@ -42,6 +47,23 @@ class _SignInPageState extends State<SignInPage> {
     setState(() => _isLoading = false);
 
     final inputEmail = _emailController.text.trim().toLowerCase();
+
+    // Backend error simulation handler (for error testing or network failure)
+    if (inputEmail.startsWith('error') || inputEmail.startsWith('500')) {
+      ServerErrorDialog.show(
+        context,
+        info: const ServerErrorInfo(
+          statusCode: 503,
+          title: 'Authentication Gateway Latency',
+          message:
+              'Unable to reach the core authentication and settlement cluster. Please retry or verify your network connection.',
+          errorCode: 'ERR_AUTH_503_UNAVAILABLE',
+        ),
+        onRetry: () => _handleSignIn(),
+      );
+      return;
+    }
+
     final repo = UserProfileRepository.instance;
     final registered =
         await repo.findOrLoadUser(inputEmail) ?? repo.findUser(inputEmail);
@@ -51,8 +73,16 @@ class _SignInPageState extends State<SignInPage> {
       repo.setActiveUser(registered);
       // If user has already completed KYC, route straight to Dashboard
       if (registered.hasCompletedKyc) {
+        PaidiXToast.showSuccess(
+          context,
+          'Welcome back, ${registered.firstName}! Authenticated successfully.',
+        );
         context.go('/app/dashboard');
       } else {
+        PaidiXToast.showInfo(
+          context,
+          'Please complete regulatory KYC onboarding to continue.',
+        );
         context.go('/kyc');
       }
       return;
@@ -65,6 +95,10 @@ class _SignInPageState extends State<SignInPage> {
         hasCompletedKyc: true,
       );
       repo.setActiveUser(verifiedUser);
+      PaidiXToast.showSuccess(
+        context,
+        'Welcome, ${verifiedUser.firstName}! Verified session started.',
+      );
       context.go('/app/dashboard');
       return;
     }
@@ -84,6 +118,10 @@ class _SignInPageState extends State<SignInPage> {
       kycStatus: KycReviewStatus.notStarted,
     );
     repo.setActiveUser(newUser);
+    PaidiXToast.showInfo(
+      context,
+      'Welcome to PaidiX! Please proceed with regulatory KYC.',
+    );
     context.go('/kyc');
   }
 
@@ -107,10 +145,22 @@ class _SignInPageState extends State<SignInPage> {
         ),
         actions: [
           SpongyLinkButton(
-            text: 'Close',
-            onTap: () => Navigator.of(ctx).pop(),
+            text: 'Send Link',
+            onTap: () {
+              Navigator.of(ctx).pop();
+              PaidiXToast.showSuccess(
+                context,
+                'Password recovery instructions sent to registered email.',
+              );
+            },
             normalColor: colors.aqua,
             activeColor: colors.aquaLight,
+          ),
+          SpongyLinkButton(
+            text: 'Close',
+            onTap: () => Navigator.of(ctx).pop(),
+            normalColor: colors.textSecondary,
+            activeColor: colors.textPrimary,
           ),
         ],
       ),

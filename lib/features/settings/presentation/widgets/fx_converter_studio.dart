@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/domain/user_profile.dart';
 import '../../domain/fx_display_preferences.dart';
@@ -94,7 +95,15 @@ class FxConverterStudio extends StatelessWidget {
                   title: 'Stealth Privacy Mode',
                   subtitle: 'Hide balance totals on Dashboard until tapped.',
                   value: isStealth,
-                  onToggle: () => FxDisplayPreferences.toggleStealthMode(),
+                  onToggle: () {
+                    FxDisplayPreferences.toggleStealthMode();
+                    PaidiXToast.showInfo(
+                      context,
+                      !isStealth
+                          ? 'Stealth Privacy Mode enabled.'
+                          : 'Stealth Privacy Mode disabled.',
+                    );
+                  },
                 ),
                 const SizedBox(height: 10),
 
@@ -106,7 +115,15 @@ class FxConverterStudio extends StatelessWidget {
                   subtitle:
                       'Display amounts as Rs. 1.17M instead of full precision.',
                   value: isCompact,
-                  onToggle: () => FxDisplayPreferences.toggleCompactFormat(),
+                  onToggle: () {
+                    FxDisplayPreferences.toggleCompactFormat();
+                    PaidiXToast.showInfo(
+                      context,
+                      !isCompact
+                          ? 'Compact Currency Notation enabled.'
+                          : 'Standard Currency Notation enabled.',
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -118,7 +135,13 @@ class FxConverterStudio extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: SpongyTap(
-                    onTap: () => FxDisplayPreferences.resetToDefault(),
+                    onTap: () {
+                      FxDisplayPreferences.resetToDefault();
+                      PaidiXToast.showSuccess(
+                        context,
+                        'Display settings reset to system defaults.',
+                      );
+                    },
                     pressScale: 0.94,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(

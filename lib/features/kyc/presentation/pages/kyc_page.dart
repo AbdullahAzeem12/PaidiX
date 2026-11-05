@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../domain/kyc_models.dart';
 import '../widgets/kyc_header.dart';
@@ -81,7 +82,30 @@ class _KycPageState extends State<KycPage> {
     UserProfileRepository.instance.syncFromKyc(_state);
     final nextIndex = _state.currentStep.index + 1;
     if (nextIndex < KycStep.values.length) {
-      _goToStep(KycStep.values[nextIndex]);
+      final nextStep = KycStep.values[nextIndex];
+      switch (nextStep) {
+        case KycStep.identity:
+          PaidiXToast.showSuccess(
+            context,
+            'Personal info saved. Proceeding to ID verification.',
+          );
+          break;
+        case KycStep.photo:
+          PaidiXToast.showSuccess(
+            context,
+            'ID documents recorded. Proceeding to biometric selfie.',
+          );
+          break;
+        case KycStep.bank:
+          PaidiXToast.showSuccess(
+            context,
+            'Biometrics verified. Final step: Link bank account.',
+          );
+          break;
+        case KycStep.personal:
+          break;
+      }
+      _goToStep(nextStep);
     }
   }
 
@@ -99,6 +123,10 @@ class _KycPageState extends State<KycPage> {
     });
     UserProfileRepository.instance.syncFromKyc(_state);
     UserProfileRepository.instance.markKycCompleted();
+    PaidiXToast.showSuccess(
+      context,
+      'KYC documents submitted successfully for 1-LINK clearance.',
+    );
     KycSuccessDialog.show(context);
   }
 

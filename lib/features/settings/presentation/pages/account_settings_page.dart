@@ -10,6 +10,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/cnic_formatter.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../kyc/data/kyc_image_processor.dart';
 import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
@@ -567,19 +568,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
   void _showToast(PaidiXColorScheme c, String msg, {bool isError = false}) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          msg,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-        backgroundColor: isError ? c.borderError : c.statusCompletedDot,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (isError) {
+      PaidiXToast.showError(context, msg);
+    } else {
+      PaidiXToast.showSuccess(context, msg);
+    }
   }
 
   void _saveProfile() async {
@@ -2096,31 +2089,14 @@ class _SecuritySectionState extends State<_SecuritySection> {
   }
 
   void _updatePassword() async {
-    final c = widget.colors;
     if (_currentPassCtrl.text.isEmpty ||
         _newPassCtrl.text.isEmpty ||
         _confirmPassCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please fill in all fields.'),
-          backgroundColor: c.borderError,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      PaidiXToast.showWarning(context, 'Please fill in all fields.');
       return;
     }
     if (_newPassCtrl.text != _confirmPassCtrl.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('New passwords do not match.'),
-          backgroundColor: c.borderError,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-        ),
-      );
+      PaidiXToast.showError(context, 'New passwords do not match.');
       return;
     }
     HapticFeedback.mediumImpact();
@@ -2131,17 +2107,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
       _currentPassCtrl.clear();
       _newPassCtrl.clear();
       _confirmPassCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Password updated successfully.'),
-          backgroundColor: c.statusCompletedDot,
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          margin: const EdgeInsets.all(16),
-          duration: const Duration(seconds: 2),
-        ),
-      );
+      PaidiXToast.showSuccess(context, 'Password updated successfully.');
     }
   }
 
@@ -2310,19 +2276,12 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
   }
 
   void _showSnack(PaidiXColorScheme c, String msg, {bool isError = false}) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          msg,
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-        ),
-        backgroundColor: isError ? c.borderError : c.statusCompletedDot,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    if (!mounted) return;
+    if (isError) {
+      PaidiXToast.showError(context, msg);
+    } else {
+      PaidiXToast.showSuccess(context, msg);
+    }
   }
 
   void _setInitialPin() async {
@@ -3139,17 +3098,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
       }
     });
     _persistAccounts();
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Bank account removed.'),
-        backgroundColor: widget.colors.borderError,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    PaidiXToast.showSuccess(context, 'Bank account removed.');
   }
 
   void _setAsPrimary(int index) {
@@ -3160,16 +3109,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
       }
     });
     _persistAccounts();
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${_accounts[index].bankName} set as primary account.'),
-        backgroundColor: widget.colors.statusCompletedDot,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 2),
-      ),
+    PaidiXToast.showSuccess(
+      context,
+      '${_accounts[index].bankName} set as primary account.',
     );
   }
 
@@ -3191,17 +3133,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
             }
           });
           _persistAccounts();
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Bank account added successfully.'),
-              backgroundColor: widget.colors.statusCompletedDot,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              margin: const EdgeInsets.all(16),
-              duration: const Duration(seconds: 2),
-            ),
+          PaidiXToast.showSuccess(
+            context,
+            'Bank account added successfully.',
           );
         },
       ),
@@ -3224,17 +3158,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
             _accounts[index] = updatedAcc;
           });
           _persistAccounts();
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text('Bank account updated successfully.'),
-              backgroundColor: widget.colors.statusCompletedDot,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-              margin: const EdgeInsets.all(16),
-              duration: const Duration(seconds: 2),
-            ),
+          PaidiXToast.showSuccess(
+            context,
+            'Bank account updated successfully.',
           );
         },
       ),
@@ -3641,16 +3567,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
   }
 
   void _showError(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: widget.colors.borderError,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+    PaidiXToast.showWarning(context, message);
   }
 
   void _submit() {

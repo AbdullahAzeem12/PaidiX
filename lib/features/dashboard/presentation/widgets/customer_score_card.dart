@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../settings/domain/fx_display_preferences.dart';
 import '../../domain/dashboard_models.dart';
 
@@ -277,8 +278,17 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
                             isStealth: isStealth && !isRevealed,
                             isRevealed: isStealth && isRevealed,
                             onTap: isStealth
-                                ? () => FxDisplayPreferences
-                                    .toggleDashboardBalanceRevealed()
+                                ? () {
+                                    FxDisplayPreferences
+                                        .toggleDashboardBalanceRevealed();
+                                    final nowRevealed = !isRevealed;
+                                    PaidiXToast.showInfo(
+                                      context,
+                                      nowRevealed
+                                          ? 'Balances revealed temporarily.'
+                                          : 'Stealth privacy active — balances masked.',
+                                    );
+                                  }
                                 : null,
                           ),
                         ],
