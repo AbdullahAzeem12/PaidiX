@@ -91,7 +91,7 @@ void main() {
   });
 
   testWidgets(
-      'Dashboard Customer Score blinking yellow star and prominent Filters bar with header Reset button & Currency chips',
+      'Dashboard Customer Score verification shield and prominent Filters bar with header Reset button & Currency chips',
       (WidgetTester tester) async {
     final repo = PaymentsRepositoryImpl();
 
@@ -103,9 +103,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Verify Star next to Customer Score
+    // 1. Verify Verification Shield next to Customer Score
     expect(find.text('CUSTOMER SCORE'), findsOneWidget);
-    expect(find.byIcon(Icons.auto_awesome), findsOneWidget);
+    expect(find.byIcon(Icons.verified_user_outlined), findsOneWidget);
 
     // 2. Verify Completed, Rate, Volume labels
     expect(find.text('COMPLETED'), findsWidgets);

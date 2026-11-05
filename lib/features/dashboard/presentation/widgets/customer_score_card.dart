@@ -8,7 +8,7 @@ import '../../../../core/widgets/paidix_toast.dart';
 import '../../../settings/domain/fx_display_preferences.dart';
 import '../../domain/dashboard_models.dart';
 
-class CustomerScoreCard extends StatefulWidget {
+class CustomerScoreCard extends StatelessWidget {
   final CustomerScore? score;
 
   const CustomerScoreCard({
@@ -16,78 +16,16 @@ class CustomerScoreCard extends StatefulWidget {
     this.score,
   });
 
-  /// Creates the mutable state object that backs this stateful widget.
-  @override
-  State<CustomerScoreCard> createState() => _CustomerScoreCardState();
-}
-
-class _CustomerScoreCardState extends State<CustomerScoreCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _starController;
-  late final Animation<double> _starScale;
-  late final Animation<double> _starOpacity;
-  late final Animation<Color?> _starColor;
-
-  /// Initializes controllers, listeners, and other state owned by this widget.
-  @override
-  void initState() {
-    super.initState();
-    _starController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1300),
-    );
-
-    final isTest =
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
-    if (!isTest) {
-      _starController.repeat(reverse: true);
-    } else {
-      _starController.forward();
-    }
-
-    _starScale = Tween<double>(begin: 0.88, end: 1.25).animate(
-      CurvedAnimation(
-        parent: _starController,
-        curve: Curves.easeInOutSine,
-      ),
-    );
-
-    _starOpacity = Tween<double>(begin: 0.55, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _starController,
-        curve: Curves.easeInOutSine,
-      ),
-    );
-
-    _starColor = ColorTween(
-      begin: const Color(0xFFF59E0B), // Vibrant Amber Yellow
-      end: const Color(0xFFFFE600),   // Glowing Radiant Gold
-    ).animate(
-      CurvedAnimation(
-        parent: _starController,
-        curve: Curves.easeInOutSine,
-      ),
-    );
-  }
-
-  /// Releases resources owned by this object before it is removed.
-  @override
-  void dispose() {
-    _starController.dispose();
-    super.dispose();
-  }
-
-  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    final scoreVal = widget.score?.score?.toString() ?? '50';
-    final gradeVal = widget.score?.grade ?? '—';
-    final trustVal = widget.score?.trustLabel ?? 'NEW';
-    final completedVal = widget.score?.completedTransactions?.toString() ?? '0';
-    final rateVal = widget.score?.completionRate != null
-        ? '${widget.score!.completionRate!.toStringAsFixed(0)}%'
+    final scoreVal = score?.score?.toString() ?? '50';
+    final gradeVal = score?.grade ?? '—';
+    final trustVal = score?.trustLabel ?? 'NEW';
+    final completedVal = score?.completedTransactions?.toString() ?? '0';
+    final rateVal = score?.completionRate != null
+        ? '${score!.completionRate!.toStringAsFixed(0)}%'
         : '0%';
 
     return AnimatedBuilder(
@@ -100,17 +38,17 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
         final isStealth = FxDisplayPreferences.isStealthMode;
         final isRevealed = FxDisplayPreferences.isDashboardBalanceRevealed;
 
-        final double? totalVolume = widget.score?.totalVolumePkr;
+        final double? totalVolume = score?.totalVolumePkr;
         final String volumeVal;
-        if (widget.score != null && totalVolume != null) {
+        if (score != null && totalVolume != null) {
           volumeVal = FxDisplayPreferences.formatVolumePkr(
             totalVolume,
           );
         } else if (isStealth && !isRevealed) {
           volumeVal = 'Rs. ••••••••••';
         } else {
-          final rawVolume = widget.score?.totalVolumePkr != null
-              ? AppFormatters.formatPkr(widget.score!.totalVolumePkr)
+          final rawVolume = score?.totalVolumePkr != null
+              ? AppFormatters.formatPkr(score!.totalVolumePkr)
               : 'Rs. 0.00';
           volumeVal = rawVolume.startsWith('Rs ')
               ? rawVolume.replaceFirst('Rs ', 'Rs. ')
@@ -153,43 +91,26 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Eyebrow with continuously animated blinking yellow star
+                      // Eyebrow with calm, steady institutional verification shield
                       Row(
                         children: [
-                          AnimatedBuilder(
-                            animation: _starController,
-                            builder: (context, child) {
-                              final currentColor =
-                                  _starColor.value ?? const Color(0xFFF59E0B);
-                              return Transform.scale(
-                                scale: _starScale.value,
-                                child: Opacity(
-                                  opacity: _starOpacity.value,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: currentColor.withValues(
-                                              alpha: 0.5 *
-                                                  _starOpacity.value),
-                                          blurRadius:
-                                              12 * _starScale.value,
-                                          spreadRadius: 2,
-                                        ),
-                                      ],
-                                    ),
-                                    child: Icon(
-                                      Icons.auto_awesome,
-                                      size: 16,
-                                      color: currentColor,
-                                    ),
-                                  ),
-                                ),
-                              );
-                            },
+                          Container(
+                            padding: const EdgeInsets.all(4.5),
+                            decoration: BoxDecoration(
+                              color: colors.mintHeroSubtle,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.mintHeroText.withValues(alpha: 0.25),
+                                width: 1.0,
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.verified_user_outlined,
+                              size: 15,
+                              color: colors.mintHeroText,
+                            ),
                           ),
-                          const SizedBox(width: 9),
+                          const SizedBox(width: 8),
                           Text(
                             'CUSTOMER SCORE',
                             style: TextStyle(
@@ -212,26 +133,25 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
                             style: TextStyle(
                               fontSize: 48,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: -1.0,
-                              height: 1.0,
+                              letterSpacing: -1.5,
                               color: colors.mintHeroText,
+                              height: 1.0,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              if (gradeVal.isNotEmpty)
-                                Text(
-                                  gradeVal,
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w900,
-                                    height: 1.0,
-                                    color: colors.mintHeroText,
-                                  ),
+                              Text(
+                                gradeVal,
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: colors.mintHeroText,
+                                  height: 1.1,
                                 ),
+                              ),
                               const SizedBox(height: 2),
                               Text(
                                 trustVal,
@@ -239,8 +159,8 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
                                   fontSize: 11,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 1.2,
-                                  height: 1.2,
-                                  color: colors.mintHeroText,
+                                  color: colors.mintHeroText.withValues(alpha: 0.85),
+                                  height: 1.1,
                                 ),
                               ),
                             ],
@@ -249,11 +169,10 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
                       ),
                       const SizedBox(height: 18),
 
-                      // Divider
+                      // Divider line on hero card
                       Container(
                         height: 1,
-                        color:
-                            colors.mintHeroText.withValues(alpha: 0.18),
+                        color: colors.mintHeroText.withValues(alpha: 0.18),
                       ),
                       const SizedBox(height: 16),
 
