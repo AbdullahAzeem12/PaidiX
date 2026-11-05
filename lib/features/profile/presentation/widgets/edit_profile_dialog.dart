@@ -5,6 +5,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../data/user_profile_repository.dart';
 import '../../domain/user_profile.dart';
@@ -106,7 +107,6 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
     setState(() => _isSaving = true);
 
-    final messenger = ScaffoldMessenger.of(context);
     final hasNewDocs = _selfieBytes != null ||
         _cnicFrontBytes != null ||
         _cnicBackBytes != null;
@@ -134,35 +134,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     }
 
     if (!mounted) return;
+    final parentContext = Navigator.of(context).context;
     Navigator.of(context).pop();
 
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                hasNewDocs
-                    ? 'Profile and documents updated successfully'
-                    : 'Profile updated successfully',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: const Color(0xFF0E7C7B),
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
+    PaidiXToast.showSuccess(
+      parentContext,
+      hasNewDocs
+          ? 'Profile and documents updated successfully'
+          : 'Profile updated successfully',
     );
   }
 

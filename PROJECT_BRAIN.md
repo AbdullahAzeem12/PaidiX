@@ -364,7 +364,7 @@ Typography: heavy headings (w800/w900), tabular-looking stats, uppercase eyebrow
 | `app_text_field.dart` / `auth_text_field.dart` | Dark-themed inputs |
 | `auth_primary_button.dart` / `auth_header.dart` | Auth card chrome |
 | `status_badge.dart` | Status pills |
-| `paidix_toast.dart` | Themed auto-dismissing alerts & toasts (Success, Warning, Error, ServerError, Info) |
+| `paidix_toast.dart` | Top-positioned auto-dismissing alerts & toasts (Success, Warning, Error, ServerError, Info) with curved slide-down entrance, swipe-up/close dismiss, zero-queue lag, inline action callbacks, and responsive max-width bounds |
 | `server_error_page.dart` | Fullscreen server outage fallback view (`ServerErrorPage`) & in-flow modal dialog (`ServerErrorDialog`) |
 | `selectable_tile.dart` | Payment method tiles |
 | `info_banner.dart` | Fee notice on new payment |

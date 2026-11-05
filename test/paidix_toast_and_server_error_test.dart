@@ -138,6 +138,39 @@ void main() {
 
       expect(find.text('Stealth Mode Enabled'), findsNothing);
     });
+
+    testWidgets('PaidiXToast renders at the top of the screen and supports swipe-up to dismiss',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () {
+                  PaidiXToast.showSuccess(context, 'Top position verified');
+                },
+                child: const Text('Show Toast'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Show Toast'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final toastTopLeft = tester.getTopLeft(find.text('Top position verified'));
+      // Verifies toast is near the top edge (< 100px from top) rather than bottom (> 500px)
+      expect(toastTopLeft.dy, lessThan(100.0));
+
+      // Test swipe-up dismissal
+      await tester.drag(find.text('Top position verified'), const Offset(0, -120));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Top position verified'), findsNothing);
+    });
   });
 
   group('ServerErrorPage & Dialog Suite', () {
