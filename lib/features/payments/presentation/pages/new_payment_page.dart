@@ -121,7 +121,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
-  /// Robust gallery picker with Android/Huawei activity reclamation protection
+  /// Gallery picker with Android/Huawei activity reclamation protection
   Future<void> _pickImage() async {
     HapticFeedback.lightImpact();
 
