@@ -1,3 +1,5 @@
+/// Defines document viewer dialog in the profile feature's presentation layer.
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,7 @@ class DocumentViewerDialog extends StatelessWidget {
     this.isSelfie = false,
   });
 
+  /// Opens the selected identity document in a zoomable inspection dialog.
   static Future<void> show(
     BuildContext context, {
     required String title,
@@ -44,6 +47,7 @@ class DocumentViewerDialog extends StatelessWidget {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -179,6 +183,7 @@ class DocumentViewerDialog extends StatelessWidget {
     );
   }
 
+  /// Builds the image view section of this interface.
   Widget _buildImageView(PaidiXColorScheme colors) {
     if (bytes != null && bytes!.isNotEmpty) {
       return Image.memory(bytes!, fit: BoxFit.contain);

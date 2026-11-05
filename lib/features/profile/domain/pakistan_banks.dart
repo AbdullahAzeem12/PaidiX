@@ -1,3 +1,5 @@
+/// Defines pakistan banks in the profile feature's domain layer.
+
 import 'package:flutter/material.dart';
 
 /// Semantic categories for Pakistani banking and payment institutions.
@@ -24,6 +26,7 @@ class PakistaniBank {
   final String shortMonogram;
   final List<String> aliases;
 
+  /// Creates the immutable directory record used for search and bank branding.
   const PakistaniBank({
     required this.name,
     required this.code,
@@ -38,7 +41,8 @@ class PakistaniBank {
   /// Formatted name with abbreviation code: e.g. "Habib Bank Limited (HBL)"
   String get displayName => name.contains('(') ? name : '$name ($code)';
 
-  /// Checks whether a query string matches the bank's name, code, category or aliases.
+  /// Checks whether [query] matches the bank's name, code, category, monogram,
+  /// or one of its aliases.
   bool matches(String query) {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return true;
@@ -53,7 +57,9 @@ class PakistaniBank {
   }
 }
 
-/// Authoritative directory of all 39 Pakistani banking & fintech institutions.
+/// Shared catalog used by bank search, selection, and logo presentation.
+///
+/// The list order also determines the empty-query and unmatched-query fallback.
 /// Ordered with most popular digital wallets and top commercial institutions at top (matching Screenshot 3).
 const List<PakistaniBank> kAllPakistaniBanks = [
   // ===========================================================================
@@ -450,7 +456,9 @@ const List<PakistaniBank> kAllPakistaniBanks = [
   ),
 ];
 
-/// Finds a [PakistaniBank] from an exact match, alias, code, or fuzzy substring.
+/// Resolves [query] to a catalog entry, preferring exact names and aliases.
+///
+/// If no entry matches, the first catalog entry is returned as the fallback.
 PakistaniBank findPakistaniBank(String query) {
   final clean = query.trim().toLowerCase();
   if (clean.isEmpty) return kAllPakistaniBanks.first;

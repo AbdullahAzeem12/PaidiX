@@ -1,3 +1,4 @@
+// Implements the GTK application lifecycle and its embedded Flutter view.
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
@@ -14,12 +15,12 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
-// Called when first Flutter frame received.
+// Shows the host window once Flutter has produced its first frame.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
-// Implements GApplication::activate.
+// Creates the GTK window, embeds the Flutter view, and registers its plugins.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
   GtkWindow* window =
@@ -78,7 +79,7 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
-// Implements GApplication::local_command_line.
+// Saves Dart arguments, registers the app, and activates its main window.
 static gboolean my_application_local_command_line(GApplication* application,
                                                   gchar*** arguments,
                                                   int* exit_status) {
@@ -99,7 +100,7 @@ static gboolean my_application_local_command_line(GApplication* application,
   return TRUE;
 }
 
-// Implements GApplication::startup.
+// Completes GTK application startup by delegating to the parent implementation.
 static void my_application_startup(GApplication* application) {
   // MyApplication* self = MY_APPLICATION(object);
 
@@ -108,7 +109,7 @@ static void my_application_startup(GApplication* application) {
   G_APPLICATION_CLASS(my_application_parent_class)->startup(application);
 }
 
-// Implements GApplication::shutdown.
+// Completes GTK application shutdown by delegating to the parent implementation.
 static void my_application_shutdown(GApplication* application) {
   // MyApplication* self = MY_APPLICATION(object);
 
@@ -117,13 +118,14 @@ static void my_application_shutdown(GApplication* application) {
   G_APPLICATION_CLASS(my_application_parent_class)->shutdown(application);
 }
 
-// Implements GObject::dispose.
+// Frees the copied Dart arguments before delegating object disposal to GTK.
 static void my_application_dispose(GObject* object) {
   MyApplication* self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
+// Connects this class's lifecycle callbacks to the GTK application signals.
 static void my_application_class_init(MyApplicationClass* klass) {
   G_APPLICATION_CLASS(klass)->activate = my_application_activate;
   G_APPLICATION_CLASS(klass)->local_command_line =
@@ -133,8 +135,10 @@ static void my_application_class_init(MyApplicationClass* klass) {
   G_OBJECT_CLASS(klass)->dispose = my_application_dispose;
 }
 
+// Initializes per-instance state; fields are assigned when arguments are parsed.
 static void my_application_init(MyApplication* self) {}
 
+// Creates the GTK application object with PaidiX's desktop application ID.
 MyApplication* my_application_new() {
   // Set the program name to the application ID, which helps various systems
   // like GTK and desktop environments map this running application to its

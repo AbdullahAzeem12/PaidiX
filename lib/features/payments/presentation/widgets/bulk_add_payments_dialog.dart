@@ -53,6 +53,7 @@ class BulkPaymentRowData {
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   void dispose() {
     senderNameController.dispose();
     senderCompanyController.dispose();
@@ -60,6 +61,7 @@ class BulkPaymentRowData {
     amountController.dispose();
   }
 
+  /// Copies a row with a new identity so it can be edited as a separate payment.
   BulkPaymentRowData cloneForDuplicate() {
     return BulkPaymentRowData(
       id: 'row_${DateTime.now().microsecondsSinceEpoch}',
@@ -97,6 +99,7 @@ class BulkAddPaymentsDialog extends StatefulWidget {
     required this.paymentsRepository,
   });
 
+  /// Opens the bulk-entry dialog and returns whether any rows were submitted.
   static Future<void> show(
     BuildContext context,
     PaymentsRepositoryImpl paymentsRepository,
@@ -110,6 +113,7 @@ class BulkAddPaymentsDialog extends StatefulWidget {
     );
   }
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<BulkAddPaymentsDialog> createState() => _BulkAddPaymentsDialogState();
 }
@@ -119,6 +123,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
   bool _isSubmitting = false;
   List<PaymentMethodOption> _paymentMethods = [];
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -126,6 +131,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     _addRow();
   }
 
+  /// Loads the payment methods offered by the repository into the batch form.
   Future<void> _loadPaymentMethods() async {
     final methods = await widget.paymentsRepository.getPaymentMethods();
     if (mounted) {
@@ -135,6 +141,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     for (final row in _rows) {
@@ -143,6 +150,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     super.dispose();
   }
 
+  /// Adds one empty payment row to the batch editor.
   void _addRow([BulkPaymentRowData? customRow]) {
     setState(() {
       final newRow = customRow ??
@@ -159,12 +167,14 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     });
   }
 
+  /// Adds the requested number of empty rows to the batch editor.
   void _addMultipleRows(int count) {
     for (int i = 0; i < count; i++) {
       _addRow();
     }
   }
 
+  /// Adds a copy of the selected row to the batch editor.
   void _duplicateRow(int index) {
     if (index >= 0 && index < _rows.length) {
       final cloned = _rows[index].cloneForDuplicate();
@@ -172,6 +182,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     }
   }
 
+  /// Removes the selected payment row from the batch editor.
   void _deleteRow(int index) {
     if (_rows.length <= 1) {
       // Clear instead of removing last row
@@ -193,6 +204,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     });
   }
 
+  /// Clears all batch rows and resets the bulk-entry form.
   void _clearAll() {
     for (final row in _rows) {
       row.dispose();
@@ -201,6 +213,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     _addRow();
   }
 
+  /// Recalculates the row totals when its amount changes.
   void _onAmountChanged(BulkPaymentRowData row) {
     final text = row.amountController.text.trim();
     final parsed = double.tryParse(text) ?? 0.0;
@@ -215,6 +228,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     return _rows.fold(0.0, (sum, r) => sum + r.amount);
   }
 
+  /// Attaches a transaction screenshot to the selected batch row.
   Future<void> _pickScreenshot(BulkPaymentRowData row) async {
     try {
       final picker = ImagePicker();
@@ -238,6 +252,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     }
   }
 
+  /// Opens a date picker and stores its selected date.
   Future<void> _pickDate(BuildContext context, BulkPaymentRowData row) async {
     final picked = await showDatePicker(
       context: context,
@@ -268,6 +283,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     }
   }
 
+  /// Validates the entered data and submits eligible payment rows.
   Future<void> _handleSubmit() async {
     final validRows = _rows.where((r) => r.isValid).toList();
 
@@ -352,6 +368,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -504,6 +521,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the action button section of this interface.
   Widget _buildActionButton({
     required String label,
     required VoidCallback onTap,
@@ -910,6 +928,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the field label section of this interface.
   Widget _buildFieldLabel(String label) {
     final colors = AppColors.of(context);
     return Text(
@@ -923,6 +942,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the header cell section of this interface.
   Widget _buildHeaderCell(String label, {required double width}) {
     final colors = AppColors.of(context);
     return SizedBox(
@@ -939,6 +959,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the method dropdown section of this interface.
   Widget _buildMethodDropdown(BulkPaymentRowData row) {
     final colors = AppColors.of(context);
 
@@ -1011,6 +1032,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the cell text field section of this interface.
   Widget _buildCellTextField({
     required TextEditingController controller,
     required String hint,
@@ -1055,6 +1077,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the date field section of this interface.
   Widget _buildDateField(BulkPaymentRowData row) {
     final colors = AppColors.of(context);
     final dateStr =
@@ -1095,6 +1118,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the screenshot button section of this interface.
   Widget _buildScreenshotButton(
     BulkPaymentRowData row, {
     bool fullWidth = false,
@@ -1147,6 +1171,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
     );
   }
 
+  /// Builds the footer section of this interface.
   Widget _buildFooter(bool isMobile, bool isLandscape) {
     final colors = AppColors.of(context);
 

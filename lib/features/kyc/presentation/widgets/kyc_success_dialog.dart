@@ -1,3 +1,5 @@
+/// Defines kyc success dialog in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -33,6 +35,7 @@ class KycSuccessDialog extends StatefulWidget {
     );
   }
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<KycSuccessDialog> createState() => _KycSuccessDialogState();
 }
@@ -43,6 +46,7 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
   late final Animation<double> _iconScale;
   late final Animation<double> _glowFade;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -64,12 +68,14 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
     _animController.forward();
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
   }
 
+  /// Closes the KYC success dialog and navigates to the dashboard.
   void _onProceedToDashboard() {
     HapticFeedback.mediumImpact();
     UserProfileRepository.instance.markKycCompleted();
@@ -77,6 +83,7 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
     context.go('/app/dashboard');
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

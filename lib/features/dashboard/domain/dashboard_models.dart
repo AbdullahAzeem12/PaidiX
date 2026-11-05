@@ -1,3 +1,5 @@
+/// Defines dashboard models in the dashboard feature's domain layer.
+
 class CustomerScore {
   final int? score;
   final String? grade;

@@ -1,3 +1,5 @@
+/// Defines kyc stepper in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../domain/kyc_models.dart';
@@ -12,6 +14,7 @@ class KycStepper extends StatelessWidget {
     this.onStepTapped,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

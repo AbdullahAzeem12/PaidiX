@@ -1,3 +1,5 @@
+/// Defines step1 personal view in the kyc feature's presentation layer.
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,6 +22,7 @@ class Step1PersonalView extends StatefulWidget {
     required this.onContinue,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<Step1PersonalView> createState() => _Step1PersonalViewState();
 }
@@ -40,6 +43,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
   late final AnimationController _checkboxController;
   late final Animation<double> _checkboxScale;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -77,6 +81,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _nameController.dispose();
@@ -87,6 +92,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     super.dispose();
   }
 
+  /// Sends the current form model to the parent KYC page.
   void _notifyChange() {
     widget.onChanged(
       widget.personalInfo.copyWith(
@@ -100,6 +106,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Updates the selected country code and reformats the phone value.
   void _onCountryChanged(CountryCodeOption newCountry) {
     if (newCountry == _selectedCountry) return;
     HapticFeedback.selectionClick();
@@ -120,6 +127,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     _notifyChange();
   }
 
+  /// Toggles the user's optional SMS consent value.
   void _toggleSmsConsent() {
     HapticFeedback.selectionClick();
     _checkboxController.forward().then((_) {
@@ -154,6 +162,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     return _tappedLink == linkKey ? active : normal;
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -406,6 +415,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Builds the full name field section of this interface.
   Widget _buildFullNameField(PaidiXColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -457,6 +467,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Builds the phone field section of this interface.
   Widget _buildPhoneField(PaidiXColorScheme colors) {
     final status = PhoneValidator.getStatus(
       _phoneController.text,
@@ -670,6 +681,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Builds the phone status indicator section of this interface.
   Widget _buildPhoneStatusIndicator(
       PhoneValidationStatus status, PaidiXColorScheme colors) {
     switch (status) {
@@ -780,6 +792,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     }
   }
 
+  /// Builds the address field section of this interface.
   Widget _buildAddressField(PaidiXColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -819,6 +832,7 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
     );
   }
 
+  /// Builds the city field section of this interface.
   Widget _buildCityField(PaidiXColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

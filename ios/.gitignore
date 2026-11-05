@@ -1,4 +1,5 @@
 **/dgph
+# Excludes iOS/macOS tool output, local Xcode state, and generated Flutter files.
 *.mode1v3
 *.mode2v3
 *.moved-aside

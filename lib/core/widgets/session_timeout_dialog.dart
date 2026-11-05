@@ -1,3 +1,5 @@
+/// Defines session timeout dialog in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
@@ -27,6 +29,7 @@ class SessionTimeoutDialog extends StatelessWidget {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);

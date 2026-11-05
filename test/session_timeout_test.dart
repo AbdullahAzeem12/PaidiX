@@ -1,3 +1,5 @@
+/// Tests the session timeout test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/router.dart';
@@ -5,6 +7,7 @@ import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/services/session_timeout_service.dart';
 import 'package:paidix/core/widgets/session_timeout_dialog.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   setUp(() {
     SessionTimeoutService.instance.stopSession();

@@ -1,14 +1,18 @@
+// Implements the Windows host window that embeds the Flutter view controller.
 #include "flutter_window.h"
 
 #include <optional>
 
 #include "flutter/generated_plugin_registrant.h"
 
+// Stores the Flutter project configuration used to create this host window.
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
+// Releases the Flutter controller before the base window is destroyed.
 FlutterWindow::~FlutterWindow() {}
 
+// Creates the Flutter controller, registers plugins, and attaches its view.
 bool FlutterWindow::OnCreate() {
   if (!Win32Window::OnCreate()) {
     return false;
@@ -39,6 +43,7 @@ bool FlutterWindow::OnCreate() {
   return true;
 }
 
+// Drops the Flutter controller when the native window is being destroyed.
 void FlutterWindow::OnDestroy() {
   if (flutter_controller_) {
     flutter_controller_ = nullptr;
@@ -47,6 +52,7 @@ void FlutterWindow::OnDestroy() {
   Win32Window::OnDestroy();
 }
 
+// Gives Flutter first chance to process a Windows message before base handling.
 LRESULT
 FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
                               WPARAM const wparam,

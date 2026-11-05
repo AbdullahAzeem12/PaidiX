@@ -1,3 +1,5 @@
+/// Defines cnic formatter in the application core utilities and reusable widgets.
+
 import 'package:flutter/services.dart';
 
 enum CnicStatus {
@@ -10,6 +12,7 @@ enum CnicStatus {
 }
 
 class CnicInputFormatter extends TextInputFormatter {
+  /// Formats the edited text value while preserving the formatter's input constraints.
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
@@ -41,8 +44,10 @@ class CnicInputFormatter extends TextInputFormatter {
 class CnicValidator {
   const CnicValidator._();
 
+  /// Removes all non-digit characters from a CNIC value.
   static String clean(String raw) => raw.replaceAll(RegExp(r'\D'), '');
 
+  /// Formats up to 13 CNIC digits as `#####-#######-#` without inventing digits.
   static String format(String raw) {
     final digits = clean(raw);
     if (digits.length <= 5) return digits;
@@ -52,6 +57,7 @@ class CnicValidator {
     return '${digits.substring(0, 5)}-${digits.substring(5, 12)}-${digits.substring(12, 13)}';
   }
 
+  /// Determines whether valid format.
   static bool isValidFormat(String raw) {
     final digits = clean(raw);
     if (digits.length != 13) return false;

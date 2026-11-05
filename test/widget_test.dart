@@ -1,6 +1,9 @@
+/// Tests the widget test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/app.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   testWidgets('Renders SignIn screen by default with all reference fields and navigates to SignUp with default +92 country code', (WidgetTester tester) async {
     await tester.pumpWidget(const PaidiXApp());

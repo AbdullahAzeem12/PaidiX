@@ -1,3 +1,5 @@
+/// Defines payments table in the payments feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -11,6 +13,7 @@ class PaymentsTable extends StatelessWidget {
 
   const PaymentsTable({super.key, required this.items});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

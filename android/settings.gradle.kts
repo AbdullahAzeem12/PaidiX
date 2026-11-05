@@ -1,3 +1,4 @@
+// Loads the Flutter Gradle build, resolves Android/Kotlin plugins, and includes the app module.
 pluginManagement {
     val flutterSdkPath =
         run {

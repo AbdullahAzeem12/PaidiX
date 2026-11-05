@@ -1,3 +1,5 @@
+/// Defines dashboard repository impl in the dashboard feature's data layer.
+
 import '../../../core/widgets/status_badge.dart';
 import '../../payments/domain/payments_repository.dart';
 import '../../profile/data/user_profile_repository.dart';
@@ -10,6 +12,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
 
   DashboardRepositoryImpl(this._paymentsRepository);
 
+  /// Builds the dashboard score from the current payment data.
   @override
   Future<CustomerScore?> getCustomerScore() async {
     final list = _paymentsRepository.payments;
@@ -34,6 +37,7 @@ class DashboardRepositoryImpl implements DashboardRepository {
     );
   }
 
+  /// Builds received, transferred, and pending totals from current payments.
   @override
   Future<FinancialSummary> getFinancialSummary() async {
     final list = _paymentsRepository.payments;

@@ -1,3 +1,5 @@
+/// Defines kyc permission dialog in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -13,6 +15,7 @@ class KycPermissionDialog extends StatelessWidget {
     required this.onGranted,
   });
 
+  /// Shows the permission rationale and returns whether the user accepted it.
   static Future<bool?> show(
     BuildContext context, {
     required bool isCamera,
@@ -30,6 +33,7 @@ class KycPermissionDialog extends StatelessWidget {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

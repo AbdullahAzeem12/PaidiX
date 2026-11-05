@@ -1,3 +1,5 @@
+/// Defines account settings page in the settings feature's presentation layer.
+
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
@@ -31,6 +33,7 @@ enum _SettingsTab { profile, security, bankAccounts, paymentsPin, appearance }
 class AccountSettingsPage extends StatefulWidget {
   const AccountSettingsPage({super.key});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<AccountSettingsPage> createState() => _AccountSettingsPageState();
 }
@@ -42,6 +45,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
   late Animation<double> _contentFade;
   late Animation<Offset> _contentSlide;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -63,12 +67,14 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     _contentController.forward();
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _contentController.dispose();
     super.dispose();
   }
 
+  /// Changes the active settings section and refreshes its content.
   void _switchTab(_SettingsTab tab) {
     if (tab == _activeTab) return;
     HapticFeedback.selectionClick();
@@ -80,11 +86,13 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     });
   }
 
+  /// Returns from settings to the dashboard route.
   void _navigateBackToDashboard(BuildContext context) {
     HapticFeedback.lightImpact();
     context.go('/app/dashboard');
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -371,6 +379,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     );
   }
 
+  /// Builds the side nav item section of this interface.
   Widget _buildSideNavItem({
     required PaidiXColorScheme colors,
     required _SettingsTab tab,
@@ -438,6 +447,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     );
   }
 
+  /// Builds the tab body section of this interface.
   Widget _buildTabBody(
     PaidiXColorScheme colors,
     UserProfile profile, {
@@ -459,6 +469,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     }
   }
 
+  /// Maps a settings tab to the label shown in the mobile and desktop navigation.
   String _tabLabel(_SettingsTab tab) {
     switch (tab) {
       case _SettingsTab.profile:
@@ -489,6 +500,7 @@ class _ProfileSection extends StatefulWidget {
     required this.isMobile,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_ProfileSection> createState() => _ProfileSectionState();
 }
@@ -502,6 +514,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
   bool _saving = false;
   bool _isUploadingPhoto = false;
 
+  /// Removes a leading Pakistan country code so profile values do not show `+92` twice.
   static String _stripPkCode(String raw) {
     var s = raw.trim();
     if (s.startsWith('PK')) {
@@ -517,6 +530,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     return s;
   }
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -529,6 +543,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     _checkAndRetrieveLostImage();
   }
 
+  /// Synchronizes local state when the parent supplies updated widget properties.
   @override
   void didUpdateWidget(covariant _ProfileSection oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -543,6 +558,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Recovers an image-picker result after activity recreation and applies it to the profile.
   Future<void> _checkAndRetrieveLostImage() async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       try {
@@ -558,6 +574,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -568,6 +585,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     super.dispose();
   }
 
+  /// Shows brief success, warning, or error feedback in the app.
   void _showToast(PaidiXColorScheme c, String msg, {bool isError = false}) {
     if (!mounted) return;
     if (isError) {
@@ -577,6 +595,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Validates and saves the edited profile fields through the profile repository.
   void _saveProfile() async {
     if (_saving) return;
     HapticFeedback.mediumImpact();
@@ -597,6 +616,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Opens the profile-photo actions available to the user.
   void _handleAvatarTap(UserProfile p) {
     HapticFeedback.lightImpact();
     if (p.hasCustomAvatar) {
@@ -606,6 +626,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Downscales oversized avatar bytes before decoding to limit image memory use.
   static Future<Uint8List> _safeDownscaleBytes(
     Uint8List rawBytes, {
     int maxDimension = 512,
@@ -631,6 +652,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     return rawBytes;
   }
 
+  /// Builds the source option tile section of this interface.
   Widget _buildSourceOptionTile({
     required PaidiXColorScheme colors,
     required IconData icon,
@@ -796,6 +818,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Offers actions to preview, replace, or remove the current profile photo.
   void _showAvatarOptionsDialog(UserProfile p) {
     final c = widget.colors;
     final isDark = c.brightness == Brightness.dark;
@@ -913,12 +936,14 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Clears the saved avatar and refreshes the profile display.
   void _removeAvatar(UserProfile p) {
     HapticFeedback.mediumImpact();
     UserProfileRepository.instance.updateProfile(clearAvatar: true);
     _showToast(widget.colors, 'Profile picture removed. Initial restored.');
   }
 
+  /// Lets the user choose the camera or photo library as the avatar source.
   void _showImageSourceSheet({
     required bool isAvatar,
     String? documentType,
@@ -1010,6 +1035,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Prepares the selected image for cropping and updates the avatar preview.
   Future<void> _processPickedFile(
     XFile picked, {
     required bool isAvatar,
@@ -1042,7 +1068,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
           avatarBytes: croppedBytes,
           avatarFilePath: picked.path,
         );
-        _showToast(c, 'Profile picture adjusted, cropped & saved successfully.');
+        _showToast(c, 'Profile picture auto-cropped & updated successfully.');
         return;
       }
 
@@ -1087,6 +1113,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Requests an image from the chosen source, then prepares it for the cropper.
   Future<void> _pickAndProcessImage(
     ImageSource source, {
     required bool isAvatar,
@@ -1158,6 +1185,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     }
   }
 
+  /// Builds the avatar with camera section of this interface.
   Widget _buildAvatarWithCamera(PaidiXColorScheme c, UserProfile p, double radius) {
     final double avatarSize = radius * 2;
     final double badgeSize = widget.isMobile ? 26 : 28;
@@ -1221,6 +1249,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Builds the avatar image or initial section of this interface.
   Widget _buildAvatarImageOrInitial(PaidiXColorScheme c, UserProfile p, double size) {
     if (p.hasCustomAvatar) {
       if (p.avatarBytes != null && p.avatarBytes!.isNotEmpty) {
@@ -1254,6 +1283,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     return _avatarInitialText(c, p.avatarInitial, size);
   }
 
+  /// Chooses the initials displayed when the user has no profile photo.
   Widget _avatarInitialText(PaidiXColorScheme c, String initial, double size) {
     return Center(
       child: Text(
@@ -1267,6 +1297,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Builds the saved documents section section of this interface.
   Widget _buildSavedDocumentsSection(PaidiXColorScheme c, UserProfile p) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1417,6 +1448,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Builds the doc card section of this interface.
   Widget _buildDocCard(
     PaidiXColorScheme c, {
     required String label,
@@ -1618,6 +1650,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Builds the doc preview section of this interface.
   Widget _buildDocPreview(
     PaidiXColorScheme c,
     String label,
@@ -1978,6 +2011,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -2160,6 +2194,7 @@ class _SecuritySection extends StatefulWidget {
 
   const _SecuritySection({required this.colors, required this.isMobile});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_SecuritySection> createState() => _SecuritySectionState();
 }
@@ -2173,6 +2208,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
   bool _showConfirm = false;
   bool _loading = false;
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _currentPassCtrl.dispose();
@@ -2181,6 +2217,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
     super.dispose();
   }
 
+  /// Checks the entered password fields and applies the simulated password update.
   void _updatePassword() async {
     if (_currentPassCtrl.text.isEmpty ||
         _newPassCtrl.text.isEmpty ||
@@ -2204,6 +2241,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -2264,6 +2302,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
     );
   }
 
+  /// Builds a password input with its visibility toggle and validation styling.
   Widget _passwordField(
     PaidiXColorScheme c, {
     required String label,
@@ -2329,6 +2368,7 @@ class _PaymentsPinSection extends StatefulWidget {
 
   const _PaymentsPinSection({required this.colors, required this.isMobile});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_PaymentsPinSection> createState() => _PaymentsPinSectionState();
 }
@@ -2357,6 +2397,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
   bool get _pinIsSet =>
       _globalStoredPin != null && _globalStoredPin!.trim().isNotEmpty;
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _initialPinCtrl.dispose();
@@ -2368,6 +2409,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     super.dispose();
   }
 
+  /// Shows a short inline status message in the current settings section.
   void _showSnack(PaidiXColorScheme c, String msg, {bool isError = false}) {
     if (!mounted) return;
     if (isError) {
@@ -2377,6 +2419,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     }
   }
 
+  /// Validates and saves the first payments PIN entered by the user.
   void _setInitialPin() async {
     final c = widget.colors;
     final pin = _initialPinCtrl.text.trim();
@@ -2409,6 +2452,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     }
   }
 
+  /// Verifies the existing PIN before saving the replacement PIN.
   void _updatePin() async {
     final c = widget.colors;
     final current = _currentPinUpdateCtrl.text.trim();
@@ -2463,6 +2507,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     }
   }
 
+  /// Starts the simulated email recovery flow for a forgotten payments PIN.
   void _forgotPin() {
     final c = widget.colors;
     final profile = UserProfileRepository.instance.profile;
@@ -2588,6 +2633,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     );
   }
 
+  /// Confirms the destructive action and removes the saved payments PIN.
   void _removePin() async {
     final c = widget.colors;
     final current = _currentPinRemoveCtrl.text.trim();
@@ -2625,6 +2671,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -2863,6 +2910,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     );
   }
 
+  /// Builds a numeric PIN field and applies its focus and visibility behavior.
   Widget _pinInputField(
     PaidiXColorScheme c, {
     required String label,
@@ -2945,6 +2993,7 @@ class _AppearanceSection extends StatefulWidget {
     required this.isMobile,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_AppearanceSection> createState() => _AppearanceSectionState();
 }
@@ -2952,18 +3001,21 @@ class _AppearanceSection extends StatefulWidget {
 class _AppearanceSectionState extends State<_AppearanceSection> {
   ThemeMode _selectedMode = AppTheme.themeModeNotifier.value;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
     _selectedMode = AppTheme.currentThemeMode;
   }
 
+  /// Refreshes values that depend on inherited widgets such as the current theme.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _selectedMode = AppTheme.currentThemeMode;
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -3019,6 +3071,7 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
     );
   }
 
+  /// Builds one theme choice card and marks it active when its mode is selected.
   Widget _themeCard(
       PaidiXColorScheme c, ThemeMode mode, String label, IconData icon) {
     final isSelected = _selectedMode == mode;
@@ -3085,6 +3138,7 @@ class _BankAccountsSection extends StatefulWidget {
     required this.isMobile,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_BankAccountsSection> createState() => _BankAccountsSectionState();
 }
@@ -3092,6 +3146,7 @@ class _BankAccountsSection extends StatefulWidget {
 class _BankAccountsSectionState extends State<_BankAccountsSection> {
   late List<BankAccountItem> _accounts;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -3100,6 +3155,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     _loadAccounts();
   }
 
+  /// Loads the signed-in user's saved bank accounts into settings state.
   Future<void> _loadAccounts() async {
     final list = await UserProfileRepository.instance
         .loadBankAccounts(widget.profile.email);
@@ -3110,11 +3166,13 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     }
   }
 
+  /// Writes the current bank-account list to the user profile repository.
   Future<void> _persistAccounts() async {
     await UserProfileRepository.instance
         .saveBankAccounts(widget.profile.email, _accounts);
   }
 
+  /// Confirms account removal with the user before deleting the saved account.
   void _confirmRemoveAccount(BuildContext context, int index) {
     HapticFeedback.mediumImpact();
     final c = widget.colors;
@@ -3182,6 +3240,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     );
   }
 
+  /// Removes the selected bank account after the caller confirms the action.
   void _removeAccount(int index) {
     HapticFeedback.heavyImpact();
     setState(() {
@@ -3194,6 +3253,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     PaidiXToast.showSuccess(context, 'Bank account removed.');
   }
 
+  /// Marks the selected account as primary and persists the updated list.
   void _setAsPrimary(int index) {
     HapticFeedback.lightImpact();
     setState(() {
@@ -3208,6 +3268,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     );
   }
 
+  /// Opens the form for adding a receiving bank account.
   void _openAddAccountDialog(BuildContext context) {
     HapticFeedback.lightImpact();
     showDialog(
@@ -3235,6 +3296,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     );
   }
 
+  /// Opens the bank-account form with the selected account prefilled.
   void _openEditAccountDialog(BuildContext context, int index) {
     HapticFeedback.lightImpact();
     final acc = _accounts[index];
@@ -3260,6 +3322,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -3414,6 +3477,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     );
   }
 
+  /// Builds the account card section of this interface.
   Widget _buildAccountCard(PaidiXColorScheme c, int i) {
     final acc = _accounts[i];
 
@@ -3629,6 +3693,7 @@ class _BankDetailsDialog extends StatefulWidget {
     required this.onSave,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_BankDetailsDialog> createState() => _BankDetailsDialogState();
 }
@@ -3639,6 +3704,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
   late final TextEditingController _accountNumberCtrl;
   late final TextEditingController _ibanCtrl;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -3650,6 +3716,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     _ibanCtrl = TextEditingController(text: init?.iban ?? '');
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _holderCtrl.dispose();
@@ -3658,10 +3725,12 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     super.dispose();
   }
 
+  /// Displays a validation or persistence error beside the bank-account form.
   void _showError(String message) {
     PaidiXToast.showWarning(context, message);
   }
 
+  /// Validates the bank details, saves the account, and closes the editor on success.
   void _submit() {
     final holder = _holderCtrl.text.trim();
     if (holder.isEmpty) {
@@ -3705,6 +3774,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     Navigator.pop(context);
   }
 
+  /// Opens the searchable Pakistani bank and wallet directory.
   void _openBankSelector() async {
     HapticFeedback.lightImpact();
     final picked = await BankSelectorSheet.show(
@@ -3716,6 +3786,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;
@@ -4088,6 +4159,7 @@ Widget _sectionHeader(PaidiXColorScheme c, String title, String subtitle,
   );
 }
 
+/// Provides the card section label behavior used by this feature.
 Widget _cardSectionLabel(PaidiXColorScheme c, String label) {
   return Text(
     label,
@@ -4100,6 +4172,7 @@ Widget _cardSectionLabel(PaidiXColorScheme c, String label) {
   );
 }
 
+/// Provides the labeled field behavior used by this feature.
 Widget _labeledField(
   PaidiXColorScheme c, {
   required String label,
@@ -4166,6 +4239,7 @@ Widget _labeledField(
   );
 }
 
+/// Provides the field row behavior used by this feature.
 Widget _fieldRow({
   required bool isMobile,
   required Widget left,
@@ -4202,6 +4276,7 @@ class _SettingsCard extends StatelessWidget {
     this.padding,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final isNarrow = MediaQuery.of(context).size.width < 380;
@@ -4246,6 +4321,7 @@ class _SettingsButton extends StatefulWidget {
     this.isDestructive = false,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_SettingsButton> createState() => _SettingsButtonState();
 }
@@ -4255,6 +4331,7 @@ class _SettingsButtonState extends State<_SettingsButton>
   bool _pressed = false;
   late final AnimationController _scaleCtrl;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -4267,12 +4344,14 @@ class _SettingsButtonState extends State<_SettingsButton>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _scaleCtrl.dispose();
     super.dispose();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = widget.colors;

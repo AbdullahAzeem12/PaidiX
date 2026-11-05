@@ -1,3 +1,5 @@
+/// Defines app date picker theme in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 

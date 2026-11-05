@@ -1,3 +1,5 @@
+/// Defines app shell in the application core utilities and reusable widgets.
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,7 @@ class AppShell extends StatefulWidget {
     required this.currentPath,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<AppShell> createState() => _AppShellState();
 }
@@ -30,12 +33,14 @@ class AppShell extends StatefulWidget {
 class _AppShellState extends State<AppShell> {
   bool _isSidebarCollapsed = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
     SessionTimeoutService.instance.startSession(context);
   }
 
+  /// Synchronizes local state when the parent supplies updated widget properties.
   @override
   void didUpdateWidget(covariant AppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -44,12 +49,14 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     SessionTimeoutService.instance.stopSession();
     super.dispose();
   }
 
+  /// Maps the current route to the selected navigation destination.
   int _calculateSelectedIndex() {
     final p = widget.currentPath;
     if (p.startsWith('/app/payments/new')) return 3;
@@ -58,6 +65,7 @@ class _AppShellState extends State<AppShell> {
     return 0; // dashboard
   }
 
+  /// Navigates to the route represented by the selected app destination.
   void _onDestinationSelected(int index) {
     switch (index) {
       case 0:
@@ -75,6 +83,7 @@ class _AppShellState extends State<AppShell> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -182,6 +191,7 @@ class _AppShellState extends State<AppShell> {
 );
   }
 
+  /// Builds the theme toggle button section of this interface.
   Widget _buildThemeToggleButton({bool isCompact = false, bool isSidebar = false}) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.themeModeNotifier,
@@ -214,6 +224,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Builds the sidebar section of this interface.
   Widget _buildSidebar(UserProfile userProfile) {
     final selectedIndex = _calculateSelectedIndex();
     final sidebarWidth = _isSidebarCollapsed ? 76.0 : 240.0;
@@ -328,6 +339,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Builds the nav item section of this interface.
   Widget _buildNavItem({
     required IconData icon,
     required IconData activeIcon,
@@ -391,6 +403,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Builds the user profile footer section of this interface.
   Widget _buildUserProfileFooter(UserProfile userProfile) {
     return InkWell(
       onTap: () => ProfileMenuDialog.show(
@@ -449,6 +462,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Builds the user avatar section of this interface.
   Widget _buildUserAvatar({
     required bool isSidebar,
     required UserProfile userProfile,
@@ -506,6 +520,7 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
+  /// Builds the fallback avatar section of this interface.
   Widget _buildFallbackAvatar({
     required bool isSidebar,
     required String initial,

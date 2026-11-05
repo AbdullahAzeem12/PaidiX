@@ -1,3 +1,5 @@
+/// Defines document preview tile in the profile feature's presentation layer.
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -23,6 +25,7 @@ class DocumentPreviewTile extends StatelessWidget {
     this.isSelfie = false,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -116,6 +119,7 @@ class DocumentPreviewTile extends StatelessWidget {
     );
   }
 
+  /// Builds the document content section of this interface.
   Widget _buildDocumentContent(
       BuildContext context, PaidiXColorScheme colors, bool isDark) {
     // 1. If bytes provided in memory
@@ -145,6 +149,7 @@ class DocumentPreviewTile extends StatelessWidget {
     return _buildFallbackGraphic(colors, isDark);
   }
 
+  /// Builds the fallback graphic section of this interface.
   Widget _buildFallbackGraphic(PaidiXColorScheme colors, bool isDark) {
     if (isSelfie) {
       return Container(

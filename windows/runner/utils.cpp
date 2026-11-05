@@ -1,3 +1,4 @@
+// Provides Windows console setup and UTF-16 command-line conversion helpers.
 #include "utils.h"
 
 #include <flutter_windows.h>
@@ -7,6 +8,7 @@
 
 #include <iostream>
 
+// Creates a console when needed and connects standard output streams to it.
 void CreateAndAttachConsole() {
   if (::AllocConsole()) {
     FILE *unused;
@@ -21,6 +23,7 @@ void CreateAndAttachConsole() {
   }
 }
 
+// Converts the process command line to UTF-8 arguments for the Flutter engine.
 std::vector<std::string> GetCommandLineArguments() {
   // Convert the UTF-16 command line arguments to UTF-8 for the Engine to use.
   int argc;
@@ -41,6 +44,7 @@ std::vector<std::string> GetCommandLineArguments() {
   return command_line_arguments;
 }
 
+// Converts one bounded UTF-16 string to UTF-8, returning empty on failure.
 std::string Utf8FromUtf16(const wchar_t* utf16_string) {
   if (utf16_string == nullptr) {
     return std::string();

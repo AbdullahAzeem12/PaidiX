@@ -1,3 +1,5 @@
+/// Defines customer score card in the dashboard feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -14,6 +16,7 @@ class CustomerScoreCard extends StatefulWidget {
     this.score,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<CustomerScoreCard> createState() => _CustomerScoreCardState();
 }
@@ -25,6 +28,7 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
   late final Animation<double> _starOpacity;
   late final Animation<Color?> _starColor;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -66,12 +70,14 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _starController.dispose();
     super.dispose();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -304,6 +310,7 @@ class _CustomerScoreCardState extends State<CustomerScoreCard>
     );
   }
 
+  /// Builds the metric col section of this interface.
   Widget _buildMetricCol({
     required String label,
     required String value,

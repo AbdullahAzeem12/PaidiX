@@ -1,3 +1,5 @@
+/// Tests the profile menu dialog test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:paidix/core/widgets/profile_menu_dialog.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   testWidgets('ProfileMenuDialog displays user header and options, logout navigates to /signin',
       (WidgetTester tester) async {

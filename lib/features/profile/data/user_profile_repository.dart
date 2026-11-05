@@ -1,3 +1,5 @@
+/// Defines user profile repository in the profile feature's data layer.
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -12,17 +14,20 @@ import '../domain/user_profile.dart';
 /// Follows PaidiX architecture (single process-memory ValueNotifier,
 /// identical to PaymentsRepositoryImpl, with resilient background disk caching).
 class UserProfileRepository {
+  /// Creates the singleton repository and seeds the built-in demo profiles.
   UserProfileRepository._internal() {
     _initDefaultUsers();
   }
 
   static final UserProfileRepository instance =
       UserProfileRepository._internal();
+  /// Returns the shared repository instance used throughout the app process.
   factory UserProfileRepository() => instance;
 
   final Map<String, UserProfile> _registeredUsers = {};
   Directory? _storageDir;
 
+  /// Seeds demo profiles and starts restoring any saved profile data.
   void _initDefaultUsers() {
     final def = UserProfile.defaultProfile();
     _registeredUsers[def.email.toLowerCase()] = def;
@@ -44,6 +49,7 @@ class UserProfileRepository {
   /// Remembers the current KYC onboarding step across activity pause/destruction
   KycStep activeKycStep = KycStep.personal;
 
+  /// Normalizes an email into a filesystem-safe key for the user's storage folder.
   String _normalizeEmailKey(String email) {
     return email
         .trim()
@@ -51,6 +57,7 @@ class UserProfileRepository {
         .replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
   }
 
+  /// Creates or retrieves the local directory used for profile persistence.
   Future<Directory?> _getStorageDir() async {
     if (_storageDir != null) return _storageDir;
     if (kIsWeb) return null;
@@ -76,6 +83,7 @@ class UserProfileRepository {
     }
   }
 
+  /// Writes the profile and its identity-document data to the user's storage folder.
   Future<void> _persistUser(UserProfile user) async {
     if (user.email.isEmpty || kIsWeb) return;
     try {
@@ -138,6 +146,7 @@ class UserProfileRepository {
     }
   }
 
+  /// Reads one user profile and its saved documents from local storage.
   Future<UserProfile?> _loadUserFromDisk(String email) async {
     if (kIsWeb || email.isEmpty) return null;
     try {
@@ -189,6 +198,7 @@ class UserProfileRepository {
     }
   }
 
+  /// Restores saved demo profiles into the in-memory user registry.
   Future<void> _loadPersistedDefaultUsers() async {
     try {
       final saved = await _loadUserFromDisk('kheroali66@gmail.com') ??
@@ -203,6 +213,7 @@ class UserProfileRepository {
     } catch (_) {}
   }
 
+  /// Adds a newly registered profile to memory and local storage.
   void _saveRegisteredUser(UserProfile user, {bool persist = true}) {
     if (user.email.isEmpty) return;
     final lower = user.email.trim().toLowerCase();
@@ -403,7 +414,7 @@ class UserProfileRepository {
     _saveRegisteredUser(updated);
   }
 
-  /// Reset active profile to standard canonical profile
+  /// Restores the display preferences and temporary balance reveal state to their defaults.
   void resetToDefault() {
     profileNotifier.value = UserProfile.defaultProfile();
     activeKycStep = KycStep.personal;

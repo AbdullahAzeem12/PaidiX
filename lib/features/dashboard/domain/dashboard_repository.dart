@@ -1,3 +1,5 @@
+/// Defines dashboard repository in the dashboard feature's domain layer.
+
 import 'dashboard_models.dart';
 
 abstract class DashboardRepository {

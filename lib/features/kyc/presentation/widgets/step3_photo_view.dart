@@ -1,3 +1,5 @@
+/// Defines step3 photo view in the kyc feature's presentation layer.
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -25,6 +27,7 @@ class Step3PhotoView extends StatefulWidget {
     required this.onBack,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<Step3PhotoView> createState() => _Step3PhotoViewState();
 }
@@ -38,6 +41,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
 
   static bool _lastPickWasCamera = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -60,6 +64,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     }
   }
 
+  /// Reads the selected selfie, records its source, and updates the KYC preview.
   Future<void> _applyPickedPhoto(XFile xFile, {required bool isCamera}) async {
     try {
       final bytes = await xFile.readAsBytes();
@@ -147,6 +152,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     }
   }
 
+  /// Runs the selfie enhancement step and advances after a successful result.
   Future<void> _enhanceAndContinue() async {
     HapticFeedback.mediumImpact();
 
@@ -184,6 +190,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Clears the current selfie so the user can take or choose another image.
   void _retakeOrChooseDifferent() {
     HapticFeedback.selectionClick();
     widget.onChanged(
@@ -316,6 +323,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the pill section of this interface.
   Widget _buildPill(String text, PaidiXColorScheme colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -338,6 +346,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -437,6 +446,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the processing indicator section of this interface.
   Widget _buildProcessingIndicator(PaidiXColorScheme colors) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -496,6 +506,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the upload form state section of this interface.
   Widget _buildUploadFormState(PaidiXColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -712,6 +723,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the guideline bullet section of this interface.
   Widget _buildGuidelineBullet(String text, PaidiXColorScheme colors) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -738,6 +750,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the enhanced preview state section of this interface.
   Widget _buildEnhancedPreviewState(PaidiXColorScheme colors) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,6 +958,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the avatar image section of this interface.
   Widget _buildAvatarImage(PaidiXColorScheme colors) {
     if (widget.photoInfo.enhancedBytes != null) {
       return Image.memory(
@@ -998,6 +1012,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
+  /// Builds the avatar full image section of this interface.
   Widget _buildAvatarFullImage(PaidiXColorScheme colors) {
     if (widget.photoInfo.enhancedBytes != null) {
       return Image.memory(

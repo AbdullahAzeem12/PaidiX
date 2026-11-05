@@ -1,3 +1,5 @@
+/// Defines application routes, page transitions, and shared route-level dependencies.
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../core/widgets/app_shell.dart';
@@ -18,6 +20,7 @@ final sharedPaymentsRepository = PaymentsRepositoryImpl(seedMockData: true);
 /// Root navigator key for modal overlays, global toasts, and security timeout dialogs
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'rootNavigator');
 
+/// Creates the router with public routes, app-shell routes, and page transitions.
 GoRouter createAppRouter({String initialLocation = '/signin'}) {
   return GoRouter(
     navigatorKey: rootNavigatorKey,

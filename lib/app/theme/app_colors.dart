@@ -1,3 +1,5 @@
+/// Defines app colors in the application theme system.
+
 import 'package:flutter/material.dart';
 import 'app_theme.dart';
 
@@ -117,11 +119,13 @@ class PaidiXColorsExtension extends ThemeExtension<PaidiXColorsExtension> {
 
   const PaidiXColorsExtension(this.colors);
 
+  /// Creates a copy while preserving fields that were not supplied.
   @override
   ThemeExtension<PaidiXColorsExtension> copyWith({PaidiXColorScheme? colors}) {
     return PaidiXColorsExtension(colors ?? this.colors);
   }
 
+  /// Interpolates this theme extension's colors toward [other] during animation.
   @override
   ThemeExtension<PaidiXColorsExtension> lerp(
     covariant ThemeExtension<PaidiXColorsExtension>? other,

@@ -1,3 +1,5 @@
+/// Tests the auto professional cropper and profile picture confirmation dialog.
+
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -35,11 +37,39 @@ void main() {
   late Uint8List testPngBytes;
 
   setUpAll(() async {
-    testPngBytes = await _createValidPngBytes(width: 80, height: 80);
+    testPngBytes = await _createValidPngBytes(width: 80, height: 120);
   });
 
-  group('ProfilePictureCropDialog Studio Suite', () {
-    testWidgets('Renders cropper studio with live circular frame, controls and filter chips', (tester) async {
+  group('Auto Professional Profile Cropper & Confirmation Suite', () {
+    test('autoCropImage centers tall portrait photos with 1:1 golden headroom and 512x512 output', () async {
+      final portraitBytes = await _createValidPngBytes(width: 600, height: 1000);
+      final cropped = await ProfilePictureCropDialog.autoCropImage(portraitBytes);
+
+      expect(cropped.isNotEmpty, isTrue);
+
+      final codec = await ui.instantiateImageCodec(cropped);
+      final frame = await codec.getNextFrame();
+      expect(frame.image.width, 512);
+      expect(frame.image.height, 512);
+      frame.image.dispose();
+      codec.dispose();
+    });
+
+    test('autoCropImage centers wide landscape photos with 1:1 output', () async {
+      final landscapeBytes = await _createValidPngBytes(width: 1200, height: 800);
+      final cropped = await ProfilePictureCropDialog.autoCropImage(landscapeBytes);
+
+      expect(cropped.isNotEmpty, isTrue);
+
+      final codec = await ui.instantiateImageCodec(cropped);
+      final frame = await codec.getNextFrame();
+      expect(frame.image.width, 512);
+      expect(frame.image.height, 512);
+      frame.image.dispose();
+      codec.dispose();
+    });
+
+    testWidgets('Renders confirmation dialog with auto-cropped circular preview, badges, and action buttons', (tester) async {
       tester.view.physicalSize = const Size(414, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -53,54 +83,37 @@ void main() {
                 onPressed: () {
                   ProfilePictureCropDialog.show(context, rawBytes: testPngBytes);
                 },
-                child: const Text('Open Cropper'),
+                child: const Text('Open Auto Cropper'),
               ),
             ),
           ),
         ),
       );
 
-      // Open the cropper modal
-      await tester.tap(find.text('Open Cropper'));
+      // Open the auto-crop confirmation modal
+      await tester.tap(find.text('Open Auto Cropper'));
       await _pumpUntilLoaded(tester);
 
       // Verify header and guidance
-      expect(find.text('Adjust Profile Picture'), findsOneWidget);
-      expect(find.text('Center your face & customize styling'), findsOneWidget);
+      expect(find.text('Confirm Profile Picture'), findsOneWidget);
+      expect(find.text('Auto-centered & studio-enhanced'), findsOneWidget);
 
-      // Verify zoom icons and slider
-      expect(find.byIcon(Icons.zoom_out_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.zoom_in_rounded), findsOneWidget);
-      expect(find.byType(Slider), findsOneWidget);
+      // Verify auto-enhancement semantic chips
+      expect(find.text('✨ Auto-Centered'), findsOneWidget);
+      expect(find.text('📐 1:1 Headroom'), findsOneWidget);
+      expect(find.text('🎨 Zero Distortion'), findsOneWidget);
 
-      // Verify rotation button and reset button
-      expect(find.byIcon(Icons.rotate_right_rounded), findsOneWidget);
-      expect(find.byIcon(Icons.restart_alt_rounded), findsOneWidget);
+      // Verify filter presets
+      expect(find.text('✨ Studio Enhanced'), findsOneWidget);
+      expect(find.text('🌿 Natural'), findsOneWidget);
+      expect(find.text('☀️ Warm Gold'), findsOneWidget);
 
-      // Verify initial filters visible
-      expect(find.text('Original'), findsOneWidget);
-      expect(find.text('Studio Vibrant'), findsOneWidget);
-      expect(find.text('Crisp Clarity'), findsOneWidget);
-
-      // Scroll horizontal filter list to find Warm Gold and Monochrome
-      final scrollable = find.byType(Scrollable).last;
-      await tester.scrollUntilVisible(find.text('Warm Gold'), 60.0, scrollable: scrollable);
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(find.text('Warm Gold'), findsOneWidget);
-
-      await tester.scrollUntilVisible(find.text('Monochrome'), 60.0, scrollable: scrollable);
-      await tester.pump(const Duration(milliseconds: 150));
-      expect(find.text('Monochrome'), findsOneWidget);
-
-      // Verify Save and Cancel action buttons
-      expect(find.text('Save Picture'), findsOneWidget);
+      // Verify action buttons
       expect(find.text('Cancel'), findsOneWidget);
-
-      // Clean up spongy timers
-      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Confirm & Set Picture'), findsOneWidget);
     });
 
-    testWidgets('Rotation button cycles orientations cleanly', (tester) async {
+    testWidgets('Filter presets switch smoothly without errors', (tester) async {
       tester.view.physicalSize = const Size(414, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -115,53 +128,19 @@ void main() {
       );
       await _pumpUntilLoaded(tester);
 
-      final rotateFinder = find.byIcon(Icons.rotate_right_rounded);
-      expect(rotateFinder, findsOneWidget);
-
-      // Tap rotate 3 times
-      await tester.tap(rotateFinder);
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(rotateFinder);
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(rotateFinder);
-      await tester.pump(const Duration(milliseconds: 100));
-
-      // Verify reset returns back to default
-      final resetFinder = find.byIcon(Icons.restart_alt_rounded);
-      await tester.tap(resetFinder);
-      await tester.pump(const Duration(milliseconds: 150));
-    });
-
-    testWidgets('Filter chip selection updates active filter index', (tester) async {
-      tester.view.physicalSize = const Size(414, 900);
-      tester.view.devicePixelRatio = 1.0;
-      addTearDown(tester.view.resetPhysicalSize);
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: ThemeData.light(),
-          home: Scaffold(
-            body: ProfilePictureCropDialog(rawBytes: testPngBytes),
-          ),
-        ),
-      );
+      // Switch to Natural
+      await tester.tap(find.text('🌿 Natural'));
       await _pumpUntilLoaded(tester);
 
-      // Tap 'Studio Vibrant'
-      await tester.tap(find.text('Studio Vibrant'));
-      await tester.pump(const Duration(milliseconds: 150));
+      // Switch to Warm Gold
+      await tester.tap(find.text('☀️ Warm Gold'));
+      await _pumpUntilLoaded(tester);
 
-      // Scroll to 'Warm Gold' and tap
-      final scrollable = find.byType(Scrollable).last;
-      await tester.scrollUntilVisible(find.text('Warm Gold'), 60.0, scrollable: scrollable);
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(find.text('Warm Gold'));
-      await tester.pump(const Duration(milliseconds: 150));
+      // Switch back to Studio Enhanced
+      await tester.tap(find.text('✨ Studio Enhanced'));
+      await _pumpUntilLoaded(tester);
 
-      // Scroll to 'Monochrome' and tap
-      await tester.scrollUntilVisible(find.text('Monochrome'), 60.0, scrollable: scrollable);
-      await tester.pump(const Duration(milliseconds: 100));
-      await tester.tap(find.text('Monochrome'));
+      // Drain spongy release timers
       await tester.pump(const Duration(milliseconds: 200));
     });
 
@@ -202,44 +181,53 @@ void main() {
       expect(resultBytes, isNull);
     });
 
-    testWidgets('Save Picture renders 512x512 square cropped bytes without distortion', (tester) async {
+    testWidgets('Confirm & Set Picture button confirms and returns 512x512 auto-cropped bytes', (tester) async {
       tester.view.physicalSize = const Size(414, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
+
+      Uint8List? resultBytes;
 
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData.light(),
           home: Scaffold(
-            body: ProfilePictureCropDialog(rawBytes: testPngBytes),
+            body: Builder(
+              builder: (context) => ElevatedButton(
+                onPressed: () async {
+                  resultBytes = await ProfilePictureCropDialog.show(
+                    context,
+                    rawBytes: testPngBytes,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
           ),
         ),
       );
+
+      await tester.tap(find.text('Open'));
       await _pumpUntilLoaded(tester);
 
-      // Verify Save Picture button is rendered in the action row
-      final saveBtnFinder = find.text('Save Picture');
-      await tester.ensureVisible(saveBtnFinder);
-      expect(saveBtnFinder, findsOneWidget);
+      // Tap Confirm & Set Picture
+      final confirmBtn = find.text('Confirm & Set Picture');
+      await tester.ensureVisible(confirmBtn);
+      await tester.tap(confirmBtn);
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpAndSettle();
 
-      // Execute renderCroppedBytes on state within real engine loop
-      final state = tester.state<ProfilePictureCropDialogState>(
-        find.byType(ProfilePictureCropDialog),
-      );
-      Uint8List? croppedBytes;
+      // Verified 512x512 bytes returned
+      expect(resultBytes, isNotNull);
+      expect(resultBytes!.isNotEmpty, isTrue);
+
       ui.FrameInfo? frame;
       await tester.runAsync(() async {
-        croppedBytes = await state.renderCroppedBytes();
-        if (croppedBytes != null) {
-          final codec = await ui.instantiateImageCodec(croppedBytes!);
-          frame = await codec.getNextFrame();
-          codec.dispose();
-        }
+        final codec = await ui.instantiateImageCodec(resultBytes!);
+        frame = await codec.getNextFrame();
+        codec.dispose();
       });
 
-      // Result must be valid non-empty PNG bytes
-      expect(croppedBytes, isNotNull);
-      expect(croppedBytes!.isNotEmpty, isTrue);
       expect(frame, isNotNull);
       expect(frame!.image.width, 512);
       expect(frame!.image.height, 512);

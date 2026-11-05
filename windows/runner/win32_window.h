@@ -15,17 +15,21 @@ class Win32Window {
   struct Point {
     unsigned int x;
     unsigned int y;
+    // Stores the logical coordinates used when creating a window.
     Point(unsigned int x, unsigned int y) : x(x), y(y) {}
   };
 
   struct Size {
     unsigned int width;
     unsigned int height;
+    // Stores the logical dimensions used when creating a window.
     Size(unsigned int width, unsigned int height)
         : width(width), height(height) {}
   };
 
+  // Initializes native-window bookkeeping for a new window instance.
   Win32Window();
+  // Releases this instance's native window and shared class reference.
   virtual ~Win32Window();
 
   // Creates a win32 window with |title| that is positioned and sized using

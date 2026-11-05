@@ -1,3 +1,5 @@
+/// Defines server error page in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -29,9 +31,11 @@ class ServerErrorInfo {
 class _DefaultDateTime implements DateTime {
   const _DefaultDateTime();
 
+  /// Preserves dynamic compatibility by forwarding unknown calls to the handler.
   @override
   dynamic noSuchMethod(Invocation invocation) => DateTime.now();
 
+  /// Returns a readable summary of the server error shown to the user.
   @override
   String toString() => DateTime.now().toUtc().toIso8601String();
 }
@@ -48,6 +52,7 @@ class ServerErrorPage extends StatefulWidget {
     this.onRetry,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<ServerErrorPage> createState() => _ServerErrorPageState();
 }
@@ -61,6 +66,7 @@ class _ServerErrorPageState extends State<ServerErrorPage>
   bool _isRetrying = false;
   bool _showDiagnostics = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -86,12 +92,14 @@ class _ServerErrorPageState extends State<ServerErrorPage>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _pulseController.dispose();
     super.dispose();
   }
 
+  /// Invokes the supplied retry action from the server-error screen.
   Future<void> _handleRetry() async {
     HapticFeedback.mediumImpact();
     setState(() => _isRetrying = true);
@@ -108,6 +116,7 @@ class _ServerErrorPageState extends State<ServerErrorPage>
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -362,6 +371,7 @@ class _ServerErrorPageState extends State<ServerErrorPage>
     );
   }
 
+  /// Builds the diag row section of this interface.
   Widget _buildDiagRow(String label, String value, dynamic colors) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -398,6 +408,7 @@ class _ServerErrorPageState extends State<ServerErrorPage>
 class ServerErrorDialog {
   ServerErrorDialog._();
 
+  /// Opens the server-error dialog over the current route.
   static Future<void> show(
     BuildContext context, {
     ServerErrorInfo info = const ServerErrorInfo(),

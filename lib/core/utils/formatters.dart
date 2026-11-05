@@ -1,3 +1,5 @@
+/// Defines formatters in the application core utilities and reusable widgets.
+
 class AppFormatters {
   AppFormatters._();
 
@@ -57,6 +59,7 @@ class AppFormatters {
     return '$m / $d / ${date.year}';
   }
 
+  /// Splits a fixed-precision number into integer and fractional text parts.
   static List<String> _splitDecimals(double value, int fractionDigits) {
     final fixed = value.toStringAsFixed(fractionDigits);
     final dotIndex = fixed.indexOf('.');
@@ -64,6 +67,7 @@ class AppFormatters {
     return [fixed.substring(0, dotIndex), fixed.substring(dotIndex + 1)];
   }
 
+  /// Adds digit-grouping commas to an integer string while preserving its sign.
   static String _formatWithCommas(String integerPart) {
     final isNegative = integerPart.startsWith('-');
     final clean = isNegative ? integerPart.substring(1) : integerPart;

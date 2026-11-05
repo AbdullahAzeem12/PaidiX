@@ -1,2 +1,3 @@
 #include "../../Flutter/Flutter-Debug.xcconfig"
 #include "Warnings.xcconfig"
+// Debug build settings layered on the shared Flutter macOS configuration.

@@ -1,3 +1,5 @@
+/// Defines phone formatter in the application core utilities and reusable widgets.
+
 import 'dart:math' as math;
 import 'package:flutter/services.dart';
 
@@ -41,6 +43,7 @@ enum CountryCodeOption {
 
   bool get isUs => this == CountryCodeOption.us;
 
+  /// Finds the configured country entry by its calling code or display label.
   static CountryCodeOption fromCodeOrDisplay(String? val) {
     if (val == null) return CountryCodeOption.pk;
     final upper = val.toUpperCase().trim();
@@ -120,6 +123,7 @@ class PhoneInputFormatter extends TextInputFormatter {
 
   PhoneInputFormatter({required this.isUs});
 
+  /// Formats the edited text value while preserving the formatter's input constraints.
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,

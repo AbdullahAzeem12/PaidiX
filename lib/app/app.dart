@@ -1,3 +1,5 @@
+/// Builds the root Material application and listens for global theme changes.
+
 import 'package:flutter/material.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
@@ -5,17 +7,20 @@ import 'theme/app_theme.dart';
 class PaidiXApp extends StatefulWidget {
   const PaidiXApp({super.key});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<PaidiXApp> createState() => _PaidiXAppState();
 }
 
 class _PaidiXAppState extends State<PaidiXApp> {
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
     AppTheme.init();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(

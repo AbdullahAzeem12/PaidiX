@@ -1,3 +1,5 @@
+// Shares dependency repositories, keeps Android build output in the Flutter build tree,
+// and makes subprojects evaluate after the application module.
 allprojects {
     repositories {
         google()

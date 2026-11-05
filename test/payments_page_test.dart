@@ -1,3 +1,5 @@
+/// Tests the payments page test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
@@ -7,6 +9,7 @@ import 'package:paidix/features/payments/presentation/pages/payments_page.dart';
 // import 'package:paidix/features/payments/presentation/widgets/bulk_add_payments_dialog.dart';
 import 'package:paidix/features/payments/presentation/widgets/payments_filter_bar.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   testWidgets('PaymentsPage renders header, filters, search and empty state',
       (WidgetTester tester) async {

@@ -1,6 +1,10 @@
+/// Defines validators in the application core utilities and reusable widgets.
+
 class PaymentValidators {
   PaymentValidators._();
 
+  /// Requires a non-empty sender name with at least two trimmed characters.
+  /// Returns the first user-facing error, or `null` when the value is valid.
   static String? validateSenderName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter sender name';
@@ -11,6 +15,8 @@ class PaymentValidators {
     return null;
   }
 
+  /// Requires a non-empty company name with at least two trimmed characters.
+  /// Returns the first user-facing error, or `null` when the value is valid.
   static String? validateSenderCompany(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter sender company';
@@ -21,6 +27,8 @@ class PaymentValidators {
     return null;
   }
 
+  /// Requires a confirmation code containing at least four non-whitespace
+  /// characters and returns an error message when it does not.
   static String? validateConfirmationCode(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Confirmation code is required';
@@ -32,6 +40,8 @@ class PaymentValidators {
     return null;
   }
 
+  /// Removes currency symbols and grouping commas, then requires a positive
+  /// numeric amount. Returns the first validation error or `null`.
   static String? validateAmount(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Amount is required';
@@ -47,6 +57,7 @@ class PaymentValidators {
     return null;
   }
 
+  /// Requires a transaction date to be selected before submission.
   static String? validateDate(DateTime? date) {
     if (date == null) {
       return 'The date this payment was completed. You must select it.';

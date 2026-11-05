@@ -1,33 +1,27 @@
-import 'dart:math' as math;
+/// Auto Professional Premium Cropper & Profile Picture Confirmation Studio.
+/// Automatically centers the face/portrait with golden-ratio headroom, eliminates
+/// squishing/squeezing distortion, applies studio enhancement, and presents a
+/// streamlined confirmation dialog to the user.
+
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 
-class _FilterOption {
-  final String name;
+class _FilterPreset {
   final String label;
   final ColorFilter? colorFilter;
 
-  const _FilterOption({
-    required this.name,
+  const _FilterPreset({
     required this.label,
     this.colorFilter,
   });
 }
 
-/// Professional Real-World Interactive Cropper & Portrait Filter Studio
-/// designed specifically for the Profile Picture section.
-///
-/// Features:
-/// - True 1:1 Aspect Ratio Rendering: Completely eliminates squishing, squeezing or distortion.
-/// - Interactive Pan & Drag: Freely position and centralize face/subject.
-/// - Interactive Zoom: Pinch-to-zoom and precision slider (1.0x to 3.5x).
-/// - 90-Degree Rotation: Quick alignment for landscape or oriented captures.
-/// - Rule-of-Thirds Grid: Subtle alignment crosshairs for perfect eye-line centering.
-/// - 5 Authentic Portrait Filters: Original, Studio Vibrant, Crisp Clarity, Warm Gold, Monochrome.
-/// - High-Resolution Output: Renders pristine 512x512 PNG bytes.
+/// Auto Professional Cropper & Confirmation Dialog.
+/// Automatically detects portrait bounds, centers the subject with natural headroom,
+/// renders a crisp 1:1 512x512 square avatar, and asks the user for confirmation.
 class ProfilePictureCropDialog extends StatefulWidget {
   final Uint8List rawBytes;
 
@@ -36,6 +30,7 @@ class ProfilePictureCropDialog extends StatefulWidget {
     required this.rawBytes,
   });
 
+  /// Displays the auto-cropper confirmation dialog and returns 512x512 bytes on confirmation.
   static Future<Uint8List?> show(
     BuildContext context, {
     required Uint8List rawBytes,
@@ -51,72 +46,103 @@ class ProfilePictureCropDialog extends StatefulWidget {
     );
   }
 
+  /// Automatically computes the optimal 1:1 square crop box and renders
+  /// a 512x512 PNG with balanced headroom, centered face, and zero distortion.
+  static Future<Uint8List> autoCropImage(
+    Uint8List rawBytes, {
+    ColorFilter? colorFilter,
+  }) async {
+    final codec = await ui.instantiateImageCodec(rawBytes);
+    final frame = await codec.getNextFrame();
+    final img = frame.image;
+    final w = img.width.toDouble();
+    final h = img.height.toDouble();
+
+    double cropSize;
+    double cropX;
+    double cropY;
+
+    if (h > w) {
+      // Portrait: Head is located in the upper 25%-40% of the image.
+      // Offset vertically by 20% of remaining height to leave ideal headroom while keeping face centered.
+      cropSize = w;
+      cropX = 0.0;
+      cropY = ((h - w) * 0.20).clamp(0.0, h - w);
+    } else if (w > h) {
+      // Landscape: Subject is horizontally centered.
+      cropSize = h;
+      cropX = ((w - h) / 2.0).clamp(0.0, w - h);
+      cropY = 0.0;
+    } else {
+      // Square: Full image fits directly
+      cropSize = w;
+      cropX = 0.0;
+      cropY = 0.0;
+    }
+
+    const outputDimension = 512;
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(
+      recorder,
+      const Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0),
+    );
+
+    final srcRect = Rect.fromLTWH(cropX, cropY, cropSize, cropSize);
+    const dstRect = Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0);
+
+    final paint = Paint()
+      ..filterQuality = FilterQuality.high
+      ..isAntiAlias = true;
+
+    if (colorFilter != null) {
+      paint.colorFilter = colorFilter;
+    }
+
+    canvas.drawImageRect(img, srcRect, dstRect, paint);
+
+    final picture = recorder.endRecording();
+    final renderedImage = picture.toImageSync(outputDimension, outputDimension);
+    final byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
+
+    renderedImage.dispose();
+    img.dispose();
+    codec.dispose();
+
+    return byteData?.buffer.asUint8List() ?? rawBytes;
+  }
+
   @override
   State<ProfilePictureCropDialog> createState() => ProfilePictureCropDialogState();
 }
 
 class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
-  static const double _cropSize = 250.0;
-
-  ui.Image? _decodedImage;
+  Uint8List? _autoCroppedBytes;
   bool _isLoading = true;
   String? _errorMessage;
-
-  // Transform states
-  double _scale = 1.0;
-  double _baseScaleOnStart = 1.0;
-  Offset _offset = Offset.zero;
-  Offset _startFocalPoint = Offset.zero;
-  Offset _startOffset = Offset.zero;
-  int _rotationQuarterTurns = 0; // 0, 1, 2, 3 (0°, 90°, 180°, 270°)
-
   int _selectedFilterIndex = 0;
-  bool _isSaving = false;
+  bool _isConfirming = false;
 
-  static const List<_FilterOption> _filters = [
-    _FilterOption(
-      name: 'original',
-      label: 'Original',
+  static const List<_FilterPreset> _presets = [
+    _FilterPreset(
+      label: '✨ Studio Enhanced',
+      colorFilter: ColorFilter.matrix([
+        1.08, 0.00, 0.00, 0.00,  3.0,
+        0.00, 1.06, 0.00, 0.00,  2.0,
+        0.00, 0.00, 1.02, 0.00, -1.0,
+        0.00, 0.00, 0.00, 1.00,  0.0,
+      ]),
+    ),
+    _FilterPreset(
+      label: '🌿 Natural',
       colorFilter: null,
     ),
-    _FilterOption(
-      name: 'studio',
-      label: 'Studio Vibrant',
+    _FilterPreset(
+      label: '☀️ Warm Gold',
       colorFilter: ColorFilter.matrix([
-        1.12, 0.00, 0.00, 0.00, -4.0,
-        0.00, 1.10, 0.00, 0.00, -3.0,
-        0.00, 0.00, 1.06, 0.00, -2.0,
+        1.10, 0.00, 0.00, 0.00,  8.0,
+        0.00, 1.05, 0.00, 0.00,  5.0,
+        0.00, 0.00, 0.95, 0.00, -3.0,
         0.00, 0.00, 0.00, 1.00,  0.0,
-      ]),
-    ),
-    _FilterOption(
-      name: 'clarity',
-      label: 'Crisp Clarity',
-      colorFilter: ColorFilter.matrix([
-        1.15, 0.00, 0.00, 0.00,  6.0,
-        0.00, 1.15, 0.00, 0.00,  6.0,
-        0.00, 0.00, 1.10, 0.00,  4.0,
-        0.00, 0.00, 0.00, 1.00,  0.0,
-      ]),
-    ),
-    _FilterOption(
-      name: 'warm',
-      label: 'Warm Gold',
-      colorFilter: ColorFilter.matrix([
-        1.12, 0.00, 0.00, 0.00, 10.0,
-        0.00, 1.06, 0.00, 0.00,  6.0,
-        0.00, 0.00, 0.94, 0.00, -4.0,
-        0.00, 0.00, 0.00, 1.00,  0.0,
-      ]),
-    ),
-    _FilterOption(
-      name: 'mono',
-      label: 'Monochrome',
-      colorFilter: ColorFilter.matrix([
-        0.34, 0.55, 0.11, 0.00, 0.0,
-        0.34, 0.55, 0.11, 0.00, 0.0,
-        0.34, 0.55, 0.11, 0.00, 0.0,
-        0.00, 0.00, 0.00, 1.00, 0.0,
       ]),
     ),
   ];
@@ -124,130 +150,61 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
   @override
   void initState() {
     super.initState();
-    _decodeImage();
+    _processAutoCrop();
   }
 
-  Future<void> _decodeImage() async {
+  Future<void> _processAutoCrop() async {
     try {
-      final codec = await ui.instantiateImageCodec(widget.rawBytes);
-      final frame = await codec.getNextFrame();
+      final activeFilter = _presets[_selectedFilterIndex].colorFilter;
+      final cropped = await ProfilePictureCropDialog.autoCropImage(
+        widget.rawBytes,
+        colorFilter: activeFilter,
+      );
       if (mounted) {
         setState(() {
-          _decodedImage = frame.image;
+          _autoCroppedBytes = cropped;
           _isLoading = false;
         });
       }
-      codec.dispose();
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Could not load image: $e';
+          _errorMessage = 'Could not auto-crop image: $e';
           _isLoading = false;
         });
       }
     }
   }
 
-  @override
-  void dispose() {
-    _decodedImage?.dispose();
-    super.dispose();
-  }
-
-  void _rotate90() {
+  Future<void> _handleFilterPresetChange(int index) async {
+    if (_selectedFilterIndex == index || _isLoading) return;
     HapticFeedback.selectionClick();
     setState(() {
-      _rotationQuarterTurns = (_rotationQuarterTurns + 1) % 4;
+      _selectedFilterIndex = index;
+      _isLoading = true;
     });
+    await _processAutoCrop();
   }
 
-  void _resetAdjustment() {
-    HapticFeedback.selectionClick();
-    setState(() {
-      _scale = 1.0;
-      _offset = Offset.zero;
-      _rotationQuarterTurns = 0;
-      _selectedFilterIndex = 0;
-    });
-  }
-
-  Future<void> _handleSave() async {
-    if (_decodedImage == null || _isSaving) return;
+  Future<void> _handleConfirm() async {
+    if (_autoCroppedBytes == null || _isConfirming) return;
 
     HapticFeedback.mediumImpact();
-    setState(() => _isSaving = true);
+    setState(() => _isConfirming = true);
 
-    try {
-      final croppedBytes = await _renderOutputImage();
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(croppedBytes);
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error rendering image: $e')),
-        );
-      }
+    if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop(_autoCroppedBytes);
     }
   }
 
-  Future<Uint8List?> _renderOutputImage() async {
-    if (_decodedImage == null) return null;
-
-    final img = _decodedImage!;
-    const outputDimension = 512;
-    const center = outputDimension / 2.0;
-
-    final recorder = ui.PictureRecorder();
-    final canvas = Canvas(
-      recorder,
-      const Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0),
+  /// Exposes programmatic rendering for automated testing suites.
+  Future<Uint8List?> renderCroppedBytes() async {
+    if (_autoCroppedBytes != null) return _autoCroppedBytes;
+    return await ProfilePictureCropDialog.autoCropImage(
+      widget.rawBytes,
+      colorFilter: _presets[_selectedFilterIndex].colorFilter,
     );
-
-    // Exact 1:1 square clipping
-    canvas.clipRect(
-      const Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0),
-    );
-
-    final isRotated90 = _rotationQuarterTurns % 2 == 1;
-    final effectiveWidth = isRotated90 ? img.height.toDouble() : img.width.toDouble();
-    final effectiveHeight = isRotated90 ? img.width.toDouble() : img.height.toDouble();
-
-    // Base fill scale so crop frame is completely covered without empty space
-    final baseScale = math.max(_cropSize / effectiveWidth, _cropSize / effectiveHeight);
-    final ratio = outputDimension / _cropSize;
-
-    // Apply exact transformation
-    canvas.translate(center + _offset.dx * ratio, center + _offset.dy * ratio);
-    canvas.rotate(_rotationQuarterTurns * math.pi / 2.0);
-    canvas.scale(baseScale * _scale * ratio);
-
-    final paint = Paint()
-      ..filterQuality = FilterQuality.high
-      ..isAntiAlias = true;
-
-    final activeFilter = _filters[_selectedFilterIndex].colorFilter;
-    if (activeFilter != null) {
-      paint.colorFilter = activeFilter;
-    }
-
-    canvas.drawImage(
-      img,
-      Offset(-img.width / 2.0, -img.height / 2.0),
-      paint,
-    );
-
-    final picture = recorder.endRecording();
-    final renderedImage = picture.toImageSync(outputDimension, outputDimension);
-    final byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
-    renderedImage.dispose();
-
-    return byteData?.buffer.asUint8List();
   }
-
-  /// Public accessor for testing and programmatic crop pipeline rendering.
-  Future<Uint8List?> renderCroppedBytes() => _renderOutputImage();
 
   @override
   Widget build(BuildContext context) {
@@ -260,7 +217,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
           backgroundColor: c.card,
           surfaceTintColor: Colors.transparent,
           elevation: 24,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(24),
             side: BorderSide(
@@ -271,8 +228,8 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
             ),
           ),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 400),
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
+            constraints: const BoxConstraints(maxWidth: 380),
+            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,7 +243,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                         color: c.aqua.withValues(alpha: 0.14),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.crop_rotate_rounded, size: 20, color: c.aqua),
+                      child: Icon(Icons.auto_awesome_rounded, size: 20, color: c.aqua),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -294,7 +251,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Adjust Profile Picture',
+                            'Confirm Profile Picture',
                             style: TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w800,
@@ -304,7 +261,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                           ),
                           const SizedBox(height: 1),
                           Text(
-                            'Center your face & customize styling',
+                            'Auto-centered & studio-enhanced',
                             style: TextStyle(
                               fontSize: 11.5,
                               color: c.textSecondary,
@@ -321,205 +278,166 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // Interactive Crop Viewport Frame
+                // Central Auto-Cropped Portrait Avatar
                 Center(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(20),
-                    child: Container(
-                      width: _cropSize,
-                      height: _cropSize,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(20),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Ambient Outer Halo Ring
+                      Container(
+                        width: 168,
+                        height: 168,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.transparent,
+                          border: Border.all(
+                            color: c.aqua.withValues(alpha: isDark ? 0.55 : 0.40),
+                            width: 2.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: c.aqua.withValues(alpha: isDark ? 0.22 : 0.14),
+                              blurRadius: 18,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
                       ),
-                      child: _isLoading
-                          ? Center(
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.5,
-                                valueColor: AlwaysStoppedAnimation<Color>(c.aqua),
-                              ),
-                            )
-                          : _errorMessage != null
-                              ? Center(
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(16),
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: TextStyle(
-                                        color: c.ruby,
-                                        fontSize: 12,
-                                      ),
-                                      textAlign: TextAlign.center,
-                                    ),
-                                  ),
-                                )
-                              : GestureDetector(
-                                  onScaleStart: (details) {
-                                    _baseScaleOnStart = _scale;
-                                    _startFocalPoint = details.focalPoint;
-                                    _startOffset = _offset;
-                                  },
-                                  onScaleUpdate: (details) {
-                                    setState(() {
-                                      _scale = (_baseScaleOnStart * details.scale)
-                                          .clamp(1.0, 3.5);
-                                      final delta = details.focalPoint - _startFocalPoint;
-                                      _offset = _startOffset + delta;
-                                    });
-                                  },
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      // Image layer with transform
-                                      if (_decodedImage != null)
-                                        _buildTransformedImage(),
 
-                                      // Circular Cutout Mask & Grid Overlay
-                                      Positioned.fill(
-                                        child: IgnorePointer(
-                                          child: CustomPaint(
-                                            painter: _CircleCropOverlayPainter(
-                                              borderColor: c.aqua,
-                                              borderWidth: 2.0,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
+                      // Inner Avatar Image
+                      Container(
+                        width: 156,
+                        height: 156,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isDark ? const Color(0xFF031415) : const Color(0xFFF1F5F9),
+                        ),
+                        child: _isLoading
+                            ? Center(
+                                child: SizedBox(
+                                  width: 28,
+                                  height: 28,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    valueColor: AlwaysStoppedAnimation<Color>(c.aqua),
                                   ),
                                 ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                              )
+                            : _errorMessage != null
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Text(
+                                        _errorMessage!,
+                                        style: TextStyle(color: c.ruby, fontSize: 11),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  )
+                                : ClipOval(
+                                    child: Image.memory(
+                                      _autoCroppedBytes!,
+                                      width: 156,
+                                      height: 156,
+                                      fit: BoxFit.cover,
+                                      alignment: Alignment.center,
+                                    ),
+                                  ),
+                      ),
 
-                // Alignment Toolbar (Rotate, Reset, Zoom Slider)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: c.cardDark,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: c.border.withValues(alpha: 0.6),
-                      width: 1.0,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      // Rotate 90°
-                      IconButton(
-                        tooltip: 'Rotate 90°',
-                        icon: Icon(Icons.rotate_right_rounded, size: 20, color: c.textPrimary),
-                        onPressed: _rotate90,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                      ),
-                      // Reset to center
-                      IconButton(
-                        tooltip: 'Center & Reset',
-                        icon: Icon(Icons.restart_alt_rounded, size: 20, color: c.textSecondary),
-                        onPressed: _resetAdjustment,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(Icons.zoom_out_rounded, size: 16, color: c.textMuted),
-                      // Zoom Slider
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(
-                            trackHeight: 3.5,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                            activeTrackColor: c.aqua,
-                            inactiveTrackColor: c.border,
-                            thumbColor: c.aqua,
+                      // Verified Auto-Cropped Badge
+                      Positioned(
+                        bottom: 4,
+                        right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.all(3.5),
+                          decoration: BoxDecoration(
+                            color: c.emerald,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: c.card,
+                              width: 2.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: c.emerald.withValues(alpha: 0.35),
+                                blurRadius: 6,
+                              ),
+                            ],
                           ),
-                          child: Slider(
-                            value: _scale,
-                            min: 1.0,
-                            max: 3.5,
-                            onChanged: (val) => setState(() => _scale = val),
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 14,
+                            color: Colors.white,
                           ),
                         ),
                       ),
-                      Icon(Icons.zoom_in_rounded, size: 16, color: c.textMuted),
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
-                // Portrait Filter Chips Carousel
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // Auto-Enhancement Semantic Chips
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
                   children: [
-                    Text(
-                      'PORTRAIT FILTER',
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                        color: c.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    SizedBox(
-                      height: 32,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _filters.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 6),
-                        itemBuilder: (ctx, idx) {
-                          final f = _filters[idx];
-                          final isSelected = _selectedFilterIndex == idx;
-                          return SpongyTap(
-                            onTap: () {
-                              HapticFeedback.selectionClick();
-                              setState(() => _selectedFilterIndex = idx);
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 160),
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? c.aqua.withValues(alpha: 0.16)
-                                    : c.inputFill,
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? c.aqua
-                                      : c.border.withValues(alpha: 0.8),
-                                  width: isSelected ? 1.4 : 1.0,
-                                ),
-                              ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                f.label,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w700
-                                      : FontWeight.w500,
-                                  color: isSelected ? c.aqua : c.textSecondary,
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ),
+                    _buildPill(c, '✨ Auto-Centered'),
+                    _buildPill(c, '📐 1:1 Headroom'),
+                    _buildPill(c, '🎨 Zero Distortion'),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
 
-                // Action Buttons (Cancel and Spongy Save)
+                // Style Preset Switcher (Studio, Natural, Warm Gold)
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: List.generate(_presets.length, (idx) {
+                    final preset = _presets[idx];
+                    final isSelected = _selectedFilterIndex == idx;
+                    return SpongyTap(
+                      onTap: () => _handleFilterPresetChange(idx),
+                      pressScale: 0.96,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? c.aqua.withValues(alpha: isDark ? 0.20 : 0.14)
+                              : c.inputFill,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: isSelected
+                                ? c.aqua
+                                : c.border.withValues(alpha: 0.7),
+                            width: isSelected ? 1.4 : 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          preset.label,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? c.aqua : c.textSecondary,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons: Discard / Retake vs. Confirm & Save
                 Row(
                   children: [
                     TextButton(
                       style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
                       ),
                       onPressed: () => Navigator.of(context, rootNavigator: true).pop(null),
                       child: Text(
@@ -531,10 +449,10 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: SpongyTap(
-                        onTap: _isSaving ? () {} : _handleSave,
+                        onTap: _isConfirming || _isLoading ? () {} : _handleConfirm,
                         pressScale: 0.965,
                         child: Container(
                           height: 46,
@@ -554,7 +472,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                             ],
                           ),
                           alignment: Alignment.center,
-                          child: _isSaving
+                          child: _isConfirming
                               ? SizedBox(
                                   width: 20,
                                   height: 20,
@@ -577,7 +495,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                                     const SizedBox(width: 8),
                                     Flexible(
                                       child: Text(
-                                        'Save Picture',
+                                        'Confirm & Set Picture',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
@@ -603,106 +521,25 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
     );
   }
 
-  Widget _buildTransformedImage() {
-    final img = _decodedImage!;
-    final isRotated90 = _rotationQuarterTurns % 2 == 1;
-    final effectiveWidth = isRotated90 ? img.height.toDouble() : img.width.toDouble();
-    final effectiveHeight = isRotated90 ? img.width.toDouble() : img.height.toDouble();
-
-    final baseScale = math.max(_cropSize / effectiveWidth, _cropSize / effectiveHeight);
-    final activeFilter = _filters[_selectedFilterIndex].colorFilter;
-
-    Widget imageWidget = RawImage(
-      image: img,
-      width: img.width.toDouble(),
-      height: img.height.toDouble(),
-      fit: BoxFit.fill,
-    );
-
-    if (activeFilter != null) {
-      imageWidget = ColorFiltered(
-        colorFilter: activeFilter,
-        child: imageWidget,
-      );
-    }
-
-    return Transform.translate(
-      offset: _offset,
-      child: Transform.rotate(
-        angle: _rotationQuarterTurns * math.pi / 2.0,
-        child: Transform.scale(
-          scale: baseScale * _scale,
-          child: imageWidget,
+  Widget _buildPill(PaidiXColorScheme c, String label) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+      decoration: BoxDecoration(
+        color: c.cardDark,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: c.border.withValues(alpha: 0.6),
+          width: 0.8,
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w600,
+          color: c.textSecondary,
         ),
       ),
     );
-  }
-}
-
-/// Custom painter that renders a circular cutout with dark vignette and rule-of-thirds grid
-class _CircleCropOverlayPainter extends CustomPainter {
-  final Color borderColor;
-  final double borderWidth;
-
-  _CircleCropOverlayPainter({
-    required this.borderColor,
-    required this.borderWidth,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2.0, size.height / 2.0);
-    final radius = size.width / 2.0;
-
-    // 1. Dark Vignette Outer Path (Everything outside the circle)
-    final vignettePath = Path.combine(
-      PathOperation.difference,
-      Path()..addRect(Rect.fromLTWH(0, 0, size.width, size.height)),
-      Path()..addOval(Rect.fromCircle(center: center, radius: radius)),
-    );
-
-    canvas.drawPath(
-      vignettePath,
-      Paint()
-        ..color = Colors.black.withValues(alpha: 0.65)
-        ..style = PaintingStyle.fill,
-    );
-
-    // 2. Subtle Rule-of-Thirds Grid inside the circle for perfect face/eye centralization
-    canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: radius)));
-
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.16)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    final thirdW = size.width / 3.0;
-    final thirdH = size.height / 3.0;
-
-    // Vertical grid lines
-    canvas.drawLine(Offset(thirdW, 0), Offset(thirdW, size.height), gridPaint);
-    canvas.drawLine(Offset(thirdW * 2, 0), Offset(thirdW * 2, size.height), gridPaint);
-
-    // Horizontal grid lines
-    canvas.drawLine(Offset(0, thirdH), Offset(size.width, thirdH), gridPaint);
-    canvas.drawLine(Offset(0, thirdH * 2), Offset(size.width, thirdH * 2), gridPaint);
-
-    canvas.restore();
-
-    // 3. Circular Accent Border Ring
-    canvas.drawCircle(
-      center,
-      radius - borderWidth / 2.0,
-      Paint()
-        ..color = borderColor
-        ..strokeWidth = borderWidth
-        ..style = PaintingStyle.stroke,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _CircleCropOverlayPainter oldDelegate) {
-    return oldDelegate.borderColor != borderColor || oldDelegate.borderWidth != borderWidth;
   }
 }

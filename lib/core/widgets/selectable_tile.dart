@@ -1,3 +1,5 @@
+/// Defines selectable tile in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_motion.dart';
@@ -17,6 +19,7 @@ class SelectableTile extends StatefulWidget {
     required this.onTap,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SelectableTile> createState() => _SelectableTileState();
 }
@@ -26,6 +29,7 @@ class _SelectableTileState extends State<SelectableTile>
   late final AnimationController _animController;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -43,12 +47,14 @@ class _SelectableTileState extends State<SelectableTile>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

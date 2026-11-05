@@ -1,3 +1,4 @@
+# Excludes Android build output, local SDK paths, and private signing files.
 gradle-wrapper.jar
 /.gradle
 /captures/

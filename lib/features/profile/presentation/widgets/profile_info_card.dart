@@ -1,3 +1,5 @@
+/// Defines profile info card in the profile feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -11,6 +13,7 @@ class ProfileInfoCard extends StatelessWidget {
 
   const ProfileInfoCard({super.key, required this.profile});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -150,6 +153,7 @@ class ProfileInfoCard extends StatelessWidget {
     );
   }
 
+  /// Builds the field section of this interface.
   Widget _buildField({
     required String title,
     required String value,
@@ -180,6 +184,7 @@ class ProfileInfoCard extends StatelessWidget {
     );
   }
 
+  /// Builds the two col row section of this interface.
   Widget _buildTwoColRow({
     required String col1Title,
     required String col1Value,

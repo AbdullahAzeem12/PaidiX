@@ -1,3 +1,5 @@
+/// Tests the account settings page test behavior and guards its key user-facing and domain expectations.
+
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/settings/presentation/pages/account_settings_page.dart';
 import 'package:paidix/features/settings/domain/fx_display_preferences.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite', () {
     final screenWidths = [320.0, 360.0, 375.0, 414.0, 768.0, 1024.0, 1200.0];

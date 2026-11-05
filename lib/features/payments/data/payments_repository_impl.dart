@@ -1,3 +1,5 @@
+/// Defines payments repository impl in the payments feature's data layer.
+
 import 'package:flutter/foundation.dart';
 import '../../../core/widgets/status_badge.dart';
 import '../domain/payment_models.dart';
@@ -33,6 +35,7 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
 
   int _referenceCounter = 1334;
 
+  /// Returns the payment methods currently offered by the in-memory repository.
   @override
   Future<List<PaymentMethodOption>> getPaymentMethods() async {
     return const [
@@ -49,12 +52,16 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
     ];
   }
 
+  /// Returns the configured fee percentage used by [submitPayment].
   @override
   Future<double> getFeePercentage() async => _feePercentage;
 
+  /// Returns the configured USD-to-PKR rate used to calculate net PKR.
   @override
   Future<double> getUsdToPkrRate() async => _usdToPkrRate;
 
+  /// Calculates the fee and net PKR, creates a completed payment, and inserts
+  /// it at the front of the shared list so listening screens refresh.
   @override
   Future<PaymentItem> submitPayment(PaymentSubmission submission) async {
     final feeAmount = (submission.amount * _feePercentage) / 100.0;
@@ -88,6 +95,7 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
     return newPayment;
   }
 
+  /// Applies text search, status, and date-range filters to the current list.
   @override
   List<PaymentItem> filterPayments(PaymentFilter filter) {
     var result = List<PaymentItem>.from(_paymentsNotifier.value);

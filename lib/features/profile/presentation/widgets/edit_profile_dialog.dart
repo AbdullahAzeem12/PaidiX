@@ -1,3 +1,5 @@
+/// Defines edit profile dialog in the profile feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +19,7 @@ class EditProfileDialog extends StatefulWidget {
 
   const EditProfileDialog({super.key, required this.profile});
 
+  /// Opens the profile editor and returns the edited values when the user saves.
   static Future<void> show(BuildContext context, UserProfile profile) {
     return showDialog(
       context: context,
@@ -25,6 +28,7 @@ class EditProfileDialog extends StatefulWidget {
     );
   }
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<EditProfileDialog> createState() => _EditProfileDialogState();
 }
@@ -54,6 +58,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
   bool _isSaving = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -64,6 +69,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     _addressController = TextEditingController(text: widget.profile.address);
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _nameController.dispose();
@@ -74,6 +80,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     super.dispose();
   }
 
+  /// Opens the system image picker for the requested identity document.
   Future<void> _pickDocument({
     required String typeLabel,
     required void Function(Uint8List bytes, String name, String path) onPicked,
@@ -102,6 +109,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     }
   }
 
+  /// Validates edited values, persists the accepted changes, and closes the dialog.
   Future<void> _handleSave() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -145,6 +153,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -464,6 +473,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     );
   }
 
+  /// Builds the doc picker section of this interface.
   Widget _buildDocPicker({
     required String label,
     required String? fileName,
@@ -581,6 +591,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     );
   }
 
+  /// Builds the label section of this interface.
   Widget _buildLabel(String text, PaidiXColorScheme colors) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -596,6 +607,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     );
   }
 
+  /// Builds the input section of this interface.
   Widget _buildInput({
     required TextEditingController controller,
     required String hint,

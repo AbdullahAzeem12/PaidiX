@@ -1,3 +1,5 @@
+/// Defines payment models in the payments feature's domain layer.
+
 import 'dart:typed_data';
 import '../../../core/widgets/status_badge.dart';
 
@@ -81,6 +83,7 @@ class PaymentItem {
     this.proofBytes,
   });
 
+  /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() => {
         'id': id,
         'reference': reference,
@@ -153,6 +156,7 @@ class PaymentFilter {
     this.toDate,
   });
 
+  /// Creates a copy while preserving fields that were not supplied.
   PaymentFilter copyWith({
     DateRangeFilter? dateRange,
     CurrencyFilter? currency,

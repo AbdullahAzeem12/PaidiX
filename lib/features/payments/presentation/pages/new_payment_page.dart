@@ -1,3 +1,5 @@
+/// Defines new payment page in the payments feature's presentation layer.
+
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -24,6 +26,7 @@ class NewPaymentPage extends StatefulWidget {
 
   const NewPaymentPage({super.key, required this.paymentsRepository});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<NewPaymentPage> createState() => _NewPaymentPageState();
 }
@@ -47,6 +50,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   bool _isSubmitting = false;
   double _feePercentage = 12.0;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -79,6 +83,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
+  /// Loads the configured fee percentage for the payment form.
   Future<void> _loadFee() async {
     final fee = await widget.paymentsRepository.getFeePercentage();
     if (mounted) {
@@ -86,6 +91,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _senderNameController.dispose();
@@ -96,6 +102,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     super.dispose();
   }
 
+  /// Opens a date picker and stores its selected date.
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -169,6 +176,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
+  /// Supplies a demo receipt name when the platform file picker is unavailable.
   void _simulateFilePick() {
     // Allows selecting a sample proof file for testing workflow
     setState(() {
@@ -179,6 +187,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     });
   }
 
+  /// Removes the attached receipt from the form state.
   void _clearFile() {
     HapticFeedback.lightImpact();
     setState(() {
@@ -188,6 +197,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     });
   }
 
+  /// Validates this payment form, submits one payment, and returns to the list.
   Future<void> _handleSubmit() async {
     // Validate method
     if (_selectedMethodId == null) {
@@ -259,6 +269,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
+  /// Determines whether form dirty.
   bool _isFormDirty() {
     return _senderNameController.text.isNotEmpty ||
         _senderCompanyController.text.isNotEmpty ||
@@ -270,6 +281,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
         _selectedFileBytes != null;
   }
 
+  /// Returns to the payments list, asking before discarding unsaved form data.
   void _handleCancel() {
     final colors = AppColors.of(context);
     if (_isFormDirty()) {
@@ -307,6 +319,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -414,6 +427,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 
+  /// Builds the payment method tiles section of this interface.
   Widget _buildPaymentMethodTiles() {
     final tile1 = SelectableTile(
       title: 'Freight Flow Cashapp',
@@ -483,6 +497,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 
+  /// Builds the sender fields section of this interface.
   Widget _buildSenderFields() {
     final nameField = AppTextField(
       label: 'SENDER NAME',
@@ -523,6 +538,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 
+  /// Builds the amount and date fields section of this interface.
   Widget _buildAmountAndDateFields() {
     final colors = AppColors.of(context);
     final amountField = AppTextField(
@@ -573,6 +589,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 
+  /// Builds the upload area section of this interface.
   Widget _buildUploadArea() {
     final colors = AppColors.of(context);
 
@@ -671,6 +688,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 
+  /// Builds the form actions section of this interface.
   Widget _buildFormActions() {
     final colors = AppColors.of(context);
 

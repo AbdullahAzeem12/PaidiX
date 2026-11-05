@@ -1,3 +1,5 @@
+/// Defines auth primary button in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import 'app_button.dart';
@@ -14,6 +16,7 @@ class AuthPrimaryButton extends StatelessWidget {
     this.isLoading = false,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

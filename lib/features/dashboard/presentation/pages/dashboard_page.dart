@@ -1,3 +1,5 @@
+/// Defines dashboard page in the dashboard feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -27,6 +29,7 @@ class DashboardPage extends StatefulWidget {
 
   const DashboardPage({super.key, required this.paymentsRepository});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
@@ -42,6 +45,7 @@ class _DashboardPageState extends State<DashboardPage> {
   DateTime? _fromDate;
   DateTime? _toDate;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -56,6 +60,7 @@ class _DashboardPageState extends State<DashboardPage> {
         toDate: _toDate,
       );
 
+  /// Aggregates the supplied payment list into dashboard counts and balances.
   FinancialSummary _computeSummary(List<PaymentItem> list) {
     if (list.isEmpty) {
       return FinancialSummary.empty();
@@ -103,6 +108,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder(
@@ -265,6 +271,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the header section of this interface.
   Widget _buildHeader(
     BuildContext context,
     UserProfile userProfile,
@@ -632,6 +639,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the active status filter banner section of this interface.
   Widget _buildActiveStatusFilterBanner(
       PaidiXColorScheme colors, bool isDark, int count) {
     String statusLabel = 'Filtered';
@@ -747,6 +755,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the filtered empty state section of this interface.
   Widget _buildFilteredEmptyState(PaidiXColorScheme colors) {
     return Container(
       width: double.infinity,
@@ -820,6 +829,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the header reset button section of this interface.
   Widget _buildHeaderResetButton(
     BuildContext context,
     PaidiXColorScheme colors,
@@ -892,6 +902,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the filter chip section of this interface.
   Widget _buildFilterChip<T>({
     required BuildContext context,
     required T value,
@@ -1032,6 +1043,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the date input section of this interface.
   Widget _buildDateInput({
     required BuildContext context,
     required String label,
@@ -1207,6 +1219,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
+  /// Builds the empty transactions card section of this interface.
   Widget _buildEmptyTransactionsCard(PaidiXColorScheme colors) {
     return Container(
       width: double.infinity,
@@ -1250,6 +1263,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the empty recent activity card section of this interface.
   Widget _buildEmptyRecentActivityCard(PaidiXColorScheme colors) {
     return Container(
       width: double.infinity,
@@ -1293,6 +1307,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the section header section of this interface.
   Widget _buildSectionHeader({
     required String title,
     required String actionText,
@@ -1341,6 +1356,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the large financial cards section of this interface.
   Widget _buildLargeFinancialCards(
       BuildContext context, FinancialSummary summary) {
     final colors = AppColors.of(context);
@@ -1439,6 +1455,7 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  /// Builds the status summary grid section of this interface.
   Widget _buildStatusSummaryGrid(
       BuildContext context, FinancialSummary summary) {
     final colors = AppColors.of(context);
@@ -1585,6 +1602,7 @@ class AnimatedProfileLink extends StatefulWidget {
 
   const AnimatedProfileLink({super.key, required this.onTap});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<AnimatedProfileLink> createState() => _AnimatedProfileLinkState();
 }
@@ -1597,6 +1615,7 @@ class _AnimatedProfileLinkState extends State<AnimatedProfileLink>
   bool _isHovered = false;
   bool _isTapped = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -1620,12 +1639,14 @@ class _AnimatedProfileLinkState extends State<AnimatedProfileLink>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// Runs the profile link action and its press feedback.
   void _handleTap() {
     HapticFeedback.lightImpact();
     setState(() => _isTapped = true);
@@ -1646,6 +1667,7 @@ class _AnimatedProfileLinkState extends State<AnimatedProfileLink>
     });
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

@@ -1,3 +1,5 @@
+/// Defines kyc image processor in the kyc feature's data layer.
+
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;

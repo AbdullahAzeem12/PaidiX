@@ -1,3 +1,5 @@
+/// Tests the kyc auth routing test behavior and guards its key user-facing and domain expectations.
+
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +10,7 @@ import 'package:paidix/features/kyc/domain/kyc_models.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   setUp(() {
     UserProfileRepository.instance.resetToDefault();

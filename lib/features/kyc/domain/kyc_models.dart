@@ -1,3 +1,5 @@
+/// Defines kyc models in the kyc feature's domain layer.
+
 import 'dart:typed_data';
 
 enum KycStep {
@@ -53,6 +55,7 @@ class PersonalInfo {
     return fullName.trim().length >= 3 && isPhoneValid && smsConsent;
   }
 
+  /// Creates a copy while preserving fields that were not supplied.
   PersonalInfo copyWith({
     String? fullName,
     String? countryCode,
@@ -105,6 +108,7 @@ class IdentityDocInfo {
 
   bool get isValid => cnicNumber.trim().isNotEmpty && hasFiles;
 
+  /// Creates a copy while preserving fields that were not supplied.
   IdentityDocInfo copyWith({
     String? cnicNumber,
     bool? isAvailable,
@@ -153,6 +157,7 @@ class PhotoDocInfo {
 
   bool get hasPhoto => fileName != null || filePath != null || bytes != null;
 
+  /// Creates a copy while preserving fields that were not supplied.
   PhotoDocInfo copyWith({
     String? fileName,
     String? filePath,
@@ -190,6 +195,7 @@ class BankInfo {
       beneficiaryTitle.trim().length >= 3 &&
       iban.trim().length >= 14;
 
+  /// Creates a copy while preserving fields that were not supplied.
   BankInfo copyWith({
     String? bankName,
     String? beneficiaryTitle,
@@ -228,6 +234,7 @@ class KycState {
     this.isSubmitted = false,
   });
 
+  /// Creates a copy while preserving fields that were not supplied.
   KycState copyWith({
     KycStep? currentStep,
     PersonalInfo? personal,

@@ -1,3 +1,5 @@
+/// Defines kyc review card in the profile feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -12,6 +14,7 @@ class KycReviewCard extends StatelessWidget {
 
   const KycReviewCard({super.key, required this.profile});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -146,6 +149,7 @@ class KycReviewCard extends StatelessWidget {
     );
   }
 
+  /// Builds the status pill section of this interface.
   Widget _buildStatusPill(PaidiXColorScheme colors) {
     final isVerified = profile.kycStatus.isVerified;
     final pillBg = isVerified

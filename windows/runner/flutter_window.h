@@ -17,8 +17,11 @@ class FlutterWindow : public Win32Window {
 
  protected:
   // Win32Window:
+  // Creates and attaches the Flutter controller and view.
   bool OnCreate() override;
+  // Releases the Flutter controller before native window teardown.
   void OnDestroy() override;
+  // Offers messages to Flutter before the base window handles them.
   LRESULT MessageHandler(HWND window, UINT const message, WPARAM const wparam,
                          LPARAM const lparam) noexcept override;
 

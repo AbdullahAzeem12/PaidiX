@@ -1,3 +1,5 @@
+/// Defines status metric card in the dashboard feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -26,6 +28,7 @@ class StatusMetricCard extends StatelessWidget {
     this.activeColor,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

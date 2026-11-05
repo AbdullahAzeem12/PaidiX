@@ -1,3 +1,5 @@
+/// Defines bank selector sheet in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
@@ -35,6 +37,7 @@ class BankSelectorSheet extends StatefulWidget {
     ).then((val) => val ?? result);
   }
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<BankSelectorSheet> createState() => _BankSelectorSheetState();
 }
@@ -44,6 +47,7 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
   BankCategory? _selectedCategory;
   String _query = '';
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _searchCtrl.dispose();
@@ -59,6 +63,7 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
     }).toList();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = AppColors.of(context);
@@ -325,6 +330,7 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
     );
   }
 
+  /// Builds the category chip section of this interface.
   Widget _buildCategoryChip({
     required String label,
     required bool isSelected,

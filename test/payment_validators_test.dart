@@ -1,6 +1,9 @@
+/// Tests the payment validators test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/core/utils/validators.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('PaymentValidators Tests', () {
     test('validateSenderName checks for non-empty and min length', () {

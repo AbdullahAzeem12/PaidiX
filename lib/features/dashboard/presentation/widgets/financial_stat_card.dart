@@ -1,3 +1,5 @@
+/// Defines financial stat card in the dashboard feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -23,6 +25,7 @@ class FinancialStatCard extends StatelessWidget {
     this.onTap,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

@@ -1,3 +1,5 @@
+/// Defines bank logo widget in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
 
@@ -18,6 +20,7 @@ class BankLogoWidget extends StatelessWidget {
     this.elevated = false,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final effectiveBank = bank ?? findPakistaniBank(bankName ?? 'JazzCash');
@@ -38,6 +41,7 @@ class BankCategoryPill extends StatelessWidget {
 
   const BankCategoryPill({super.key, required this.category});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return const SizedBox.shrink();

@@ -1,3 +1,5 @@
+/// Defines step2 identity view in the kyc feature's presentation layer.
+
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -26,6 +28,7 @@ class Step2IdentityView extends StatefulWidget {
     required this.onBack,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<Step2IdentityView> createState() => _Step2IdentityViewState();
 }
@@ -44,6 +47,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
 
   static String? _pendingPickSide;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -72,6 +76,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _debounceTimer?.cancel();
@@ -79,6 +84,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     super.dispose();
   }
 
+  /// Stores the edited CNIC value and restarts its format/availability checks.
   void _onCnicChanged(String val) {
     widget.onChanged(
       widget.identityInfo.copyWith(cnicNumber: val.trim()),
@@ -86,6 +92,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     _validateCnicRealtime(val, debounce: true);
   }
 
+  /// Checks CNIC completeness, format, and simulated registry availability.
   void _validateCnicRealtime(String val, {bool debounce = true}) {
     _debounceTimer?.cancel();
     final clean = CnicValidator.clean(val);
@@ -121,6 +128,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     }
   }
 
+  /// Stores a selected CNIC-side image and refreshes its document preview.
   Future<void> _applyPickedImage(XFile xFile, bool isFront) async {
     try {
       final bytes = await xFile.readAsBytes();
@@ -196,6 +204,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     }
   }
 
+  /// Enhances both CNIC images and advances once the identity step is complete.
   Future<void> _enhanceAndContinue() async {
     HapticFeedback.mediumImpact();
 
@@ -249,6 +258,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Clears the selected CNIC images so the user can replace them.
   void _reuploadDifferentImages() {
     HapticFeedback.selectionClick();
     widget.onChanged(
@@ -258,6 +268,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Opens the selected identity image for full-screen inspection.
   void _showFullScreenInspection({
     required String title,
     required Uint8List? bytes,
@@ -371,6 +382,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the pill section of this interface.
   Widget _buildPill(String text, PaidiXColorScheme colors) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -393,6 +405,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -491,6 +504,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the processing indicator section of this interface.
   Widget _buildProcessingIndicator(PaidiXColorScheme colors) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -551,6 +565,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the upload form state section of this interface.
   Widget _buildUploadFormState(PaidiXColorScheme colors, bool isWide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,6 +871,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     }
   }
 
+  /// Builds the enhanced preview state section of this interface.
   Widget _buildEnhancedPreviewState(PaidiXColorScheme colors, bool isWide) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -991,6 +1007,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the doc card section of this interface.
   Widget _buildDocCard({
     required PaidiXColorScheme colors,
     required String title,
@@ -1119,6 +1136,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
+  /// Builds the document graphic section of this interface.
   Widget _buildDocumentGraphic(
     Uint8List? bytes,
     String? filePath,

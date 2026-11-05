@@ -1,3 +1,5 @@
+/// Defines paidix toast in the application core utilities and reusable widgets.
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -247,6 +249,7 @@ class PaidiXToast {
     overlay.insert(entry);
   }
 
+  /// Uses a standard SnackBar when the overlay-based toast cannot be shown.
   static void _showFallbackSnackBar(
     BuildContext context, {
     required String message,
@@ -358,6 +361,7 @@ class _TopToastWidget extends StatefulWidget {
     required this.onDismiss,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_TopToastWidget> createState() => _TopToastWidgetState();
 }
@@ -370,6 +374,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
   Timer? _dismissTimer;
   bool _isDismissing = false;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -404,6 +409,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
     });
   }
 
+  /// Dismisses the active toast after its slide-out animation completes.
   void dismissWithAnimation() {
     if (_isDismissing || !mounted) return;
     _isDismissing = true;
@@ -415,6 +421,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
     });
   }
 
+  /// Removes the active toast without animation, such as during disposal.
   void dismissImmediately() {
     if (_isDismissing) return;
     _isDismissing = true;
@@ -423,6 +430,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
     widget.onDismiss();
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _dismissTimer?.cancel();
@@ -430,6 +438,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
     super.dispose();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return Positioned(
@@ -466,6 +475,7 @@ class _TopToastWidgetState extends State<_TopToastWidget>
     );
   }
 
+  /// Builds the card section of this interface.
   Widget _buildCard() {
     final isDark = widget.isDark;
     final colors = widget.colors;

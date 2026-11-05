@@ -1,3 +1,5 @@
+/// Defines payments filter bar in the payments feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -27,6 +29,7 @@ class PaymentsFilterBar extends StatefulWidget {
     required this.onReset,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<PaymentsFilterBar> createState() => _PaymentsFilterBarState();
 }
@@ -35,6 +38,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
   // Closed by default as per design requirement
   bool _isExpanded = false;
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -209,6 +213,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
     );
   }
 
+  /// Builds the header reset button section of this interface.
   Widget _buildHeaderResetButton(
     BuildContext context,
     PaidiXColorScheme colors,
@@ -273,6 +278,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
     );
   }
 
+  /// Builds the filter chip section of this interface.
   Widget _buildFilterChip<T>({
     required BuildContext context,
     required T value,

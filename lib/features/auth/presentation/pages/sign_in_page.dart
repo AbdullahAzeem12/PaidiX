@@ -1,3 +1,5 @@
+/// Defines sign in page in the auth feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -16,6 +18,7 @@ import '../../domain/auth_validators.dart';
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SignInPage> createState() => _SignInPageState();
 }
@@ -27,6 +30,7 @@ class _SignInPageState extends State<SignInPage> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _emailController.dispose();
@@ -34,6 +38,7 @@ class _SignInPageState extends State<SignInPage> {
     super.dispose();
   }
 
+  /// Validates the form, resolves the local demo user, and routes by KYC status.
   Future<void> _handleSignIn() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       PaidiXToast.showWarning(context, 'Please enter a valid email and password.');
@@ -125,6 +130,7 @@ class _SignInPageState extends State<SignInPage> {
     context.go('/kyc');
   }
 
+  /// Shows the simulated password-recovery instructions dialog.
   void _showForgotPasswordDialog() {
     final colors = AppColors.of(context);
     showDialog(
@@ -167,6 +173,7 @@ class _SignInPageState extends State<SignInPage> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

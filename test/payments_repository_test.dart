@@ -1,8 +1,11 @@
+/// Tests the payments repository test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/core/widgets/status_badge.dart';
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
 import 'package:paidix/features/payments/domain/payment_models.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('PaymentsRepositoryImpl Tests', () {
     late PaymentsRepositoryImpl repo;

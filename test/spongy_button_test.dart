@@ -1,3 +1,5 @@
+/// Tests the spongy button test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
@@ -5,6 +7,7 @@ import 'package:paidix/core/widgets/app_button.dart';
 import 'package:paidix/core/widgets/auth_primary_button.dart';
 import 'package:paidix/core/widgets/spongy_tap.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('Spongy Buttons & Animations Tests', () {
     testWidgets('AppButton squishes on press and springs back on release',

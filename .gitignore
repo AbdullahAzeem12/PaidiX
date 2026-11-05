@@ -1,3 +1,4 @@
+# Workspace-wide exclusions for generated builds, editor state, and local secrets.
 # Archives and binaries
 *.zip
 *.apk

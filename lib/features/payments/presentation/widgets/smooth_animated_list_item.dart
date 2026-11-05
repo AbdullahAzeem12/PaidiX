@@ -1,3 +1,5 @@
+/// Defines smooth animated list item in the payments feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/widgets/spongy_tap.dart';
@@ -21,6 +23,7 @@ class SmoothAnimatedListItem extends StatefulWidget {
     this.onTap,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SmoothAnimatedListItem> createState() => _SmoothAnimatedListItemState();
 }
@@ -32,6 +35,7 @@ class _SmoothAnimatedListItemState extends State<SmoothAnimatedListItem>
   late final Animation<double> _scaleAnimation;
   late final Animation<Offset> _slideAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -68,12 +72,14 @@ class _SmoothAnimatedListItemState extends State<SmoothAnimatedListItem>
     }
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _animController.dispose();
     super.dispose();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return FadeTransition(

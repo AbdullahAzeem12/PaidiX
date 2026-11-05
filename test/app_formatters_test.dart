@@ -1,6 +1,9 @@
+/// Tests the app formatters test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/core/utils/formatters.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('AppFormatters Tests', () {
     test('formatUsd formats values correctly with decimals', () {

@@ -1,3 +1,5 @@
+/// Defines app spacing in the application theme system.
+
 import 'package:flutter/material.dart';
 
 class AppSpacing {

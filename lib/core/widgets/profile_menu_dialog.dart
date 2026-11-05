@@ -1,3 +1,5 @@
+/// Defines profile menu dialog in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -56,6 +58,7 @@ class ProfileMenuDialog extends StatelessWidget {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
@@ -228,6 +231,7 @@ class _MenuThemeOptionTile extends StatefulWidget {
     required this.onToggle,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_MenuThemeOptionTile> createState() => _MenuThemeOptionTileState();
 }
@@ -236,6 +240,7 @@ class _MenuThemeOptionTileState extends State<_MenuThemeOptionTile> {
   bool _isHovered = false;
   bool _isPressed = false;
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -348,6 +353,7 @@ class _MenuOptionTile extends StatefulWidget {
     this.isDestructive = false,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_MenuOptionTile> createState() => _MenuOptionTileState();
 }
@@ -356,6 +362,7 @@ class _MenuOptionTileState extends State<_MenuOptionTile> {
   bool _isHovered = false;
   bool _isPressed = false;
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

@@ -1,3 +1,5 @@
+/// Defines fx display preferences in the settings feature's domain layer.
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -28,7 +30,7 @@ class FxDisplayPreferences {
 
   static bool _isInitialized = false;
 
-  /// Load persisted display preferences from device storage.
+  /// Loads saved preferences once and leaves default values in place if storage cannot be read.
   static Future<void> initialize() async {
     if (_isInitialized) return;
     _isInitialized = true;
@@ -50,7 +52,7 @@ class FxDisplayPreferences {
     }
   }
 
-  /// Toggle Balance Stealth Privacy Mode with haptics.
+  /// Toggles balance masking, resets the temporary reveal state, and persists the preference.
   static void toggleStealthMode() {
     HapticFeedback.lightImpact();
     stealthModeNotifier.value = !stealthModeNotifier.value;
@@ -58,26 +60,26 @@ class FxDisplayPreferences {
     _persist();
   }
 
-  /// Toggle Compact Number Notation with haptics.
+  /// Toggles compact currency notation and persists the preference.
   static void toggleCompactFormat() {
     HapticFeedback.lightImpact();
     compactFormatNotifier.value = !compactFormatNotifier.value;
     _persist();
   }
 
-  /// Toggle temporary synchronized balance unmask / peek state across Dashboard.
+  /// Toggles the shared temporary reveal state used by dashboard balance cards.
   static void toggleDashboardBalanceRevealed() {
     HapticFeedback.lightImpact();
     dashboardBalanceRevealedNotifier.value =
         !dashboardBalanceRevealedNotifier.value;
   }
 
-  /// Set temporary synchronized balance unmask / peek state across Dashboard.
+  /// Sets the shared temporary reveal state used by dashboard balance cards.
   static void setDashboardBalanceRevealed(bool revealed) {
     dashboardBalanceRevealedNotifier.value = revealed;
   }
 
-  /// Reset all display preferences to defaults.
+  /// Restores the display preferences and temporary balance reveal state to their defaults.
   static void resetToDefault() {
     HapticFeedback.selectionClick();
     stealthModeNotifier.value = false;
@@ -86,7 +88,7 @@ class FxDisplayPreferences {
     _persist();
   }
 
-  /// Format an amount into compact notation (e.g. 1169570.67 -> "1.17M", 45000 -> "45.0K").
+  /// Formats a number with compact K, M, or B notation while keeping useful precision.
   static String formatCompactNumber(double amount) {
     final abs = amount.abs();
     if (abs >= 1000000000) {
@@ -109,7 +111,7 @@ class FxDisplayPreferences {
   /// Formats PKR amount according to user's real-time financial display preferences:
   /// - If stealth mode is ON and neither local override nor synchronized dashboard reveal is true: "Rs. ••••••••••"
   /// - Else if compact format is ON: "Rs. 1.17M"
-  /// - Otherwise standard full precision: "Rs. 1,169,570.67"
+  /// Formats a PKR amount using the active privacy and compact-display preferences.
   static String formatVolumePkr(
     double? amount, {
     bool allowStealth = true,
@@ -130,11 +132,13 @@ class FxDisplayPreferences {
         : (raw.startsWith('Rs.') ? raw : 'Rs. $raw');
   }
 
+/// Resolves the app-documents path used to store display and privacy preferences.
   static Future<File> _getPrefsFile() async {
     final dir = await getApplicationDocumentsDirectory();
     return File('${dir.path}/paidix_fx_display_prefs.json');
   }
 
+/// Writes the current display and privacy preference values to local JSON storage.
   static Future<void> _persist() async {
     try {
       final file = await _getPrefsFile();

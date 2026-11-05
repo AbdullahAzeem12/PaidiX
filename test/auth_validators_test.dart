@@ -1,6 +1,9 @@
+/// Tests the auth validators test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/features/auth/domain/auth_validators.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('AuthValidators Unit Tests', () {
     test('validateFullName returns error on empty', () {

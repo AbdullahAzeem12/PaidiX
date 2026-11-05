@@ -1,3 +1,4 @@
+# Builds an unsigned iOS app, packages the IPA, uploads artifacts, and optionally publishes a release.
 name: Build iOS App (IPA)
 
 on:

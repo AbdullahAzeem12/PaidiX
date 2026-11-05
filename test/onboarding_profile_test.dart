@@ -1,3 +1,5 @@
+/// Tests the onboarding profile test behavior and guards its key user-facing and domain expectations.
+
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -11,6 +13,7 @@ import 'package:paidix/features/profile/presentation/widgets/document_viewer_dia
 import 'package:paidix/features/profile/presentation/widgets/edit_profile_dialog.dart';
 
 class MockImagePickerPlatform extends ImagePickerPlatform {
+  /// Returns the test image-picker result for the requested source.
   @override
   Future<XFile?> getImageFromSource({
     required ImageSource source,
@@ -24,6 +27,7 @@ class MockImagePickerPlatform extends ImagePickerPlatform {
   }
 }
 
+/// Configures and launches the application or test suite.
 void main() {
   setUp(() {
     ImagePickerPlatform.instance = MockImagePickerPlatform();

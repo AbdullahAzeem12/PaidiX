@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Codex purpose: Defines Xcode build and launch actions for the Runner target. -->
 <Scheme
    LastUpgradeVersion = "1510"
    version = "1.3">

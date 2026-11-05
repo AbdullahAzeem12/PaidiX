@@ -1,3 +1,5 @@
+/// Defines pagination controls in the payments feature's presentation layer.
+
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,6 +31,7 @@ class PaginationControls extends StatelessWidget {
     required this.onPageChanged,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -219,6 +222,7 @@ class PaginationControls extends StatelessWidget {
     );
   }
 
+  /// Builds the size pill section of this interface.
   Widget _buildSizePill(
     BuildContext context, {
     required String label,
@@ -263,6 +267,7 @@ class PaginationControls extends StatelessWidget {
     );
   }
 
+  /// Builds the nav button section of this interface.
   Widget _buildNavButton(
     BuildContext context, {
     required String label,
@@ -311,6 +316,7 @@ class PaginationControls extends StatelessWidget {
     );
   }
 
+  /// Prompts for a custom page size and applies the accepted value.
   void _showCustomRowsDialog(BuildContext context) {
     final colors = AppColors.of(context);
     final controller = TextEditingController(text: '$pageSize');
@@ -444,6 +450,7 @@ class PaginationControls extends StatelessWidget {
     );
   }
 
+  /// Prompts for a page number and navigates to that page when valid.
   void _showPageJumpDialog(BuildContext context, int totalPages) {
     final colors = AppColors.of(context);
 

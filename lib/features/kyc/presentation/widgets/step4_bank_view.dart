@@ -1,3 +1,5 @@
+/// Defines step4 bank view in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -21,6 +23,7 @@ class Step4BankView extends StatefulWidget {
     required this.onBack,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<Step4BankView> createState() => _Step4BankViewState();
 }
@@ -30,6 +33,7 @@ class _Step4BankViewState extends State<Step4BankView> {
   late final TextEditingController _ibanController;
   late String _selectedBank;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -47,6 +51,7 @@ class _Step4BankViewState extends State<Step4BankView> {
     _ibanController = TextEditingController(text: initialIban);
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _titleController.dispose();
@@ -54,6 +59,7 @@ class _Step4BankViewState extends State<Step4BankView> {
     super.dispose();
   }
 
+  /// Sends the current form model to the parent KYC page.
   void _notifyChange() {
     widget.onChanged(
       widget.bankInfo.copyWith(
@@ -64,6 +70,7 @@ class _Step4BankViewState extends State<Step4BankView> {
     );
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

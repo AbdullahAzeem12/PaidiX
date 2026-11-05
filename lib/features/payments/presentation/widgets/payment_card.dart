@@ -1,3 +1,5 @@
+/// Defines payment card in the payments feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -11,6 +13,7 @@ class PaymentCard extends StatelessWidget {
 
   const PaymentCard({super.key, required this.item});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

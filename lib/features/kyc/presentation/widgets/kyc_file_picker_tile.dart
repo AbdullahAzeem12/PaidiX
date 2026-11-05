@@ -1,3 +1,5 @@
+/// Defines kyc file picker tile in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -19,6 +21,7 @@ class KycFilePickerTile extends StatefulWidget {
     this.hasFile = false,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<KycFilePickerTile> createState() => _KycFilePickerTileState();
 }
@@ -28,6 +31,7 @@ class _KycFilePickerTileState extends State<KycFilePickerTile>
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -45,25 +49,30 @@ class _KycFilePickerTileState extends State<KycFilePickerTile>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// Starts the pressed visual state while the pointer is held down.
   void _onTapDown(TapDownDetails _) {
     HapticFeedback.lightImpact();
     _controller.forward();
   }
 
+  /// Ends the pressed visual state and completes the tap callback.
   void _onTapUp(TapUpDetails _) {
     _controller.reverse();
   }
 
+  /// Clears the pressed visual state when a gesture is interrupted.
   void _onTapCancel() {
     _controller.reverse();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

@@ -1,9 +1,12 @@
+/// Tests the paidix toast and server error test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/widgets/paidix_toast.dart';
 import 'package:paidix/core/widgets/server_error_page.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('PaidiXToast Feedback & Alert Suite', () {
     testWidgets('PaidiXToast.showSuccess displays emerald checkmark and auto-dismisses',

@@ -1,3 +1,4 @@
+// Implements DPI-aware native window creation and event handling for Windows.
 #include "win32_window.h"
 
 #include <dwmapi.h>
@@ -33,12 +34,14 @@ using EnableNonClientDpiScaling = BOOL __stdcall(HWND hwnd);
 
 // Scale helper to convert logical scaler values to physical using passed in
 // scale factor
+// Converts a logical pixel value to physical pixels for the current DPI.
 int Scale(int source, double scale_factor) {
   return static_cast<int>(source * scale_factor);
 }
 
 // Dynamically loads the |EnableNonClientDpiScaling| from the User32 module.
 // This API is only needed for PerMonitor V1 awareness mode.
+// Enables non-client DPI scaling when the Windows API is available.
 void EnableFullDpiSupportIfAvailable(HWND hwnd) {
   HMODULE user32_module = LoadLibraryA("User32.dll");
   if (!user32_module) {
@@ -111,15 +114,18 @@ void WindowClassRegistrar::UnregisterWindowClass() {
   class_registered_ = false;
 }
 
+// Tracks live windows so the shared window class is unregistered at shutdown.
 Win32Window::Win32Window() {
   ++g_active_window_count;
 }
 
+// Decrements the live-window count and releases native window resources.
 Win32Window::~Win32Window() {
   --g_active_window_count;
   Destroy();
 }
 
+// Creates a DPI-scaled native window and runs subclass initialization.
 bool Win32Window::Create(const std::wstring& title,
                          const Point& origin,
                          const Size& size) {
@@ -149,11 +155,13 @@ bool Win32Window::Create(const std::wstring& title,
   return OnCreate();
 }
 
+// Makes the created native window visible.
 bool Win32Window::Show() {
   return ShowWindow(window_handle_, SW_SHOWNORMAL);
 }
 
 // static
+// Associates the HWND with its C++ instance and forwards messages to it.
 LRESULT CALLBACK Win32Window::WndProc(HWND const window,
                                       UINT const message,
                                       WPARAM const wparam,
@@ -173,6 +181,7 @@ LRESULT CALLBACK Win32Window::WndProc(HWND const window,
   return DefWindowProc(window, message, wparam, lparam);
 }
 
+// Handles window lifecycle, resize, focus, theme, and Flutter input messages.
 LRESULT
 Win32Window::MessageHandler(HWND hwnd,
                             UINT const message,
@@ -221,6 +230,7 @@ Win32Window::MessageHandler(HWND hwnd,
   return DefWindowProc(window_handle_, message, wparam, lparam);
 }
 
+// Runs subclass cleanup and releases the HWND and shared class registration.
 void Win32Window::Destroy() {
   OnDestroy();
 
@@ -233,11 +243,13 @@ void Win32Window::Destroy() {
   }
 }
 
+// Retrieves the Win32Window instance stored on an HWND during creation.
 Win32Window* Win32Window::GetThisFromHandle(HWND const window) noexcept {
   return reinterpret_cast<Win32Window*>(
       GetWindowLongPtr(window, GWLP_USERDATA));
 }
 
+// Embeds a child view, sizes it to the client area, and gives it focus.
 void Win32Window::SetChildContent(HWND content) {
   child_content_ = content;
   SetParent(content, window_handle_);
@@ -249,29 +261,35 @@ void Win32Window::SetChildContent(HWND content) {
   SetFocus(child_content_);
 }
 
+// Returns the client rectangle used to size the hosted Flutter view.
 RECT Win32Window::GetClientArea() {
   RECT frame;
   GetClientRect(window_handle_, &frame);
   return frame;
 }
 
+// Returns the native window handle for platform-specific integrations.
 HWND Win32Window::GetHandle() {
   return window_handle_;
 }
 
+// Controls whether closing this window posts the application quit message.
 void Win32Window::SetQuitOnClose(bool quit_on_close) {
   quit_on_close_ = quit_on_close;
 }
 
+// Default subclass hook; specialized windows can perform setup after creation.
 bool Win32Window::OnCreate() {
   // No-op; provided for subclasses.
   return true;
 }
 
+// Default subclass hook invoked before native window resources are released.
 void Win32Window::OnDestroy() {
   // No-op; provided for subclasses.
 }
 
+// Applies system light/dark preference to the non-client window frame.
 void Win32Window::UpdateTheme(HWND const window) {
   DWORD light_mode;
   DWORD light_mode_size = sizeof(light_mode);

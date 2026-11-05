@@ -1,3 +1,5 @@
+/// Tests the dashboard page test behavior and guards its key user-facing and domain expectations.
+
 import 'package:paidix/features/settings/domain/fx_display_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -6,6 +8,7 @@ import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
 import 'package:paidix/features/dashboard/presentation/widgets/status_metric_card.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   testWidgets('Dashboard renders clean empty state with accurate metrics',
       (WidgetTester tester) async {

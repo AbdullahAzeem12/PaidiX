@@ -1,3 +1,5 @@
+/// Defines notification service in the application core utilities and reusable widgets.
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -10,6 +12,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   bool _isInitialized = false;
 
+/// Loads saved preferences once and leaves default values in place if storage cannot be read.
   Future<void> initialize() async {
     if (_isInitialized) return;
 

@@ -1,3 +1,5 @@
+/// Defines auth models in the auth feature's domain layer.
+
 class SignUpRequest {
   final String fullName;
   final String email;
@@ -13,6 +15,7 @@ class SignUpRequest {
     this.smsConsent = false,
   });
 
+  /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() => {
         'fullName': fullName,
         'email': email,
@@ -31,6 +34,7 @@ class SignInRequest {
     required this.password,
   });
 
+  /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() => {
         'email': email,
         'password': password,

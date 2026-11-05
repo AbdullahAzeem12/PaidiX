@@ -1,3 +1,4 @@
+// Defines Android application identity, SDK/JVM settings, dependencies, and Flutter linkage.
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.

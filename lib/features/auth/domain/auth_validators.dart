@@ -1,6 +1,9 @@
+/// Defines auth validators in the auth feature's domain layer.
+
 class AuthValidators {
   AuthValidators._();
 
+  /// Requires a non-empty name with the minimum supported character count.
   static String? validateFullName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your full name';
@@ -11,6 +14,7 @@ class AuthValidators {
     return null;
   }
 
+  /// Checks that the email value has a valid address structure.
   static String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your email';
@@ -22,6 +26,7 @@ class AuthValidators {
     return null;
   }
 
+  /// Requires a non-empty password with at least eight characters.
   static String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Please enter your password';
@@ -32,6 +37,7 @@ class AuthValidators {
     return null;
   }
 
+  /// Accepts an empty optional value; otherwise requires at least six characters.
   static String? validatePhoneOptional(String? value) {
     // Optional field: valid if empty or matches standard phone characters
     if (value == null || value.trim().isEmpty) {

@@ -1,3 +1,5 @@
+/// Tests the theme test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_colors.dart';
@@ -8,6 +10,7 @@ import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/core/widgets/paidi_x_bottom_nav_bar.dart';
 import 'package:paidix/core/widgets/status_badge.dart';
 
+/// Configures and launches the application or test suite.
 void main() {
   group('Theme Tokens & Specification Tests', () {
     test('Light mode tokens match CSS :root specification', () {

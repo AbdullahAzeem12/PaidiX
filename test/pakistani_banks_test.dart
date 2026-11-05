@@ -1,3 +1,5 @@
+/// Tests the pakistani banks test behavior and guards its key user-facing and domain expectations.
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
@@ -5,8 +7,11 @@ import 'package:paidix/core/widgets/bank_logo_widget.dart';
 import 'package:paidix/core/widgets/bank_selector_sheet.dart';
 import 'package:paidix/features/profile/domain/pakistan_banks.dart';
 
+/// Exercises the Pakistani institution directory and its user-facing widgets.
 void main() {
+  // Keep directory data, search resolution, and presentation behavior covered together.
   group('Pakistani Banks Directory & Resolver Suite', () {
+    // Protect the catalog's expected total and category breakdown from accidental edits.
     test('Directory contains exactly 39 authoritative banking institutions', () {
       expect(kAllPakistaniBanks.length, equals(39));
 
@@ -32,6 +37,7 @@ void main() {
       expect(fintech.length, equals(3));
     });
 
+    // Verify common codes and alternate names resolve to the intended institution.
     test('findPakistaniBank resolves abbreviations, names, and aliases accurately',
         () {
       // Abbreviation checks
@@ -54,7 +60,9 @@ void main() {
     });
   });
 
+  // Check logos avoid legacy monograms and the selector returns a searched result.
   group('BankLogoWidget & Selector Presentation Suite', () {
+    // Render representative bank types and confirm logos expose no old text marks.
     testWidgets('BankLogoWidget and BankSelectorSheet render clean semantic outline icons without monograms',
         (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -90,6 +98,7 @@ void main() {
       expect(find.text('citi'), findsNothing);
     });
 
+    // Open the sheet, search the directory, and verify the chosen bank is returned.
     testWidgets('BankSelectorSheet filters banks by search query and category chips',
         (WidgetTester tester) async {
       PakistaniBank? pickedBank;

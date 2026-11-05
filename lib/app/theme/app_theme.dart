@@ -1,3 +1,5 @@
+/// Defines app theme in the application theme system.
+
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -13,6 +15,7 @@ class AppTheme {
 
   static bool _fontsConfigured = false;
 
+  /// Loads the font settings needed before theme construction.
   static void ensureFontsConfigured() {
     if (_fontsConfigured) return;
     _fontsConfigured = true;
@@ -49,6 +52,7 @@ class AppTheme {
     _loadPreferences();
   }
 
+  /// Restores theme, font, and text-scale preferences from local storage.
   static Future<void> _loadPreferences() async {
     if (kIsWeb) return;
     try {
@@ -81,6 +85,7 @@ class AppTheme {
     } catch (_) {}
   }
 
+  /// Persists the current theme, font, and text-scale preferences.
   static Future<void> _savePreferences() async {
     if (kIsWeb) return;
     try {

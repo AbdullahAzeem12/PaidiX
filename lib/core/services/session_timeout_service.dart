@@ -1,3 +1,5 @@
+/// Defines session timeout service in the application core utilities and reusable widgets.
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';

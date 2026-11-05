@@ -1,3 +1,5 @@
+/// Defines user profile in the profile feature's domain layer.
+
 import 'dart:typed_data';
 import '../../../core/utils/formatters.dart';
 
@@ -126,6 +128,7 @@ class UserProfile {
   String get displayCity => city.isNotEmpty ? city : '—';
   String get displayAddress => address.isNotEmpty ? address : '—';
 
+  /// Creates a copy while preserving fields that were not supplied.
   UserProfile copyWith({
     String? fullName,
     String? email,
@@ -180,6 +183,7 @@ class UserProfile {
     );
   }
 
+  /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() {
     return {
       'fullName': fullName,
@@ -204,6 +208,7 @@ class UserProfile {
     };
   }
 
+  /// Reconstructs this value from its locally stored JSON representation.
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       fullName: json['fullName'] as String? ?? '',

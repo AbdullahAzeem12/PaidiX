@@ -1,3 +1,5 @@
+/// Defines fx converter studio in the settings feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/paidix_toast.dart';
@@ -20,6 +22,7 @@ class FxConverterStudio extends StatelessWidget {
     required this.isMobile,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final c = colors;

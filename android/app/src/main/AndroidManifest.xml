@@ -1,3 +1,4 @@
+<!-- Codex purpose: Declares platform permissions, application identity, and launch configuration. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />

@@ -1,3 +1,5 @@
+/// Defines kyc page in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/paidix_toast.dart';
@@ -19,6 +21,7 @@ class KycPage extends StatefulWidget {
     this.initialStep = KycStep.personal,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<KycPage> createState() => _KycPageState();
 }
@@ -26,6 +29,7 @@ class KycPage extends StatefulWidget {
 class _KycPageState extends State<KycPage> {
   late KycState _state;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -70,6 +74,7 @@ class _KycPageState extends State<KycPage> {
     );
   }
 
+  /// Saves the current KYC data and moves the form to [step].
   void _goToStep(KycStep step) {
     UserProfileRepository.instance.activeKycStep = step;
     UserProfileRepository.instance.syncFromKyc(_state);
@@ -78,6 +83,7 @@ class _KycPageState extends State<KycPage> {
     });
   }
 
+  /// Saves current form data, announces the next stage, and advances one step.
   void _nextStep() {
     UserProfileRepository.instance.syncFromKyc(_state);
     final nextIndex = _state.currentStep.index + 1;
@@ -109,6 +115,7 @@ class _KycPageState extends State<KycPage> {
     }
   }
 
+  /// Saves current form data and moves back one KYC step when possible.
   void _previousStep() {
     UserProfileRepository.instance.syncFromKyc(_state);
     final prevIndex = _state.currentStep.index - 1;
@@ -117,6 +124,7 @@ class _KycPageState extends State<KycPage> {
     }
   }
 
+  /// Marks KYC complete, syncs the submitted data, and opens the success dialog.
   void _handleSubmit() {
     setState(() {
       _state = _state.copyWith(isSubmitted: true);
@@ -130,6 +138,7 @@ class _KycPageState extends State<KycPage> {
     KycSuccessDialog.show(context);
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -198,6 +207,7 @@ class _KycPageState extends State<KycPage> {
     );
   }
 
+  /// Builds the current step view section of this interface.
   Widget _buildCurrentStepView() {
     switch (_state.currentStep) {
       case KycStep.personal:

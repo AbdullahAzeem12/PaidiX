@@ -1,3 +1,5 @@
+/// Defines auth header in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_typography.dart';
 import 'brand_logo.dart';
@@ -14,6 +16,7 @@ class AuthHeader extends StatelessWidget {
     required this.subtitle,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return Column(

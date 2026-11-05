@@ -1,3 +1,5 @@
+/// Defines payments page in the payments feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -19,6 +21,7 @@ class PaymentsPage extends StatefulWidget {
 
   const PaymentsPage({super.key, required this.paymentsRepository});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<PaymentsPage> createState() => _PaymentsPageState();
 }
@@ -29,12 +32,14 @@ class _PaymentsPageState extends State<PaymentsPage> {
   int _pageSize = 20;
   int _currentPage = 1;
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
+  /// Applies the updated search text to the visible payments.
   void _onSearchChanged(String query) {
     setState(() {
       _filter = _filter.copyWith(searchQuery: query);
@@ -42,6 +47,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     });
   }
 
+  /// Applies the selected status, currency, and date filters.
   void _onFilterChanged(PaymentFilter newFilter) {
     setState(() {
       _filter = newFilter;
@@ -49,6 +55,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     });
   }
 
+  /// Restores all payment filters and search state to their defaults.
   void _onResetFilters() {
     _searchController.clear();
     setState(() {
@@ -57,6 +64,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     });
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<List<PaymentItem>>(
@@ -198,6 +206,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
     );
   }
 
+  /// Builds the header section of this interface.
   Widget _buildHeader(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {

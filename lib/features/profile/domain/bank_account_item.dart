@@ -1,3 +1,5 @@
+/// Defines bank account item in the profile feature's domain layer.
+
 import 'package:flutter/foundation.dart';
 export 'pakistan_banks.dart';
 
@@ -11,6 +13,7 @@ class BankAccountItem {
   final String iban;
   final bool isPrimary;
 
+  /// Creates an immutable account record for persistence and settings UI.
   const BankAccountItem({
     required this.id,
     required this.bankName,
@@ -20,7 +23,10 @@ class BankAccountItem {
     this.isPrimary = false,
   });
 
-  /// Extracts the last 4 digits for masked display
+  /// Extracts the last four numeric characters for a masked account label.
+  ///
+  /// Uses the IBAN when the account number is too short, then a safe fallback
+  /// when neither field contains four digits.
   String get last4 {
     final cleanNum = accountNumber.replaceAll(RegExp(r'\D'), '');
     if (cleanNum.length >= 4) {
@@ -33,9 +39,10 @@ class BankAccountItem {
     return cleanNum.isNotEmpty ? cleanNum : '2786';
   }
 
-  /// Formatted masked display matching Screenshot 1: •••• •••• 2786
+  /// Formats the account number for display without exposing the full value.
   String get maskedDisplay => '•••• •••• $last4';
 
+  /// Copies this record while retaining every field not explicitly replaced.
   BankAccountItem copyWith({
     String? id,
     String? bankName,
@@ -54,6 +61,7 @@ class BankAccountItem {
     );
   }
 
+  /// Converts the account to the JSON shape stored by the profile repository.
   Map<String, dynamic> toJson() => {
         'id': id,
         'bankName': bankName,
@@ -63,6 +71,7 @@ class BankAccountItem {
         'isPrimary': isPrimary,
       };
 
+  /// Rebuilds an account from saved JSON, supplying defaults for missing fields.
   factory BankAccountItem.fromJson(Map<String, dynamic> json) {
     return BankAccountItem(
       id: json['id'] as String? ??
@@ -76,6 +85,7 @@ class BankAccountItem {
     );
   }
 
+  /// Compares accounts by all persisted fields, not by object identity.
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -88,6 +98,7 @@ class BankAccountItem {
           iban == other.iban &&
           isPrimary == other.isPrimary;
 
+  /// Produces a hash consistent with [operator ==] for collection use.
   @override
   int get hashCode => Object.hash(
         id,

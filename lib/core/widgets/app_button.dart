@@ -1,3 +1,5 @@
+/// Defines app button in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -27,6 +29,7 @@ class AppButton extends StatefulWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 18),
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<AppButton> createState() => _AppButtonState();
 }
@@ -36,6 +39,7 @@ class _AppButtonState extends State<AppButton>
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -57,18 +61,21 @@ class _AppButtonState extends State<AppButton>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// Records the pointer press and starts the button's pressed animation.
   void _handlePointerDown(PointerDownEvent _) {
     if (widget.onPressed != null && !widget.isLoading) {
       _controller.forward();
     }
   }
 
+  /// Ends the pressed animation and forwards the completed button interaction.
   void _handlePointerUp(PointerUpEvent _) {
     if (widget.onPressed != null && !widget.isLoading) {
       // Hold compression briefly so fast taps register a full spongy squash and bounce
@@ -78,12 +85,14 @@ class _AppButtonState extends State<AppButton>
     }
   }
 
+  /// Resets the pressed animation when the pointer gesture is cancelled.
   void _handlePointerCancel(PointerCancelEvent _) {
     if (widget.onPressed != null && !widget.isLoading) {
       _controller.reverse();
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

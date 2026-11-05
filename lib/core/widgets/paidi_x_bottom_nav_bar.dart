@@ -1,3 +1,5 @@
+/// Defines paidi x bottom nav bar in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -37,6 +39,7 @@ class PaidiXBottomNavBar extends StatelessWidget {
     required this.items,
   });
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -132,6 +135,7 @@ class _NavBarTabItem extends StatefulWidget {
     required this.indicatorWidth,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<_NavBarTabItem> createState() => _NavBarTabItemState();
 }
@@ -141,6 +145,7 @@ class _NavBarTabItemState extends State<_NavBarTabItem>
   late final AnimationController _bounceController;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -159,40 +164,48 @@ class _NavBarTabItemState extends State<_NavBarTabItem>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _bounceController.dispose();
     super.dispose();
   }
 
+  /// Records the pointer press and starts the button's pressed animation.
   void _handlePointerDown(PointerDownEvent _) {
     _bounceController.forward();
   }
 
+  /// Ends the pressed animation and forwards the completed button interaction.
   void _handlePointerUp(PointerUpEvent _) {
     Future.delayed(const Duration(milliseconds: 70), () {
       if (mounted) _bounceController.reverse();
     });
   }
 
+  /// Resets the pressed animation when the pointer gesture is cancelled.
   void _handlePointerCancel(PointerCancelEvent _) {
     if (mounted) _bounceController.reverse();
   }
 
+  /// Starts the pressed visual state while the pointer is held down.
   void _onTapDown(TapDownDetails _) {
     _bounceController.forward();
   }
 
+  /// Ends the pressed visual state and completes the tap callback.
   void _onTapUp(TapUpDetails _) {
     Future.delayed(const Duration(milliseconds: 70), () {
       if (mounted) _bounceController.reverse();
     });
   }
 
+  /// Clears the pressed visual state when a gesture is interrupted.
   void _onTapCancel() {
     if (mounted) _bounceController.reverse();
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

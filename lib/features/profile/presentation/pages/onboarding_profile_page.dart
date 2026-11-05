@@ -1,3 +1,5 @@
+/// Defines onboarding profile page in the profile feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
@@ -16,6 +18,7 @@ import '../widgets/profile_info_card.dart';
 class OnboardingProfilePage extends StatelessWidget {
   const OnboardingProfilePage({super.key});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -79,6 +82,7 @@ class OnboardingProfilePage extends StatelessWidget {
     );
   }
 
+  /// Builds the header section of this interface.
   Widget _buildHeader(
     BuildContext context,
     UserProfile profile,

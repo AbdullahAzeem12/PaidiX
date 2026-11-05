@@ -1,3 +1,5 @@
+/// Defines kyc header in the kyc feature's presentation layer.
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -7,6 +9,7 @@ import '../../../../core/widgets/brand_logo.dart';
 class KycHeader extends StatelessWidget {
   const KycHeader({super.key});
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

@@ -1,3 +1,5 @@
+/// Defines spongy tap in the application core utilities and reusable widgets.
+
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
@@ -39,6 +41,7 @@ class SpongyTap extends StatefulWidget {
     this.enableRipple = true,
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SpongyTap> createState() => _SpongyTapState();
 }
@@ -48,6 +51,7 @@ class _SpongyTapState extends State<SpongyTap>
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -68,18 +72,21 @@ class _SpongyTapState extends State<SpongyTap>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// Records the pointer press and starts the button's pressed animation.
   void _handlePointerDown(PointerDownEvent _) {
     if (widget.onTap != null) {
       _controller.forward();
     }
   }
 
+  /// Ends the pressed animation and forwards the completed button interaction.
   void _handlePointerUp(PointerUpEvent _) {
     if (widget.onTap != null) {
       // Hold compression briefly so fast taps register a full spongy squash & bounce
@@ -89,18 +96,21 @@ class _SpongyTapState extends State<SpongyTap>
     }
   }
 
+  /// Resets the pressed animation when the pointer gesture is cancelled.
   void _handlePointerCancel(PointerCancelEvent _) {
     if (widget.onTap != null) {
       _controller.reverse();
     }
   }
 
+  /// Starts the pressed visual state while the pointer is held down.
   void _onTapDown(TapDownDetails _) {
     if (widget.onTap != null) {
       _controller.forward();
     }
   }
 
+  /// Ends the pressed visual state and completes the tap callback.
   void _onTapUp(TapUpDetails _) {
     if (widget.onTap != null) {
       Future.delayed(const Duration(milliseconds: 80), () {
@@ -109,12 +119,14 @@ class _SpongyTapState extends State<SpongyTap>
     }
   }
 
+  /// Clears the pressed visual state when a gesture is interrupted.
   void _onTapCancel() {
     if (widget.onTap != null) {
       _controller.reverse();
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
@@ -210,6 +222,7 @@ class SpongyLinkButton extends StatefulWidget {
     this.padding = const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
   });
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SpongyLinkButton> createState() => _SpongyLinkButtonState();
 }
@@ -219,6 +232,7 @@ class _SpongyLinkButtonState extends State<SpongyLinkButton>
   late final AnimationController _controller;
   late final Animation<double> _scaleAnimation;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -239,18 +253,21 @@ class _SpongyLinkButtonState extends State<SpongyLinkButton>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
 
+  /// Starts the pressed visual state while the pointer is held down.
   void _onTapDown(TapDownDetails _) {
     if (widget.onTap != null) {
       _controller.forward();
     }
   }
 
+  /// Ends the pressed visual state and completes the tap callback.
   void _onTapUp(TapUpDetails _) {
     if (widget.onTap != null) {
       Future.delayed(const Duration(milliseconds: 80), () {
@@ -259,12 +276,14 @@ class _SpongyLinkButtonState extends State<SpongyLinkButton>
     }
   }
 
+  /// Clears the pressed visual state when a gesture is interrupted.
   void _onTapCancel() {
     if (widget.onTap != null) {
       _controller.reverse();
     }
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);

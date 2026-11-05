@@ -1,4 +1,5 @@
 // !$*UTF8*$!
+// Purpose: Defines Xcode targets, build phases, file groups, and build settings.
 {
 	archiveVersion = 1;
 	classes = {

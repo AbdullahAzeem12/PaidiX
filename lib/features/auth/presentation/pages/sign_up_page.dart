@@ -1,3 +1,5 @@
+/// Defines sign up page in the auth feature's presentation layer.
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +20,7 @@ import '../../domain/auth_validators.dart';
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
 
+  /// Creates the mutable state object that backs this stateful widget.
   @override
   State<SignUpPage> createState() => _SignUpPageState();
 }
@@ -41,6 +44,7 @@ class _SignUpPageState extends State<SignUpPage>
   late final AnimationController _checkboxController;
   late final Animation<double> _checkboxScale;
 
+  /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
@@ -58,6 +62,7 @@ class _SignUpPageState extends State<SignUpPage>
     );
   }
 
+  /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
     _fullNameController.dispose();
@@ -68,6 +73,7 @@ class _SignUpPageState extends State<SignUpPage>
     super.dispose();
   }
 
+  /// Validates the fields, registers the local profile, and starts KYC onboarding.
   Future<void> _handleSignUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       PaidiXToast.showWarning(context, 'Please complete all required fields.');
@@ -122,6 +128,7 @@ class _SignUpPageState extends State<SignUpPage>
     context.go('/kyc');
   }
 
+  /// Toggles the user's optional SMS consent value.
   void _toggleSmsConsent() {
     // Trigger spongy checkbox bounce
     _checkboxController.forward().then((_) {
@@ -152,6 +159,7 @@ class _SignUpPageState extends State<SignUpPage>
     return _tappedLink == linkKey ? active : normal;
   }
 
+  /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
