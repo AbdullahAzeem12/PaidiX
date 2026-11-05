@@ -8,6 +8,7 @@ import 'package:paidix/app/router.dart';
 import 'package:paidix/app/theme/app_colors.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/widgets/app_shell.dart';
+import 'package:paidix/core/widgets/paidi_x_bottom_nav_bar.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/settings/presentation/pages/account_settings_page.dart';
@@ -644,6 +645,9 @@ void main() {
 
       expect(find.text('Account settings.'), findsWidgets);
 
+      // Verified: Bottom navigation bar is hidden on mobile Settings to prevent stacked navbars
+      expect(find.byType(PaidiXBottomNavBar), findsNothing);
+
       // Find back button
       final backButton = find.byIcon(Icons.arrow_back_ios_new_rounded).first;
       expect(backButton, findsOneWidget);
@@ -651,9 +655,10 @@ void main() {
       await tester.tap(backButton);
       await tester.pumpAndSettle();
 
-      // Verified: Navigated to Dashboard
+      // Verified: Navigated to Dashboard and bottom navigation bar reappears
       expect(find.text('Hello, Abdullah.'), findsOneWidget);
       expect(find.byType(DashboardPage), findsOneWidget);
+      expect(find.byType(PaidiXBottomNavBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
   });

@@ -123,65 +123,70 @@ class _AppShellState extends State<AppShell> {
             // Mobile layout
             final selectedIndex = _calculateSelectedIndex();
             final isNarrowPhone = constraints.maxWidth < 360;
+            final isSettings = widget.currentPath.startsWith('/app/settings');
 
             return Scaffold(
               backgroundColor: colors.background,
-              appBar: AppBar(
-                backgroundColor: colors.card,
-                elevation: 0,
-                titleSpacing: isNarrowPhone ? 10 : 16,
-                title: const BrandLogo(
-                  size: 30,
-                  showPlanBadge: false,
-                  showTagline: false,
-                ),
-                actions: [
-                  InkWell(
-                    borderRadius: BorderRadius.circular(16),
-                    onTap: () => ProfileMenuDialog.show(
-                      context: context,
-                      userProfile: userProfile,
-                      isMobile: true,
+              appBar: isSettings
+                  ? null
+                  : AppBar(
+                      backgroundColor: colors.card,
+                      elevation: 0,
+                      titleSpacing: isNarrowPhone ? 10 : 16,
+                      title: const BrandLogo(
+                        size: 30,
+                        showPlanBadge: false,
+                        showTagline: false,
+                      ),
+                      actions: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => ProfileMenuDialog.show(
+                            context: context,
+                            userProfile: userProfile,
+                            isMobile: true,
+                          ),
+                          child: _buildUserAvatar(
+                            isSidebar: false,
+                            userProfile: userProfile,
+                          ),
+                        ),
+                        SizedBox(width: isNarrowPhone ? 10 : 16),
+                      ],
+                      bottom: PreferredSize(
+                        preferredSize: const Size.fromHeight(1),
+                        child: Container(color: colors.border, height: 1),
+                      ),
                     ),
-                    child: _buildUserAvatar(
-                      isSidebar: false,
-                      userProfile: userProfile,
-                    ),
-                  ),
-                  SizedBox(width: isNarrowPhone ? 10 : 16),
-                ],
-                bottom: PreferredSize(
-                  preferredSize: const Size.fromHeight(1),
-                  child: Container(color: colors.border, height: 1),
-                ),
-              ),
               body: widget.child,
-              bottomNavigationBar: PaidiXBottomNavBar(
-                selectedIndex: selectedIndex,
-                onItemSelected: _onDestinationSelected,
-                items: const [
-                  PaidiXBottomNavItem(
-                    icon: Icons.grid_view_outlined,
-                    activeIcon: Icons.grid_view_rounded,
-                    label: 'Dashboard',
-                  ),
-                  PaidiXBottomNavItem(
-                    icon: Icons.badge_outlined,
-                    activeIcon: Icons.badge,
-                    label: 'Onboarding',
-                  ),
-                  PaidiXBottomNavItem(
-                    icon: Icons.receipt_long_outlined,
-                    activeIcon: Icons.receipt_long_rounded,
-                    label: 'My Payments',
-                  ),
-                  PaidiXBottomNavItem(
-                    icon: Icons.add_circle_outline_rounded,
-                    activeIcon: Icons.add_circle_rounded,
-                    label: 'New Payment',
-                  ),
-                ],
-              ),
+              bottomNavigationBar: isSettings
+                  ? null
+                  : PaidiXBottomNavBar(
+                      selectedIndex: selectedIndex,
+                      onItemSelected: _onDestinationSelected,
+                      items: const [
+                        PaidiXBottomNavItem(
+                          icon: Icons.grid_view_outlined,
+                          activeIcon: Icons.grid_view_rounded,
+                          label: 'Dashboard',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.badge_outlined,
+                          activeIcon: Icons.badge,
+                          label: 'Onboarding',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.receipt_long_outlined,
+                          activeIcon: Icons.receipt_long_rounded,
+                          label: 'My Payments',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.add_circle_outline_rounded,
+                          activeIcon: Icons.add_circle_rounded,
+                          label: 'New Payment',
+                        ),
+                      ],
+                    ),
             );
           },
         );
