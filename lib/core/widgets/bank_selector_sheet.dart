@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
-import 'bank_logo_widget.dart';
 import 'spongy_tap.dart';
 
 /// Interactive modal bottom sheet for browsing and searching all 39 Pakistani banks
@@ -261,6 +260,8 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
                             b.aliases.any((a) =>
                                 a.toLowerCase() ==
                                 widget.selectedBankName.toLowerCase());
+                        final isWallet = b.category == BankCategory.fintech ||
+                            b.category == BankCategory.microfinance;
 
                         return SpongyTap(
                           onTap: () {
@@ -268,7 +269,7 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 10),
+                                horizontal: 12, vertical: 12),
                             decoration: BoxDecoration(
                               color: isSelected
                                   ? (isDark
@@ -279,66 +280,36 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
                             ),
                             child: Row(
                               children: [
-                                BankLogoWidget(bank: b, size: 38),
-                                const SizedBox(width: 12),
+                                Icon(
+                                  isWallet
+                                      ? Icons.phone_android_outlined
+                                      : Icons.account_balance_outlined,
+                                  size: 21,
+                                  color: isSelected ? c.aqua : c.textSecondary,
+                                ),
+                                const SizedBox(width: 14),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              b.name,
-                                              style: TextStyle(
-                                                fontSize: 13.5,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w800
-                                                    : FontWeight.w600,
-                                                color: isSelected
-                                                    ? c.aqua
-                                                    : c.textPrimary,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          BankCategoryPill(
-                                              category: b.category),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        '${b.code} • ${b.category.label}',
-                                        style: TextStyle(
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w500,
-                                          color: isSelected
-                                              ? c.aqua.withValues(alpha: 0.85)
-                                              : c.textMuted,
-                                        ),
-                                      ),
-                                    ],
+                                  child: Text(
+                                    b.name,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                      color: isSelected
+                                          ? c.aqua
+                                          : c.textPrimary,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 if (isSelected) ...[
                                   const SizedBox(width: 8),
-                                  Container(
-                                    width: 22,
-                                    height: 22,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: c.aqua,
-                                    ),
-                                    child: const Center(
-                                      child: Icon(
-                                        Icons.check_rounded,
-                                        size: 15,
-                                        color: Colors.white,
-                                      ),
-                                    ),
+                                  Icon(
+                                    Icons.check_circle_rounded,
+                                    size: 20,
+                                    color: c.aqua,
                                   ),
                                 ],
                               ],

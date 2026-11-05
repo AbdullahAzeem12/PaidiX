@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
-import '../../../../core/widgets/bank_logo_widget.dart';
 import '../../../../core/widgets/bank_selector_sheet.dart';
 import '../../../profile/domain/pakistan_banks.dart';
 import '../../domain/kyc_models.dart';
@@ -196,61 +195,31 @@ class _Step4BankViewState extends State<Step4BankView> {
                     ),
                     selectedItemBuilder: (ctx) {
                       return kAllPakistaniBanks.map((b) {
-                        return Row(
-                          children: [
-                            BankLogoWidget(bank: b, size: 26),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                b.name,
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                        return Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            b.name,
+                            style: TextStyle(
+                              color: colors.textPrimary,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
                             ),
-                          ],
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         );
                       }).toList();
                     },
                     items: kAllPakistaniBanks.map((b) {
                       return DropdownMenuItem<String>(
                         value: b.name,
-                        child: Row(
-                          children: [
-                            BankLogoWidget(bank: b, size: 26),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                b.name,
-                                style: TextStyle(
-                                  color: colors.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 5, vertical: 1.5),
-                              decoration: BoxDecoration(
-                                color: colors.cardHighlight,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                b.code,
-                                style: TextStyle(
-                                  color: colors.textSecondary,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
+                        child: Text(
+                          b.name,
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       );
                     }).toList(),

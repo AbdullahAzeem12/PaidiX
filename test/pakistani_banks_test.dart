@@ -55,7 +55,7 @@ void main() {
   });
 
   group('BankLogoWidget & Selector Presentation Suite', () {
-    testWidgets('BankLogoWidget renders custom brand signatures for fintech and banks',
+    testWidgets('BankLogoWidget and BankSelectorSheet render clean semantic outline icons without monograms',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -80,13 +80,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(BankLogoWidget), findsNWidgets(8));
-      expect(find.text('sada'), findsOneWidget);
-      expect(find.text('NAYA'), findsOneWidget);
-      expect(find.text('JC'), findsOneWidget);
-      expect(find.text('EP'), findsOneWidget);
-      expect(find.text('RAAST'), findsOneWidget);
-      expect(find.text('MEBL'), findsOneWidget);
-      expect(find.text('citi'), findsOneWidget);
+      // Verify monograms are completely removed and not rendered
+      expect(find.text('sada'), findsNothing);
+      expect(find.text('NAYA'), findsNothing);
+      expect(find.text('JC'), findsNothing);
+      expect(find.text('EP'), findsNothing);
+      expect(find.text('RAAST'), findsNothing);
+      expect(find.text('MEBL'), findsNothing);
+      expect(find.text('citi'), findsNothing);
     });
 
     testWidgets('BankSelectorSheet filters banks by search query and category chips',

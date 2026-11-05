@@ -10,7 +10,6 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/cnic_formatter.dart';
-import '../../../../core/widgets/bank_logo_widget.dart';
 import '../../../../core/widgets/bank_selector_sheet.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
@@ -3423,12 +3422,10 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: Bank logo, Bank name uppercase & Primary badge / Set as primary
+          // Top row: Bank name uppercase & Primary badge / Set as primary
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              BankLogoWidget(bankName: acc.bankName, size: 36),
-              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   acc.bankName.toUpperCase(),
@@ -3807,8 +3804,6 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                   ),
                   child: Row(
                     children: [
-                      BankLogoWidget(bankName: _selectedBank, size: 28),
-                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _selectedBank,
