@@ -1055,7 +1055,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Enhanced Avatar Frame with Outer Aqua Ambient Halo & Double Ring
+          // Avatar Frame with clean teal circular border (no background shadow)
           Container(
             width: avatarSize,
             height: avatarSize,
@@ -1066,19 +1066,6 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 color: c.aqua.withValues(alpha: 0.85),
                 width: 2.5,
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: c.aqua.withValues(alpha: 0.28),
-                  blurRadius: 14,
-                  spreadRadius: 1,
-                  offset: const Offset(0, 3),
-                ),
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
             ),
             child: ClipOval(
               child: _isUploadingPhoto
@@ -1107,13 +1094,6 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 color: c.aqua,
                 shape: BoxShape.circle,
                 border: Border.all(color: c.cardDark, width: 2.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.45),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
               ),
               alignment: Alignment.center,
               child: const Icon(
