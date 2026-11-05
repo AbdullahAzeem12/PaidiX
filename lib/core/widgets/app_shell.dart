@@ -465,9 +465,7 @@ class _AppShellState extends State<AppShell> {
             width: 32,
             height: 32,
             fit: BoxFit.cover,
-            alignment: const Alignment(0.0, -0.22),
-            cacheWidth: 96,
-            cacheHeight: 96,
+            alignment: Alignment.center,
             errorBuilder: (_, __, ___) => _buildFallbackAvatar(
               isSidebar: isSidebar,
               initial: userProfile.avatarInitial,
@@ -487,9 +485,7 @@ class _AppShellState extends State<AppShell> {
               width: 32,
               height: 32,
               fit: BoxFit.cover,
-              alignment: const Alignment(0.0, -0.22),
-              cacheWidth: 96,
-              cacheHeight: 96,
+              alignment: Alignment.center,
               errorBuilder: (_, __, ___) => _buildFallbackAvatar(
                 isSidebar: isSidebar,
                 initial: userProfile.avatarInitial,

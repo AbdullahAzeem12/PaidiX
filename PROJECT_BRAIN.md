@@ -418,7 +418,7 @@ Feature widgets stay under `features/*/presentation/widgets/`.
 - `lib/features/profile/domain/user_profile.dart`
 - `lib/features/profile/data/user_profile_repository.dart`
 - `lib/features/profile/presentation/pages/onboarding_profile_page.dart`
-- widgets: `profile_info_card.dart`, `kyc_review_card.dart`, `document_preview_tile.dart`, `document_viewer_dialog.dart`, `edit_profile_dialog.dart`
+- widgets: `profile_info_card.dart`, `kyc_review_card.dart`, `document_preview_tile.dart`, `document_viewer_dialog.dart`, `edit_profile_dialog.dart`, `profile_picture_crop_dialog.dart`
 
 ### Dashboard
 
@@ -459,6 +459,7 @@ Feature widgets stay under `features/*/presentation/widgets/`.
 | `dashboard_page_test.dart` | Dashboard empty/reactive |
 | `theme_test.dart` | Color tokens, theme toggle, badges, nav |
 | `kyc_test.dart` | CNIC, KYC models, processor, some widgets |
+| `profile_picture_crop_dialog_test.dart` | Profile picture interactive cropper studio: live circular frame, rule-of-thirds grid, pan & drag, zoom slider, 90° rotation, 5 portrait color filters, cancel dismissal, and 512x512 exact 1:1 square rasterization without distortion |
 
 Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 
@@ -559,3 +560,5 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - Synchronized Balance Reveal: When Stealth Mode is enabled, tapping the eye icon next to Customer Score VOLUME or tapping any financial card immediately and simultaneously unmasks/masks all financial balances across the Dashboard (Customer Score VOLUME, PKR RECEIVED, TOTAL TRANSFERRED TO YOU, and AWAITING VERIFICATION) in real time.
 - Status Summary Grid Interactive Filtering & Spongy Animations: StatusMetricCards on Dashboard (TRANSACTIONS, PENDING REVIEW, AWAITING PKR, COMPLETED) are fully interactive with spongy tap physics (SpongyTap, pressScale: 0.94, haptic feedback), illuminated status borders, subtle card glow tint, glowing active indicator dots, and 'ACTIVE' chips. Tapping any card reactively filters the RECENT ACTIVITY payments list to only show matching payments with smooth AnimatedSwitcher slide-and-fade cross-transitions, renders an active filter banner ('Showing [Status] payments (N)') with one-tap Clear, contextual empty states if no items match, and toggles back to all transactions upon tapping TRANSACTIONS or tapping the active card again.
 - Comprehensive Multi-Status Mock Data & Filter Support: Complete mock data coverage across all 7 payment statuses (Submitted, Under Review / Pending Review, Verified, PKR Sent / Awaiting PKR, Completed, On Hold, Rejected). Selecting any status via the interactive status summary grid or the header Filters dropdown reactively updates the active filter banner with status-designated brand colors and dot indicators, renders matching items with dedicated status badge styles, and provides instant one-tap Reset/Clear across both Dashboard and My Payments pages.
+- Profile Picture Interactive Cropper & Portrait Filter Studio: Dedicated real-world interactive cropper & filter studio specifically for the Account Settings Profile Picture section (`ProfilePictureCropDialog`). Resolves the issue where portraits looked "pressed or squeezed" by removing conflicting Skia `cacheWidth`/`cacheHeight` decoding parameters and off-center alignments in `AccountSettingsPage` and `AppShell`. Features interactive pan & drag for face/subject centering, pinch-to-zoom and precision slider (1.0x to 3.5x), 90° rotation button (`0°`, `90°`, `180°`, `270°`), quick reset button, circular 250x250 live preview frame with dark vignette outer mask, rule-of-thirds alignment crosshairs, and 5 authentic portrait color filters (*Original*, *Studio Vibrant*, *Crisp Clarity*, *Warm Gold*, *Monochrome*). Renders pristine 512x512 1:1 square output rasterized via Skia canvas with zero aspect ratio distortion. KYC regulatory documents (Selfie, CNIC Front, CNIC Back) continue utilizing their separate document enhancement pipeline.
+

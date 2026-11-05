@@ -15,6 +15,7 @@ import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../kyc/data/kyc_image_processor.dart';
 import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
+import '../../../profile/presentation/widgets/profile_picture_crop_dialog.dart';
 import '../../../../features/profile/data/user_profile_repository.dart';
 import '../../../../features/profile/domain/bank_account_item.dart';
 import '../../../../features/profile/domain/user_profile.dart';
@@ -1019,10 +1020,36 @@ class _ProfileSectionState extends State<_ProfileSection> {
       HapticFeedback.selectionClick();
       final rawBytes = await picked.readAsBytes();
 
-      // Downscale safely in memory using Skia engine to prevent GPU OOM crash
+      if (isAvatar) {
+        // Downscale safely in memory using Skia engine to prevent GPU OOM crash
+        final safeBytes = await _safeDownscaleBytes(
+          rawBytes,
+          maxDimension: 1024,
+        );
+
+        if (!mounted) return;
+        final croppedBytes = await ProfilePictureCropDialog.show(
+          context,
+          rawBytes: safeBytes,
+        );
+
+        if (croppedBytes == null || croppedBytes.isEmpty) {
+          // User dismissed or cancelled the cropper studio
+          return;
+        }
+
+        UserProfileRepository.instance.updateProfile(
+          avatarBytes: croppedBytes,
+          avatarFilePath: picked.path,
+        );
+        _showToast(c, 'Profile picture adjusted, cropped & saved successfully.');
+        return;
+      }
+
+      // Regulatory KYC documents pipeline
       final safeBytes = await _safeDownscaleBytes(
         rawBytes,
-        maxDimension: isAvatar ? 512 : 1024,
+        maxDimension: 1024,
       );
 
       // Auto crop and enhance via KycImageProcessor
@@ -1030,18 +1057,12 @@ class _ProfileSectionState extends State<_ProfileSection> {
       final result = await processor.enhanceDocument(
         rawBytes: safeBytes,
         fileName: picked.name,
-        isSelfie: isAvatar || documentType == 'selfie',
+        isSelfie: documentType == 'selfie',
       );
 
       final finalBytes = result.processedBytes ?? safeBytes;
 
-      if (isAvatar) {
-        UserProfileRepository.instance.updateProfile(
-          avatarBytes: finalBytes,
-          avatarFilePath: picked.path,
-        );
-        _showToast(c, 'Profile picture auto-cropped, enhanced & saved permanently.');
-      } else if (documentType == 'selfie') {
+      if (documentType == 'selfie') {
         UserProfileRepository.instance.updateProfile(
           selfieBytes: finalBytes,
           selfieFilePath: picked.path,
@@ -1203,29 +1224,29 @@ class _ProfileSectionState extends State<_ProfileSection> {
   Widget _buildAvatarImageOrInitial(PaidiXColorScheme c, UserProfile p, double size) {
     if (p.hasCustomAvatar) {
       if (p.avatarBytes != null && p.avatarBytes!.isNotEmpty) {
-        return Image.memory(
-          p.avatarBytes!,
-          width: size,
-          height: size,
-          fit: BoxFit.cover,
-          alignment: const Alignment(0.0, -0.22),
-          cacheWidth: 400,
-          cacheHeight: 400,
-          errorBuilder: (_, __, ___) => _avatarInitialText(c, p.avatarInitial, size),
+        return ClipOval(
+          child: Image.memory(
+            p.avatarBytes!,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => _avatarInitialText(c, p.avatarInitial, size),
+          ),
         );
       }
       if (p.avatarFilePath != null && p.avatarFilePath!.isNotEmpty && !kIsWeb) {
         final file = File(p.avatarFilePath!);
         if (file.existsSync()) {
-          return Image.file(
-            file,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            alignment: const Alignment(0.0, -0.22),
-            cacheWidth: 400,
-            cacheHeight: 400,
-            errorBuilder: (_, __, ___) => _avatarInitialText(c, p.avatarInitial, size),
+          return ClipOval(
+            child: Image.file(
+              file,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              alignment: Alignment.center,
+              errorBuilder: (_, __, ___) => _avatarInitialText(c, p.avatarInitial, size),
+            ),
           );
         }
       }
