@@ -5,7 +5,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-%E2%89%A53.10.0-02569B?logo=flutter&logoColor=white)](https://flutter.dev)
 [![Dart](https://img.shields.io/badge/Dart-%E2%89%A53.0.0-0175C2?logo=dart&logoColor=white)](https://dart.dev)
 [![Material Design](https://img.shields.io/badge/Material%203-Abyssal%20Teal-0A3134?logo=materialdesign&logoColor=white)](https://m3.material.io)
-[![Tests](https://img.shields.io/badge/Tests-116%2F116%20Passing-brightgreen?logo=checkmarx&logoColor=white)]()
+[![Tests](https://img.shields.io/badge/Tests-120%2F120%20Passing-brightgreen?logo=checkmarx&logoColor=white)]()
 [![Code Quality](https://img.shields.io/badge/flutter%20analyze-0%20issues-brightgreen?logo=dart&logoColor=white)]()
 [![Release APK](https://img.shields.io/badge/Android%20APK-v1.0.0%20Ready-0E7C7B?logo=android&logoColor=white)](PaidiX.apk)
 [![License](https://img.shields.io/badge/License-Proprietary-red.svg)]()
@@ -179,13 +179,14 @@ flutter analyze
 ```
 
 ### Verification Highlights:
-- **Total Tests Passing:** **116 / 116** (100% pass rate across 16 test suites)
+- **Total Tests Passing:** **120 / 120** (100% pass rate across 17 test suites)
 - **Static Analysis:** **0 warnings, 0 errors, 0 lints** (`flutter analyze`)
 - **Viewport Stress Testing:** Verified at 320px, 360px, 414px, 768px, 1024px, and 1200px widths with **0 `RenderFlex` exceptions**.
 
 | Test Suite | Verifications & Coverage Scope |
 | :--- | :--- |
-| `paidix_toast_and_server_error_test.dart` | Themed toasts (Success, Warning, Error, ServerError, Info), auto-dismiss timers, ServerErrorPage diagnostics, and ServerErrorDialog retry |
+| `pakistani_banks_test.dart` | Complete 39-institution banking catalog, code & alias resolver (`findPakistaniBank`), vector brand logos (`BankLogoWidget`), and interactive modal search (`BankSelectorSheet`) |
+| `paidix_toast_and_server_error_test.dart` | Top-positioned themed toasts (Success, Warning, Error, ServerError, Info), auto-dismiss timers, swipe-up dismiss, ServerErrorPage diagnostics, and ServerErrorDialog retry |
 | `account_settings_page_test.dart` | 5 settings tabs, profile editing, phone formatting, 3-card KYC gallery, PIN setup/removal, bank catalog, and 320px–1200px responsiveness |
 | `payments_page_test.dart` | Payments page rendering, accordion filters, side-by-side chips, status dropdown, 32 mock items, recycler animation, and pagination |
 | `payments_repository_test.dart` | 12% fee formula, 273 PKR/USD conversion, multi-term query filters, and status filtering |

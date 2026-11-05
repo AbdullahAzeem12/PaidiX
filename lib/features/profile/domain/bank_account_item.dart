@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+export 'pakistan_banks.dart';
 
 /// Domain model representing a linked Pakistani PKR receiving bank account.
 @immutable
@@ -98,25 +99,53 @@ class BankAccountItem {
       );
 }
 
-/// Authoritative list of Pakistani banks & digital wallets
+/// Authoritative list of Pakistani banks & digital wallets (39 institutions)
 const List<String> kPakistaniBanks = [
+  // Digital / Microfinance Wallets
   'JazzCash (Mobilink Microfinance Bank)',
   'EasyPaisa (Telenor Microfinance Bank)',
   'SadaPay',
   'NayaPay',
-  'Meezan Bank Limited',
-  'Habib Bank Limited (HBL)',
-  'United Bank Limited (UBL)',
+  'Raast (SBP Instant Payment System)',
+
+  // Commercial & Islamic Banks
+  'Allied Bank Limited',
+  'Askari Bank Limited',
+  'Bank Alfalah Limited',
+  'Bank Al Habib Limited',
+  'Faysal Bank Limited',
+  'Habib Bank Limited',
+  'Habib Metropolitan Bank Limited',
+  'JS Bank Limited',
   'MCB Bank Limited',
-  'Allied Bank Limited (ABL)',
-  'Bank Alfalah',
-  'Standard Chartered Bank',
-  'Faysal Bank',
-  'Askari Bank',
-  'Bank of Punjab (BOP)',
-  'Bank Al Habib',
-  'Soneri Bank',
-  'JS Bank',
-  'Dubai Islamic Bank',
+  'National Bank of Pakistan',
+  'Soneri Bank Limited',
+  'Standard Chartered Bank Pakistan',
+  'Summit Bank Limited',
+  'The Bank of Khyber',
+  'The Bank of Punjab',
+  'United Bank Limited',
+  'Silkbank Limited',
+  'Meezan Bank Limited',
+  'BankIslami Pakistan Limited',
+  'Dubai Islamic Bank Pakistan Limited',
+  'MCB Islamic Bank Limited',
+
+  // Specialized & Foreign
+  'Zarai Taraqiati Bank Limited',
+  'SME Bank Limited',
+  'Sindh Bank Limited',
+  'Industrial Development Bank of Pakistan',
+  'Citibank N.A. Pakistan',
+  'Deutsche Bank AG Pakistan',
+  'Industrial and Commercial Bank of China Pakistan',
+
+  // Microfinance
+  'Khushhali Microfinance Bank',
+  'U Microfinance Bank',
+  'FINCA Microfinance Bank',
+  'NRSP Microfinance Bank',
+  'Apna Microfinance Bank',
+  'Pak Oman Microfinance Bank',
 ];
 

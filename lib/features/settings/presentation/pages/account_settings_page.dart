@@ -10,6 +10,8 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/cnic_formatter.dart';
+import '../../../../core/widgets/bank_logo_widget.dart';
+import '../../../../core/widgets/bank_selector_sheet.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../kyc/data/kyc_image_processor.dart';
@@ -3330,11 +3332,12 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top row: Bank name uppercase & Primary badge / Set as primary
+          // Top row: Bank logo, Bank name uppercase & Primary badge / Set as primary
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              BankLogoWidget(bankName: acc.bankName, size: 36),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   acc.bankName.toUpperCase(),
@@ -3593,149 +3596,15 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     Navigator.pop(context);
   }
 
-  void _openBankSelector() {
+  void _openBankSelector() async {
     HapticFeedback.lightImpact();
-    final c = widget.colors;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (pickerCtx) {
-        String searchQuery = '';
-        return StatefulBuilder(
-          builder: (context, setPickerState) {
-            final filtered = kPakistaniBanks
-                .where((b) =>
-                    b.toLowerCase().contains(searchQuery.toLowerCase()))
-                .toList();
-
-            return Material(
-              color: c.card,
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              clipBehavior: Clip.antiAlias,
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.7,
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: c.border, width: 1)),
-                ),
-                child: Column(
-                  children: [
-                  const SizedBox(height: 12),
-                  Center(
-                    child: Container(
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: c.border,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Select Bank',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w800,
-                            color: c.textPrimary,
-                          ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.close_rounded,
-                              size: 20, color: c.textMuted),
-                          onPressed: () => Navigator.pop(pickerCtx),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Container(
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: c.inputFill,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: c.border),
-                      ),
-                      child: TextField(
-                        onChanged: (val) {
-                          setPickerState(() => searchQuery = val);
-                        },
-                        style: TextStyle(fontSize: 13, color: c.textPrimary),
-                        decoration: InputDecoration(
-                          hintText: 'Search Pakistani bank or wallet...',
-                          hintStyle: TextStyle(
-                              color: c.textPlaceholder, fontSize: 13),
-                          prefixIcon: Icon(Icons.search_rounded,
-                              size: 18, color: c.textMuted),
-                          border: InputBorder.none,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Expanded(
-                    child: ListView.separated(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => Divider(
-                          color: c.border.withValues(alpha: 0.4), height: 1),
-                      itemBuilder: (context, idx) {
-                        final bank = filtered[idx];
-                        final isSelected = bank == _selectedBank;
-                        return ListTile(
-                          contentPadding:
-                              const EdgeInsets.symmetric(horizontal: 8),
-                          leading: Icon(
-                            bank.contains('JazzCash') ||
-                                    bank.contains('EasyPaisa') ||
-                                    bank.contains('SadaPay') ||
-                                    bank.contains('NayaPay')
-                                ? Icons.phone_android_rounded
-                                : Icons.account_balance_rounded,
-                            size: 20,
-                            color: isSelected ? c.aqua : c.textMuted,
-                          ),
-                          title: Text(
-                            bank,
-                            style: TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isSelected ? c.aqua : c.textPrimary,
-                            ),
-                          ),
-                          trailing: isSelected
-                              ? Icon(Icons.check_circle_rounded,
-                                  size: 18, color: c.aqua)
-                              : null,
-                          onTap: () {
-                            setState(() => _selectedBank = bank);
-                            Navigator.pop(pickerCtx);
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
-  );
+    final picked = await BankSelectorSheet.show(
+      context,
+      selectedBankName: _selectedBank,
+    );
+    if (picked != null && mounted) {
+      setState(() => _selectedBank = picked.name);
+    }
   }
 
   @override
@@ -3847,12 +3716,14 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                   ),
                   child: Row(
                     children: [
+                      BankLogoWidget(bankName: _selectedBank, size: 28),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           _selectedBank,
                           style: TextStyle(
                             fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: c.textPrimary,
                           ),
                           maxLines: 1,

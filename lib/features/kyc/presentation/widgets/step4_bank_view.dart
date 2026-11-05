@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/bank_logo_widget.dart';
+import '../../../../core/widgets/bank_selector_sheet.dart';
+import '../../../profile/domain/pakistan_banks.dart';
 import '../../domain/kyc_models.dart';
 
 class Step4BankView extends StatefulWidget {
@@ -27,29 +31,13 @@ class _Step4BankViewState extends State<Step4BankView> {
   late final TextEditingController _ibanController;
   late String _selectedBank;
 
-  static const List<String> _pakistaniBanks = [
-    'Meezan Bank Limited',
-    'Habib Bank Limited (HBL)',
-    'Allied Bank Limited (ABL)',
-    'MCB Bank Limited',
-    'United Bank Limited (UBL)',
-    'Bank Alfalah',
-    'Standard Chartered Bank Pakistan',
-    'Faysal Bank',
-    'Askari Bank',
-    'Bank of Punjab (BOP)',
-    'EasyPaisa (Telenor Bank)',
-    'JazzCash (Mobilink Bank)',
-    'SadaPay',
-    'NayaPay',
-  ];
-
   @override
   void initState() {
     super.initState();
-    _selectedBank = widget.bankInfo.bankName.isNotEmpty
+    final initial = widget.bankInfo.bankName.isNotEmpty
         ? widget.bankInfo.bankName
-        : _pakistaniBanks.first;
+        : 'Meezan Bank Limited';
+    _selectedBank = findPakistaniBank(initial).name;
     _titleController =
         TextEditingController(text: widget.bankInfo.beneficiaryTitle);
     final rawIban = widget.bankInfo.iban.trim();
@@ -128,25 +116,58 @@ class _Step4BankViewState extends State<Step4BankView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Bank Name Selector
+              // Bank Name Selector Header with "Browse all 39" action
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'PAKISTANI BANK',
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
-                    ),
+                  Row(
+                    children: [
+                      Text(
+                        'PAKISTANI BANK',
+                        style: TextStyle(
+                          color: colors.textSecondary,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '*',
+                        style: TextStyle(
+                          color: colors.ruby,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '*',
-                    style: TextStyle(
-                      color: colors.ruby,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                  GestureDetector(
+                    onTap: () async {
+                      HapticFeedback.lightImpact();
+                      final picked = await BankSelectorSheet.show(
+                        context,
+                        selectedBankName: _selectedBank,
+                      );
+                      if (picked != null && mounted) {
+                        setState(() => _selectedBank = picked.name);
+                        _notifyChange();
+                      }
+                    },
+                    child: Row(
+                      children: [
+                        Icon(Icons.search_rounded,
+                            size: 13, color: colors.aqua),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Browse all 39',
+                          style: TextStyle(
+                            color: colors.aqua,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -164,25 +185,72 @@ class _Step4BankViewState extends State<Step4BankView> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: _pakistaniBanks.contains(_selectedBank)
+                    value: kAllPakistaniBanks.any((b) => b.name == _selectedBank)
                         ? _selectedBank
-                        : _pakistaniBanks.first,
+                        : kAllPakistaniBanks.first.name,
                     isExpanded: true,
                     dropdownColor: colors.card,
                     icon: Icon(
                       Icons.keyboard_arrow_down_rounded,
                       color: colors.textSecondary,
                     ),
-                    items: _pakistaniBanks.map((b) {
+                    selectedItemBuilder: (ctx) {
+                      return kAllPakistaniBanks.map((b) {
+                        return Row(
+                          children: [
+                            BankLogoWidget(bank: b, size: 26),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                b.name,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        );
+                      }).toList();
+                    },
+                    items: kAllPakistaniBanks.map((b) {
                       return DropdownMenuItem<String>(
-                        value: b,
-                        child: Text(
-                          b,
-                          style: TextStyle(
-                            color: colors.textPrimary,
-                            fontSize: 13.5,
-                            fontWeight: FontWeight.w500,
-                          ),
+                        value: b.name,
+                        child: Row(
+                          children: [
+                            BankLogoWidget(bank: b, size: 26),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                b.name,
+                                style: TextStyle(
+                                  color: colors.textPrimary,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 5, vertical: 1.5),
+                              decoration: BoxDecoration(
+                                color: colors.cardHighlight,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                b.code,
+                                style: TextStyle(
+                                  color: colors.textSecondary,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     }).toList(),
