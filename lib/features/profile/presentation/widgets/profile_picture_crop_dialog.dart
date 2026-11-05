@@ -1,23 +1,12 @@
-/// Auto Professional Premium Cropper & Profile Picture Confirmation Studio.
-/// Automatically centers the face/portrait with golden-ratio headroom, eliminates
-/// squishing/squeezing distortion, applies studio enhancement, and presents a
-/// streamlined confirmation dialog to the user.
+/// Auto Professional Cropper & Profile Picture Confirmation Dialog.
+/// Automatically frames the face/portrait with golden-ratio headroom, eliminates
+/// distortion, and presents a clean, minimalist confirmation dialog.
 
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/widgets/spongy_tap.dart';
-
-class _FilterPreset {
-  final String label;
-  final ColorFilter? colorFilter;
-
-  const _FilterPreset({
-    required this.label,
-    this.colorFilter,
-  });
-}
 
 /// Auto Professional Cropper & Confirmation Dialog.
 /// Automatically detects portrait bounds, centers the subject with natural headroom,
@@ -88,7 +77,8 @@ class ProfilePictureCropDialog extends StatefulWidget {
     );
 
     final srcRect = Rect.fromLTWH(cropX, cropY, cropSize, cropSize);
-    const dstRect = Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0);
+    const dstRect =
+        Rect.fromLTWH(0, 0, outputDimension + 0.0, outputDimension + 0.0);
 
     final paint = Paint()
       ..filterQuality = FilterQuality.high
@@ -102,7 +92,8 @@ class ProfilePictureCropDialog extends StatefulWidget {
 
     final picture = recorder.endRecording();
     final renderedImage = picture.toImageSync(outputDimension, outputDimension);
-    final byteData = await renderedImage.toByteData(format: ui.ImageByteFormat.png);
+    final byteData =
+        await renderedImage.toByteData(format: ui.ImageByteFormat.png);
 
     renderedImage.dispose();
     img.dispose();
@@ -112,40 +103,15 @@ class ProfilePictureCropDialog extends StatefulWidget {
   }
 
   @override
-  State<ProfilePictureCropDialog> createState() => ProfilePictureCropDialogState();
+  State<ProfilePictureCropDialog> createState() =>
+      ProfilePictureCropDialogState();
 }
 
 class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
   Uint8List? _autoCroppedBytes;
   bool _isLoading = true;
   String? _errorMessage;
-  int _selectedFilterIndex = 0;
-  bool _isConfirming = false;
-
-  static const List<_FilterPreset> _presets = [
-    _FilterPreset(
-      label: '✨ Studio Enhanced',
-      colorFilter: ColorFilter.matrix([
-        1.08, 0.00, 0.00, 0.00,  3.0,
-        0.00, 1.06, 0.00, 0.00,  2.0,
-        0.00, 0.00, 1.02, 0.00, -1.0,
-        0.00, 0.00, 0.00, 1.00,  0.0,
-      ]),
-    ),
-    _FilterPreset(
-      label: '🌿 Natural',
-      colorFilter: null,
-    ),
-    _FilterPreset(
-      label: '☀️ Warm Gold',
-      colorFilter: ColorFilter.matrix([
-        1.10, 0.00, 0.00, 0.00,  8.0,
-        0.00, 1.05, 0.00, 0.00,  5.0,
-        0.00, 0.00, 0.95, 0.00, -3.0,
-        0.00, 0.00, 0.00, 1.00,  0.0,
-      ]),
-    ),
-  ];
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -155,10 +121,8 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
 
   Future<void> _processAutoCrop() async {
     try {
-      final activeFilter = _presets[_selectedFilterIndex].colorFilter;
       final cropped = await ProfilePictureCropDialog.autoCropImage(
         widget.rawBytes,
-        colorFilter: activeFilter,
       );
       if (mounted) {
         setState(() {
@@ -169,28 +133,18 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Could not auto-crop image: $e';
+          _errorMessage = 'Could not process image: $e';
           _isLoading = false;
         });
       }
     }
   }
 
-  Future<void> _handleFilterPresetChange(int index) async {
-    if (_selectedFilterIndex == index || _isLoading) return;
-    HapticFeedback.selectionClick();
-    setState(() {
-      _selectedFilterIndex = index;
-      _isLoading = true;
-    });
-    await _processAutoCrop();
-  }
-
-  Future<void> _handleConfirm() async {
-    if (_autoCroppedBytes == null || _isConfirming) return;
+  Future<void> _handleSave() async {
+    if (_autoCroppedBytes == null || _isSaving) return;
 
     HapticFeedback.mediumImpact();
-    setState(() => _isConfirming = true);
+    setState(() => _isSaving = true);
 
     if (mounted) {
       Navigator.of(context, rootNavigator: true).pop(_autoCroppedBytes);
@@ -200,10 +154,7 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
   /// Exposes programmatic rendering for automated testing suites.
   Future<Uint8List?> renderCroppedBytes() async {
     if (_autoCroppedBytes != null) return _autoCroppedBytes;
-    return await ProfilePictureCropDialog.autoCropImage(
-      widget.rawBytes,
-      colorFilter: _presets[_selectedFilterIndex].colorFilter,
-    );
+    return await ProfilePictureCropDialog.autoCropImage(widget.rawBytes);
   }
 
   @override
@@ -216,20 +167,21 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
         child: Dialog(
           backgroundColor: c.card,
           surfaceTintColor: Colors.transparent,
-          elevation: 24,
-          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+          elevation: 16,
+          insetPadding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             side: BorderSide(
               color: isDark
                   ? c.border.withValues(alpha: 0.8)
                   : c.border.withValues(alpha: 0.95),
-              width: 1.2,
+              width: 1.0,
             ),
           ),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 380),
-            padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+            constraints: const BoxConstraints(maxWidth: 360),
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -240,10 +192,14 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: c.aqua.withValues(alpha: 0.14),
+                        color: c.aqua.withValues(alpha: 0.12),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.auto_awesome_rounded, size: 20, color: c.aqua),
+                      child: Icon(
+                        Icons.person_outline_rounded,
+                        size: 20,
+                        color: c.aqua,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -251,19 +207,19 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Confirm Profile Picture',
+                            'Profile Photo',
                             style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
+                              fontSize: 16.5,
+                              fontWeight: FontWeight.w700,
                               color: c.textPrimary,
-                              letterSpacing: -0.3,
+                              letterSpacing: -0.2,
                             ),
                           ),
-                          const SizedBox(height: 1),
+                          const SizedBox(height: 2),
                           Text(
-                            'Auto-centered & studio-enhanced',
+                            'Preview before saving',
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 12,
                               color: c.textSecondary,
                             ),
                           ),
@@ -271,8 +227,10 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded, size: 20, color: c.textMuted),
-                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(null),
+                      icon: Icon(Icons.close_rounded,
+                          size: 20, color: c.textMuted),
+                      onPressed: () =>
+                          Navigator.of(context, rootNavigator: true).pop(null),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
@@ -280,233 +238,118 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
                 ),
                 const SizedBox(height: 20),
 
-                // Central Auto-Cropped Portrait Avatar
+                // Clean Central Portrait Avatar
                 Center(
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      // Ambient Outer Halo Ring
-                      Container(
-                        width: 168,
-                        height: 168,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.transparent,
-                          border: Border.all(
-                            color: c.aqua.withValues(alpha: isDark ? 0.55 : 0.40),
-                            width: 2.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: c.aqua.withValues(alpha: isDark ? 0.22 : 0.14),
-                              blurRadius: 18,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
+                  child: Container(
+                    width: 160,
+                    height: 160,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isDark
+                          ? const Color(0xFF031415)
+                          : const Color(0xFFF1F5F9),
+                      border: Border.all(
+                        color: c.border.withValues(alpha: isDark ? 0.8 : 0.9),
+                        width: 2.0,
                       ),
-
-                      // Inner Avatar Image
-                      Container(
-                        width: 156,
-                        height: 156,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isDark ? const Color(0xFF031415) : const Color(0xFFF1F5F9),
-                        ),
-                        child: _isLoading
+                    ),
+                    child: _isLoading
+                        ? Center(
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(c.aqua),
+                              ),
+                            ),
+                          )
+                        : _errorMessage != null
                             ? Center(
-                                child: SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.5,
-                                    valueColor: AlwaysStoppedAnimation<Color>(c.aqua),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Text(
+                                    _errorMessage!,
+                                    style: TextStyle(
+                                        color: c.ruby, fontSize: 11),
+                                    textAlign: TextAlign.center,
                                   ),
                                 ),
                               )
-                            : _errorMessage != null
-                                ? Center(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(12),
-                                      child: Text(
-                                        _errorMessage!,
-                                        style: TextStyle(color: c.ruby, fontSize: 11),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  )
-                                : ClipOval(
-                                    child: Image.memory(
-                                      _autoCroppedBytes!,
-                                      width: 156,
-                                      height: 156,
-                                      fit: BoxFit.cover,
-                                      alignment: Alignment.center,
-                                    ),
-                                  ),
-                      ),
-
-                      // Verified Auto-Cropped Badge
-                      Positioned(
-                        bottom: 4,
-                        right: 4,
-                        child: Container(
-                          padding: const EdgeInsets.all(3.5),
-                          decoration: BoxDecoration(
-                            color: c.emerald,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: c.card,
-                              width: 2.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: c.emerald.withValues(alpha: 0.35),
-                                blurRadius: 6,
+                            : ClipOval(
+                                child: Image.memory(
+                                  _autoCroppedBytes!,
+                                  width: 160,
+                                  height: 160,
+                                  fit: BoxFit.cover,
+                                  alignment: Alignment.center,
+                                ),
                               ),
-                            ],
-                          ),
-                          child: const Icon(
-                            Icons.check_rounded,
-                            size: 14,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 22),
 
-                // Auto-Enhancement Semantic Chips
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    _buildPill(c, '✨ Auto-Centered'),
-                    _buildPill(c, '📐 1:1 Headroom'),
-                    _buildPill(c, '🎨 Zero Distortion'),
-                  ],
-                ),
-                const SizedBox(height: 14),
-
-                // Style Preset Switcher (Studio, Natural, Warm Gold)
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: List.generate(_presets.length, (idx) {
-                    final preset = _presets[idx];
-                    final isSelected = _selectedFilterIndex == idx;
-                    return SpongyTap(
-                      onTap: () => _handleFilterPresetChange(idx),
-                      pressScale: 0.96,
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? c.aqua.withValues(alpha: isDark ? 0.20 : 0.14)
-                              : c.inputFill,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isSelected
-                                ? c.aqua
-                                : c.border.withValues(alpha: 0.7),
-                            width: isSelected ? 1.4 : 1.0,
-                          ),
-                        ),
-                        child: Text(
-                          preset.label,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                            color: isSelected ? c.aqua : c.textSecondary,
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 20),
-
-                // Action Buttons: Discard / Retake vs. Confirm & Save
+                // Action Buttons: Cancel vs Save
                 Row(
                   children: [
-                    TextButton(
-                      style: TextButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                      ),
-                      onPressed: () => Navigator.of(context, rootNavigator: true).pop(null),
-                      child: Text(
-                        'Cancel',
-                        style: TextStyle(
-                          color: c.textSecondary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13.5,
+                    Expanded(
+                      child: TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            side: BorderSide(
+                              color: c.border.withValues(alpha: 0.8),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                        onPressed: () => Navigator.of(context,
+                                rootNavigator: true)
+                            .pop(null),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: c.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13.5,
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: SpongyTap(
-                        onTap: _isConfirming || _isLoading ? () {} : _handleConfirm,
+                        onTap: _isSaving || _isLoading ? () {} : _handleSave,
                         pressScale: 0.965,
                         child: Container(
-                          height: 46,
+                          height: 44,
                           decoration: BoxDecoration(
                             color: c.primaryButton,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: c.aqua.withValues(alpha: isDark ? 0.45 : 0.35),
-                              width: 1.2,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: c.primaryButton.withValues(alpha: 0.25),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
-                          child: _isConfirming
+                          child: _isSaving
                               ? SizedBox(
-                                  width: 20,
-                                  height: 20,
+                                  width: 18,
+                                  height: 18,
                                   child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                    strokeWidth: 2.0,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(
                                       c.primaryButtonText,
                                     ),
                                   ),
                                 )
-                              : Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.check_rounded,
-                                      size: 18,
-                                      color: c.primaryButtonText,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        'Confirm & Set Picture',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          fontSize: 13.5,
-                                          fontWeight: FontWeight.w700,
-                                          color: c.primaryButtonText,
-                                          letterSpacing: -0.2,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                              : Text(
+                                  'Save',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                    color: c.primaryButtonText,
+                                    letterSpacing: -0.2,
+                                  ),
                                 ),
                         ),
                       ),
@@ -516,28 +359,6 @@ class ProfilePictureCropDialogState extends State<ProfilePictureCropDialog> {
               ],
             ),
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPill(PaidiXColorScheme c, String label) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-      decoration: BoxDecoration(
-        color: c.cardDark,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: c.border.withValues(alpha: 0.6),
-          width: 0.8,
-        ),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w600,
-          color: c.textSecondary,
         ),
       ),
     );

@@ -2129,7 +2129,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Keep your identity details accurate. Saving any change will resubmit them for review.',
+                  'Official identity records registered with SBP KYC.',
                   style: TextStyle(
                     fontSize: 12.5,
                     color: c.textSecondary,
@@ -3371,7 +3371,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    "All additions, edits and removals on this page are logged and shared with our support team for your protection. You can set any account as your primary — the one we'll use by default when sending PKR.",
+                    "Manage your bank accounts for PKR payouts. Your primary account is selected by default.",
                     style: TextStyle(
                       fontSize: 12.5,
                       color: c.textSecondary,
@@ -3863,7 +3863,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                   border: Border.all(color: c.border, width: 1),
                 ),
                 child: Text(
-                  'Any changes you make here will be logged and shared with the support team — both the previous values and the new ones.',
+                  'Account title must match your verified CNIC identity.',
                   style: TextStyle(
                     fontSize: 12,
                     color: c.textSecondary,
