@@ -11,6 +11,8 @@ import '../features/kyc/presentation/pages/kyc_page.dart';
 import '../features/payments/data/payments_repository_impl.dart';
 import '../features/payments/presentation/pages/new_payment_page.dart';
 import '../features/payments/presentation/pages/payments_page.dart';
+import '../features/profile/data/user_profile_repository.dart';
+import '../features/profile/domain/user_profile.dart';
 import '../features/profile/presentation/pages/onboarding_profile_page.dart';
 import '../features/settings/presentation/pages/account_settings_page.dart';
 
@@ -123,6 +125,13 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
           ),
           GoRoute(
             path: '/app/onboarding',
+            redirect: (context, state) {
+              final profile = UserProfileRepository.instance.profile;
+              if (profile.kycStatus == KycReviewStatus.verified) {
+                return '/app/dashboard';
+              }
+              return null;
+            },
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
               child: const OnboardingProfilePage(),

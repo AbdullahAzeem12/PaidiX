@@ -98,6 +98,7 @@ class _SignInPageState extends State<SignInPage> {
       final verifiedUser = UserProfile.defaultProfile().copyWith(
         email: inputEmail,
         hasCompletedKyc: true,
+        kycStatus: KycReviewStatus.verified,
       );
       repo.setActiveUser(verifiedUser);
       PaidiXToast.showSuccess(

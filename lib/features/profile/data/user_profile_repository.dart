@@ -366,6 +366,18 @@ class UserProfileRepository {
     _saveRegisteredUser(updated);
   }
 
+  /// Simulates server-side verification approval for the active user.
+  void approveKycVerification() {
+    final current = profileNotifier.value;
+    final updated = current.copyWith(
+      kycStatus: KycReviewStatus.verified,
+      hasCompletedKyc: true,
+      updatedAt: DateTime.now(),
+    );
+    profileNotifier.value = updated;
+    _saveRegisteredUser(updated);
+  }
+
   /// Update personal information and documents from the "Edit Profile" action
   void updateProfile({
     String? fullName,

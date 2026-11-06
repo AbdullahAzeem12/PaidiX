@@ -57,29 +57,49 @@ class _AppShellState extends State<AppShell> {
   }
 
   /// Maps the current route to the selected navigation destination.
-  int _calculateSelectedIndex() {
+  int _calculateSelectedIndex(bool showOnboarding) {
     final p = widget.currentPath;
-    if (p.startsWith('/app/payments/new')) return 3;
-    if (p.startsWith('/app/payments')) return 2;
-    if (p.startsWith('/app/onboarding')) return 1;
-    return 0; // dashboard
+    if (showOnboarding) {
+      if (p.startsWith('/app/payments/new')) return 3;
+      if (p.startsWith('/app/payments')) return 2;
+      if (p.startsWith('/app/onboarding')) return 1;
+      return 0; // dashboard
+    } else {
+      if (p.startsWith('/app/payments/new')) return 2;
+      if (p.startsWith('/app/payments')) return 1;
+      return 0; // dashboard
+    }
   }
 
   /// Navigates to the route represented by the selected app destination.
-  void _onDestinationSelected(int index) {
-    switch (index) {
-      case 0:
-        context.go('/app/dashboard');
-        break;
-      case 1:
-        context.go('/app/onboarding');
-        break;
-      case 2:
-        context.go('/app/payments');
-        break;
-      case 3:
-        context.go('/app/payments/new');
-        break;
+  void _onDestinationSelected(int index, bool showOnboarding) {
+    if (showOnboarding) {
+      switch (index) {
+        case 0:
+          context.go('/app/dashboard');
+          break;
+        case 1:
+          context.go('/app/onboarding');
+          break;
+        case 2:
+          context.go('/app/payments');
+          break;
+        case 3:
+          context.go('/app/payments/new');
+          break;
+      }
+    } else {
+      switch (index) {
+        case 0:
+          context.go('/app/dashboard');
+          break;
+        case 1:
+          context.go('/app/payments');
+          break;
+        case 2:
+          context.go('/app/payments/new');
+          break;
+      }
     }
   }
 
@@ -121,9 +141,52 @@ class _AppShellState extends State<AppShell> {
             }
 
             // Mobile layout
-            final selectedIndex = _calculateSelectedIndex();
+            final showOnboarding =
+                userProfile.kycStatus != KycReviewStatus.verified;
+            final selectedIndex = _calculateSelectedIndex(showOnboarding);
             final isNarrowPhone = constraints.maxWidth < 360;
             final isSettings = widget.currentPath.startsWith('/app/settings');
+
+            final navItems = showOnboarding
+                ? const [
+                    PaidiXBottomNavItem(
+                      icon: Icons.grid_view_outlined,
+                      activeIcon: Icons.grid_view_rounded,
+                      label: 'Dashboard',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.badge_outlined,
+                      activeIcon: Icons.badge,
+                      label: 'Onboarding',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long_rounded,
+                      label: 'My Payments',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.add_circle_outline_rounded,
+                      activeIcon: Icons.add_circle_rounded,
+                      label: 'New Payment',
+                    ),
+                  ]
+                : const [
+                    PaidiXBottomNavItem(
+                      icon: Icons.grid_view_outlined,
+                      activeIcon: Icons.grid_view_rounded,
+                      label: 'Dashboard',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long_rounded,
+                      label: 'My Payments',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.add_circle_outline_rounded,
+                      activeIcon: Icons.add_circle_rounded,
+                      label: 'New Payment',
+                    ),
+                  ];
 
             return Scaffold(
               backgroundColor: colors.background,
@@ -163,29 +226,9 @@ class _AppShellState extends State<AppShell> {
                   ? null
                   : PaidiXBottomNavBar(
                       selectedIndex: selectedIndex,
-                      onItemSelected: _onDestinationSelected,
-                      items: const [
-                        PaidiXBottomNavItem(
-                          icon: Icons.grid_view_outlined,
-                          activeIcon: Icons.grid_view_rounded,
-                          label: 'Dashboard',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.badge_outlined,
-                          activeIcon: Icons.badge,
-                          label: 'Onboarding',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.receipt_long_outlined,
-                          activeIcon: Icons.receipt_long_rounded,
-                          label: 'My Payments',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.add_circle_outline_rounded,
-                          activeIcon: Icons.add_circle_rounded,
-                          label: 'New Payment',
-                        ),
-                      ],
+                      onItemSelected: (idx) =>
+                          _onDestinationSelected(idx, showOnboarding),
+                      items: navItems,
                     ),
             );
           },
@@ -231,7 +274,9 @@ class _AppShellState extends State<AppShell> {
 
   /// Builds the sidebar section of this interface.
   Widget _buildSidebar(UserProfile userProfile) {
-    final selectedIndex = _calculateSelectedIndex();
+    final showOnboarding =
+        userProfile.kycStatus != KycReviewStatus.verified;
+    final selectedIndex = _calculateSelectedIndex(showOnboarding);
     final sidebarWidth = _isSidebarCollapsed ? 76.0 : 240.0;
 
     return AnimatedContainer(
@@ -294,16 +339,18 @@ class _AppShellState extends State<AppShell> {
                   activeIcon: Icons.dashboard,
                   title: 'Dashboard',
                   isSelected: selectedIndex == 0,
-                  onTap: () => _onDestinationSelected(0),
+                  onTap: () => _onDestinationSelected(0, showOnboarding),
                 ),
-                const SizedBox(height: 4),
-                _buildNavItem(
-                  icon: Icons.assignment_ind_outlined,
-                  activeIcon: Icons.assignment_ind,
-                  title: 'Onboarding',
-                  isSelected: selectedIndex == 1,
-                  onTap: () => _onDestinationSelected(1),
-                ),
+                if (showOnboarding) ...[
+                  const SizedBox(height: 4),
+                  _buildNavItem(
+                    icon: Icons.assignment_ind_outlined,
+                    activeIcon: Icons.assignment_ind,
+                    title: 'Onboarding',
+                    isSelected: selectedIndex == 1,
+                    onTap: () => _onDestinationSelected(1, showOnboarding),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 if (!_isSidebarCollapsed)
                   const Padding(
@@ -322,16 +369,18 @@ class _AppShellState extends State<AppShell> {
                   icon: Icons.receipt_long_outlined,
                   activeIcon: Icons.receipt_long,
                   title: 'My Payments',
-                  isSelected: selectedIndex == 2,
-                  onTap: () => _onDestinationSelected(2),
+                  isSelected: selectedIndex == (showOnboarding ? 2 : 1),
+                  onTap: () =>
+                      _onDestinationSelected(showOnboarding ? 2 : 1, showOnboarding),
                 ),
                 const SizedBox(height: 4),
                 _buildNavItem(
-                  icon: Icons.auto_awesome_outlined,
-                  activeIcon: Icons.auto_awesome,
+                  icon: Icons.add_circle_outline_rounded,
+                  activeIcon: Icons.add_circle_rounded,
                   title: 'New Payment',
-                  isSelected: selectedIndex == 3,
-                  onTap: () => _onDestinationSelected(3),
+                  isSelected: selectedIndex == (showOnboarding ? 3 : 2),
+                  onTap: () =>
+                      _onDestinationSelected(showOnboarding ? 3 : 2, showOnboarding),
                 ),
               ],
             ),
