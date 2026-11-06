@@ -353,14 +353,15 @@ class _AppShellState extends State<AppShell> {
                 ],
                 const SizedBox(height: 20),
                 if (!_isSidebarCollapsed)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Text(
                       'PAYMENTS',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
                         color: AppColors.sidebarMuted,
                       ),
                     ),
@@ -603,8 +604,9 @@ class _AppShellState extends State<AppShell> {
       child: Text(
         initial,
         style: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           color: fg,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           fontSize: 14,
         ),
       ),

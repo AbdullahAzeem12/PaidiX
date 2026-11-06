@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/app_typography.dart';
 
 class BrandLogo extends StatelessWidget {
@@ -52,18 +53,20 @@ class BrandLogo extends StatelessWidget {
             TextSpan(
               text: 'P',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: Colors.white,
                 fontSize: size * 0.46,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
             ),
             TextSpan(
               text: 'X',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: goldColor,
                 fontSize: size * 0.46,
-                fontWeight: FontWeight.w900,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
               ),
             ),
@@ -106,8 +109,9 @@ class BrandLogo extends StatelessWidget {
                         Text(
                           'Build Trust.',
                           style: TextStyle(
+                            fontFamily: AppTheme.activeFontFamily,
                             fontSize: 10.5,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             color: goldColor,
                           ),
                         ),

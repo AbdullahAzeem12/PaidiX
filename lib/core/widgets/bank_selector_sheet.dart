@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
 import 'spongy_tap.dart';
 
@@ -110,8 +111,9 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
                           child: Text(
                             'Select Bank',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 16.5,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               color: c.textPrimary,
                               letterSpacing: -0.3,
                             ),

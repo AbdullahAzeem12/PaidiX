@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_theme.dart';
 
 /// Data representation of an item inside [PaidiXBottomNavBar].
 class PaidiXBottomNavItem {
@@ -322,11 +323,12 @@ class _NavBarTabItemState extends State<_NavBarTabItem>
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOutCubic,
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: widget.fontSize,
                           fontWeight: widget.isSelected
-                              ? FontWeight.w700
+                              ? FontWeight.w600
                               : FontWeight.w500,
-                          letterSpacing: -0.25,
+                          letterSpacing: -0.2,
                           color: widget.isSelected
                               ? activeTextColor
                               : inactiveTextColor,

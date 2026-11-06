@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/utils/formatters.dart';
@@ -440,11 +441,12 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
           borderRadius: AppSpacing.radiusSm,
         ),
         alignment: Alignment.center,
-        child: const Text(
+        child: Text(
           '\$',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: Colors.white,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             fontSize: 20,
           ),
         ),
@@ -463,11 +465,12 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
           borderRadius: AppSpacing.radiusSm,
         ),
         alignment: Alignment.center,
-        child: const Text(
+        child: Text(
           'Z',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: Colors.white,
-            fontWeight: FontWeight.w900,
+            fontWeight: FontWeight.w700,
             fontSize: 18,
           ),
         ),

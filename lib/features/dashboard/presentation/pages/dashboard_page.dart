@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
@@ -289,8 +290,9 @@ class _DashboardPageState extends State<DashboardPage> {
             Text(
               'Hello, ${userProfile.firstName}.',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 fontSize: 26,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 letterSpacing: -0.5,
                 color: colors.textPrimary,
               ),
@@ -468,8 +470,9 @@ class _DashboardPageState extends State<DashboardPage> {
                       Text(
                         'FILTERS',
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: isMobile ? 10.5 : 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: isMobile ? 0.8 : 1.5,
                           color: colors.textSecondary,
                         ),
@@ -890,8 +893,9 @@ class _DashboardPageState extends State<DashboardPage> {
             Text(
               'Reset',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: hasActiveFilters ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
                 color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),

@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../domain/kyc_models.dart';
 
 class KycStepper extends StatelessWidget {
@@ -140,12 +141,13 @@ class KycStepper extends StatelessWidget {
                                   : Text(
                                       '${step.stepNumber}',
                                       style: TextStyle(
+                                        fontFamily: AppTheme.activeFontFamily,
                                         color: isActive
                                             ? (isDark ? colors.aquaLight : activeColor)
                                             : colors.textMuted,
                                         fontSize: 13,
                                         fontWeight: isActive
-                                            ? FontWeight.w900
+                                            ? FontWeight.w700
                                             : FontWeight.w600,
                                       ),
                                     ),
@@ -162,9 +164,10 @@ class KycStepper extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
+                                fontFamily: AppTheme.activeFontFamily,
                                 fontSize: isVeryNarrow ? 10.5 : (isCompact ? 11.5 : 12.5),
                                 fontWeight: isActive
-                                    ? FontWeight.w800
+                                    ? FontWeight.w700
                                     : (isCompleted ? FontWeight.w600 : FontWeight.w500),
                                 color: isActive
                                     ? colors.textPrimary

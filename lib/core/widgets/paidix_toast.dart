@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import 'spongy_tap.dart';
 
 enum PaidiXToastType {
@@ -297,9 +298,10 @@ class PaidiXToast {
                       Text(
                         effectiveTitle,
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           color: accentColor,
                           fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     Text(
@@ -539,9 +541,10 @@ class _TopToastWidgetState extends State<_TopToastWidget>
                   Text(
                     widget.title!,
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       color: accentColor,
                       fontSize: 10.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 0.9,
                       height: 1.1,
                     ),

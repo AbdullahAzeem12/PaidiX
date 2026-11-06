@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import 'app_button.dart';
 import 'brand_logo.dart';
 import 'spongy_tap.dart';
@@ -216,9 +217,10 @@ class _ServerErrorPageState extends State<ServerErrorPage>
                     child: Text(
                       '${widget.info.statusCode} • SERVER LATENCY DETECTED',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         color: colors.statusErrorDot,
                         fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.1,
                       ),
                     ),
@@ -230,9 +232,10 @@ class _ServerErrorPageState extends State<ServerErrorPage>
                     widget.info.title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       color: colors.textPrimary,
                       fontSize: isNarrow ? 20 : 24,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                     ),
                   ),
@@ -464,9 +467,10 @@ class ServerErrorDialog {
               child: Text(
                 '${info.statusCode} • SERVER ERROR',
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   color: colors.statusErrorDot,
                   fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   letterSpacing: 0.8,
                 ),
               ),
@@ -478,9 +482,10 @@ class ServerErrorDialog {
               info.title,
               textAlign: TextAlign.center,
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: colors.textPrimary,
                 fontSize: 16,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),

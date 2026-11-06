@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/data/user_profile_repository.dart';
 
@@ -151,9 +152,10 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
               Text(
                 'Account Setup Complete!',
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   color: colors.textPrimary,
                   fontSize: 19,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   letterSpacing: -0.4,
                 ),
                 textAlign: TextAlign.center,

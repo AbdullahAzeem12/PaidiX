@@ -309,12 +309,17 @@ void main() {
       AppTheme.setTextScale(1.25);
       expect(AppTheme.currentTextScale, 1.25);
 
-      // Reset to defaults
+      // Test fallback to System default
       AppTheme.setFontFamily('System default');
-      AppTheme.setTextScale(1.0);
       expect(AppTheme.currentFontFamily, 'System default');
-      expect(AppTheme.currentTextScale, 1.0);
       expect(AppTheme.activeFontFamily, isNull);
+
+      // Reset to universal default (Inter)
+      AppTheme.setFontFamily('Inter');
+      AppTheme.setTextScale(1.0);
+      expect(AppTheme.currentFontFamily, 'Inter');
+      expect(AppTheme.currentTextScale, 1.0);
+      expect(AppTheme.activeFontFamily, contains('Inter'));
     });
   });
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/bank_selector_sheet.dart';
 import '../../../profile/domain/pakistan_banks.dart';
@@ -95,9 +96,10 @@ class _Step4BankViewState extends State<Step4BankView> {
         Text(
           'Link your Pakistani Bank Account.',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: colors.textPrimary,
             fontSize: 26,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
         ),

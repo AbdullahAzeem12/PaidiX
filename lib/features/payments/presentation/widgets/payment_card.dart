@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -108,8 +109,9 @@ class PaymentCard extends StatelessWidget {
                         child: Text(
                           AppFormatters.formatUsd(item.amount),
                           style: TextStyle(
+                            fontFamily: AppTheme.activeFontFamily,
                             fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: colors.textPrimary,
                           ),
                         ),
@@ -134,8 +136,9 @@ class PaymentCard extends StatelessWidget {
                         child: Text(
                           AppFormatters.formatPkr(item.netPkr),
                           style: TextStyle(
+                            fontFamily: AppTheme.activeFontFamily,
                             fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             color: colors.aquaLight,
                           ),
                         ),

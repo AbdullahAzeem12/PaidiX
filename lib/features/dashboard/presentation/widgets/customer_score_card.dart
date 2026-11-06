@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../settings/domain/fx_display_preferences.dart';
@@ -114,8 +115,9 @@ class CustomerScoreCard extends StatelessWidget {
                           Text(
                             'CUSTOMER SCORE',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 11,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 1.5,
                               color: colors.mintHeroText,
                             ),
@@ -131,9 +133,10 @@ class CustomerScoreCard extends StatelessWidget {
                           Text(
                             scoreVal,
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 48,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: -1.5,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -1.2,
                               color: colors.mintHeroText,
                               height: 1.0,
                             ),
@@ -146,8 +149,9 @@ class CustomerScoreCard extends StatelessWidget {
                               Text(
                                 gradeVal,
                                 style: TextStyle(
+                                  fontFamily: AppTheme.activeFontFamily,
                                   fontSize: 18,
-                                  fontWeight: FontWeight.w900,
+                                  fontWeight: FontWeight.w700,
                                   color: colors.mintHeroText,
                                   height: 1.1,
                                 ),
@@ -156,8 +160,9 @@ class CustomerScoreCard extends StatelessWidget {
                               Text(
                                 trustVal,
                                 style: TextStyle(
+                                  fontFamily: AppTheme.activeFontFamily,
                                   fontSize: 11,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w600,
                                   letterSpacing: 1.2,
                                   color: colors.mintHeroText.withValues(alpha: 0.85),
                                   height: 1.1,
@@ -254,9 +259,10 @@ class CustomerScoreCard extends StatelessWidget {
               Text(
                 label,
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   fontSize: 10.5,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.3,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
                   color: textColor.withValues(alpha: 0.85),
                 ),
               ),
@@ -283,8 +289,9 @@ class CustomerScoreCard extends StatelessWidget {
             maxLines: 1,
             softWrap: false,
             style: TextStyle(
+              fontFamily: AppTheme.activeFontFamily,
               fontSize: isVolume ? 15.5 : 16.5,
-              fontWeight: FontWeight.w900,
+              fontWeight: FontWeight.w700,
               letterSpacing: isStealth ? 1.5 : -0.3,
               color: textColor,
             ),

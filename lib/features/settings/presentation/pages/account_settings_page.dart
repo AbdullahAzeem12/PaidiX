@@ -185,17 +185,19 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                 Text(
                   'SETTINGS',
                   style: TextStyle(
+                    fontFamily: AppTheme.activeFontFamily,
                     fontSize: 10,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 1.6,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.4,
                     color: colors.gold,
                   ),
                 ),
                 Text(
                   'Account settings.',
                   style: TextStyle(
+                    fontFamily: AppTheme.activeFontFamily,
                     fontSize: 17,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     letterSpacing: -0.4,
                     color: colors.textPrimary,
                   ),
@@ -300,9 +302,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                       Text(
                         'SETTINGS',
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1.6,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.4,
                           color: colors.gold,
                         ),
                       ),
@@ -312,8 +315,9 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                   Text(
                     'Account settings.',
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       fontSize: 19,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       letterSpacing: -0.5,
                       color: colors.textPrimary,
                     ),
@@ -865,8 +869,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
               child: Text(
                 'Profile Picture',
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   fontSize: 18,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: c.textPrimary,
                   letterSpacing: -0.3,
                 ),
@@ -982,8 +987,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
                       ? 'Upload Profile Picture'
                       : 'Replace ${documentType?.replaceAll('_', ' ').toUpperCase()}',
                   style: TextStyle(
+                    fontFamily: AppTheme.activeFontFamily,
                     fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                     color: c.textPrimary,
                     letterSpacing: -0.3,
                   ),
@@ -1289,8 +1295,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
       child: Text(
         initial,
         style: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           color: c.aqua,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           fontSize: size * 0.42,
         ),
       ),
@@ -1749,9 +1756,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     Text(
                       'PORTRAIT BIOMETRIC',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         color: c.emerald,
                         fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.7,
                       ),
                     ),
@@ -1882,9 +1890,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                         child: Text(
                           'PK',
                           style: TextStyle(
+                            fontFamily: AppTheme.activeFontFamily,
                             color: c.emerald,
                             fontSize: 7.5,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -2045,8 +2054,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
                           Text(
                             p.fullName,
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: widget.isMobile ? 16 : 17,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w700,
                               letterSpacing: -0.3,
                               color: c.textPrimary,
                             ),
@@ -2077,8 +2087,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
                             child: Text(
                               'CUSTOMER',
                               style: TextStyle(
+                                fontFamily: AppTheme.activeFontFamily,
                                 fontSize: 9.5,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w600,
                                 letterSpacing: 1.2,
                                 color: c.aqua,
                               ),
@@ -2542,8 +2553,9 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
               child: Text(
                 'Forgot Payments PIN?',
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   fontSize: 16.5,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w700,
                   color: c.textPrimary,
                   letterSpacing: -0.3,
                 ),
@@ -2865,8 +2877,9 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
                   Text(
                     'Remove PIN',
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       fontSize: 15.5,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: c.textPrimary,
                       letterSpacing: -0.2,
                     ),
@@ -3190,8 +3203,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
         title: Text(
           'Remove bank account',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 18,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: c.textPrimary,
             letterSpacing: -0.2,
           ),
@@ -3391,8 +3405,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                 child: Text(
                   'PKR RECEIVING (PAKISTAN)',
                   style: TextStyle(
+                    fontFamily: AppTheme.activeFontFamily,
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w600,
                     letterSpacing: 1.1,
                     color: c.textLabel,
                   ),
@@ -3591,8 +3606,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
           Text(
             acc.holder,
             style: TextStyle(
+              fontFamily: AppTheme.activeFontFamily,
               fontSize: widget.isMobile ? 19 : 21,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w700,
               color: c.textPrimary,
               letterSpacing: -0.3,
             ),
@@ -3833,8 +3849,9 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                           ? 'Edit Pakistani bank account'
                           : 'Add Pakistani bank account',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 17.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: c.textPrimary,
                         letterSpacing: -0.3,
                       ),
@@ -4127,9 +4144,10 @@ Widget _sectionHeader(PaidiXColorScheme c, String title, String subtitle,
         Text(
           eyebrow,
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 10.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.4,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
             color: c.gold,
           ),
         ),
@@ -4138,8 +4156,9 @@ Widget _sectionHeader(PaidiXColorScheme c, String title, String subtitle,
       Text(
         title,
         style: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           fontSize: 22,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           letterSpacing: -0.5,
           color: c.textPrimary,
         ),
@@ -4149,6 +4168,7 @@ Widget _sectionHeader(PaidiXColorScheme c, String title, String subtitle,
         Text(
           subtitle,
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 13.5,
             color: c.textSecondary,
             height: 1.4,
@@ -4164,8 +4184,9 @@ Widget _cardSectionLabel(PaidiXColorScheme c, String label) {
   return Text(
     label,
     style: TextStyle(
+      fontFamily: AppTheme.activeFontFamily,
       fontSize: 10.5,
-      fontWeight: FontWeight.w800,
+      fontWeight: FontWeight.w600,
       letterSpacing: 1.2,
       color: c.textLabel,
     ),

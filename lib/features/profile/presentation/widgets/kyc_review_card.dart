@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../domain/user_profile.dart';
 import 'document_preview_tile.dart';
 import 'document_viewer_dialog.dart';
@@ -64,8 +65,9 @@ class KycReviewCard extends StatelessWidget {
                       Text(
                         'KYC REVIEW',
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1.2,
                           color: colors.textSecondary,
                         ),

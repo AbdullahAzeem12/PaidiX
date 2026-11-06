@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 
 /// Interactive Document Thumbnail Tile displaying real KYC document uploads
@@ -93,10 +94,11 @@ class DocumentPreviewTile extends StatelessWidget {
                     Expanded(
                       child: Text(
                         label,
-                        style: const TextStyle(
+                        style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           color: Colors.white,
                           fontSize: 10.5,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: 1.2,
                         ),
                         maxLines: 1,

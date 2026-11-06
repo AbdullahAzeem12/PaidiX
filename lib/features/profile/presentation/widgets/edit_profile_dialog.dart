@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/services/notification_service.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
@@ -201,9 +202,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                             Text(
                               'Edit profile',
                               style: TextStyle(
+                                fontFamily: AppTheme.activeFontFamily,
                                 color: colors.textPrimary,
                                 fontSize: 18,
-                                fontWeight: FontWeight.w800,
+                                fontWeight: FontWeight.w700,
                                 letterSpacing: -0.3,
                               ),
                             ),
@@ -328,9 +330,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                   Text(
                     'RE-UPLOAD DOCUMENTS (OPTIONAL — LEAVE EMPTY TO KEEP CURRENT)',
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       color: colors.textMuted,
                       fontSize: 10,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w600,
                       letterSpacing: 1.1,
                     ),
                   ),
@@ -489,9 +492,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         Text(
           label,
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: colors.textMuted,
             fontSize: 10,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             letterSpacing: 1.0,
           ),
         ),

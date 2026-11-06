@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 
@@ -91,9 +92,10 @@ class StatusMetricCard extends StatelessWidget {
                       Text(
                         title.toUpperCase(),
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: fontSize,
                           fontWeight:
-                              isSelected ? FontWeight.w900 : FontWeight.w800,
+                              isSelected ? FontWeight.w700 : FontWeight.w600,
                           letterSpacing: letterSpacing,
                           color: isSelected
                               ? effectiveActiveColor
@@ -167,7 +169,7 @@ class StatusMetricCard extends StatelessWidget {
                     style: AppTypography.statValueLarge.copyWith(
                       fontSize: isCompact ? 22 : 24,
                       fontWeight:
-                          isSelected ? FontWeight.w900 : FontWeight.w800,
+                          isSelected ? FontWeight.w700 : FontWeight.w600,
                       color: isSelected
                           ? effectiveActiveColor
                           : colors.textPrimary,
@@ -193,8 +195,9 @@ class StatusMetricCard extends StatelessWidget {
                     child: Text(
                       'ACTIVE',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
                         color: effectiveActiveColor,
                       ),

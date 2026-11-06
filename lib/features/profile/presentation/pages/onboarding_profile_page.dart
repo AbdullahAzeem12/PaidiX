@@ -96,8 +96,8 @@ class OnboardingProfilePage extends StatelessWidget {
           'PROFILE',
           style: AppTypography.sectionEyebrow.copyWith(
             color: colors.gold,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 1.5,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
           ),
         ),
         const SizedBox(height: 6),

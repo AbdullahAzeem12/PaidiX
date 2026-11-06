@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 
 /// State-of-the-art interactive pagination footer matching production screenshots.
@@ -256,8 +257,9 @@ class PaginationControls extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 11.5,
-            fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
             color: isSelected
                 ? const Color(0xFF022F32)
                 : colors.textSecondary,
@@ -332,8 +334,9 @@ class PaginationControls extends StatelessWidget {
         title: Text(
           'Custom rows per page',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 16.5,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: colors.textPrimary,
           ),
         ),
@@ -435,11 +438,12 @@ class PaginationControls extends StatelessWidget {
                 color: colors.aqua,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text(
+              child: Text(
                 'Apply',
                 style: TextStyle(
-                  color: Color(0xFF022F32),
-                  fontWeight: FontWeight.w800,
+                  fontFamily: AppTheme.activeFontFamily,
+                  color: const Color(0xFF022F32),
+                  fontWeight: FontWeight.w600,
                   fontSize: 13,
                 ),
               ),
@@ -465,8 +469,9 @@ class PaginationControls extends StatelessWidget {
         title: Text(
           'Jump to page',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 16.5,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             color: colors.textPrimary,
           ),
         ),
@@ -511,10 +516,11 @@ class PaginationControls extends StatelessWidget {
                           child: Text(
                             '$p',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 13,
                               fontWeight: isCurrent
-                                  ? FontWeight.w800
-                                  : FontWeight.w600,
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                               color: isCurrent
                                   ? const Color(0xFF022F32)
                                   : colors.textPrimary,

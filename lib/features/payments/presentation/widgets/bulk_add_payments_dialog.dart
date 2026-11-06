@@ -420,7 +420,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                       'Add several payments at once',
                       style: TextStyle(
                         fontSize: isLandscape ? 14.5 : (isMobile ? 16 : 18),
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
                         color: colors.textPrimary,
                       ),
@@ -775,7 +775,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
                       '# ${index + 1}',
                       style: TextStyle(
                         fontSize: 11,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: colors.aqua,
                       ),
                     ),
@@ -935,7 +935,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
       label,
       style: TextStyle(
         fontSize: 10,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.8,
         color: colors.textMuted,
       ),
@@ -951,7 +951,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
         label,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           letterSpacing: 0.8,
           color: colors.textMuted,
         ),
@@ -1195,7 +1195,7 @@ class _BulkAddPaymentsDialogState extends State<BulkAddPaymentsDialog> {
               'Total amount: \$ ${_totalAmount.toStringAsFixed(2)}',
               style: TextStyle(
                 fontSize: isLandscape ? 12 : 13,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w700,
                 color: colors.aqua,
               ),
             ),

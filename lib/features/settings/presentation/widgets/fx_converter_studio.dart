@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/domain/user_profile.dart';
@@ -65,8 +66,9 @@ class FxConverterStudio extends StatelessWidget {
                           Text(
                             'FINANCIAL DISPLAY & PRIVACY',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 1.4,
                               color: c.gold,
                             ),
@@ -309,8 +311,9 @@ class FxConverterStudio extends StatelessWidget {
                     Text(
                       'LIVE PREVIEW (CUSTOMER SCORE VOLUME)',
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 9,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 1.2,
                         color: c.textMuted,
                       ),
@@ -321,8 +324,9 @@ class FxConverterStudio extends StatelessWidget {
                     Text(
                       previewValue,
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 14,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: isStealth ? c.textMuted : c.textPrimary,
                         letterSpacing: isStealth ? 1.5 : -0.2,
                       ),

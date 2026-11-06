@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_button.dart';
 
 /// Modal dialog providing detailed inspection, zoom, and encryption validation
@@ -100,9 +101,10 @@ class DocumentViewerDialog extends StatelessWidget {
                               Text(
                                 title,
                                 style: TextStyle(
+                                  fontFamily: AppTheme.activeFontFamily,
                                   color: colors.textPrimary,
                                   fontSize: 16,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w700,
                                   letterSpacing: -0.2,
                                 ),
                               ),

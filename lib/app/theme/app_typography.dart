@@ -5,7 +5,11 @@ import 'app_colors.dart';
 import 'app_theme.dart';
 
 /// Site-wide typography rules adhering to PaidiX brand guidance.
-/// Weights are Medium (500) base with Bold (700/800) headings and tabular numbers.
+/// Weights are balanced institutional scale:
+/// - Headings & large stats: Bold (700) for clean presence without bloated ink expansion
+/// - Titles, eyebrows, buttons: SemiBold (600) for structured, sharp legibility
+/// - Input & tabular body: Medium (500)
+/// - Secondary & captions: Regular (400)
 class AppTypography {
   AppTypography._();
 
@@ -14,7 +18,7 @@ class AppTypography {
   static TextStyle get brandTitle => TextStyle(
         fontFamily: _font,
         fontSize: 20,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.3,
         color: AppColors.textPrimary,
       );
@@ -30,15 +34,15 @@ class AppTypography {
   static TextStyle get sectionEyebrow => TextStyle(
         fontFamily: _font,
         fontSize: 11,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.6,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.2,
         color: AppColors.textSecondary,
       );
 
   static TextStyle get pageHeading => TextStyle(
         fontFamily: _font,
         fontSize: 28,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
         color: AppColors.textPrimary,
         height: 1.2,
@@ -55,16 +59,16 @@ class AppTypography {
   static TextStyle get statValueLarge => TextStyle(
         fontFamily: _font,
         fontSize: 30,
-        fontWeight: FontWeight.w800,
-        letterSpacing: -0.8,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -0.6,
         color: AppColors.textPrimary,
       );
 
   static TextStyle get statValueScore => TextStyle(
         fontFamily: _font,
         fontSize: 54,
-        fontWeight: FontWeight.w900,
-        letterSpacing: -1.5,
+        fontWeight: FontWeight.w700,
+        letterSpacing: -1.0,
         color: AppColors.mintHeroText,
         height: 1.0,
       );
@@ -72,24 +76,24 @@ class AppTypography {
   static TextStyle get cardTitle => TextStyle(
         fontFamily: _font,
         fontSize: 12,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.2,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.1,
         color: AppColors.textSecondary,
       );
 
   static TextStyle get label => TextStyle(
         fontFamily: _font,
         fontSize: 11.5,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 1.1,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.0,
         color: AppColors.textLabel,
       );
 
   static TextStyle get tableHeader => TextStyle(
         fontFamily: _font,
         fontSize: 11,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 1.2,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 1.1,
         color: AppColors.textSecondary,
       );
 
@@ -124,7 +128,7 @@ class AppTypography {
   static TextStyle get buttonText => TextStyle(
         fontFamily: _font,
         fontSize: 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.2,
         color: AppColors.primaryButtonText,
       );
@@ -140,7 +144,7 @@ class AppTypography {
   static TextStyle get badgeText => TextStyle(
         fontFamily: _font,
         fontSize: 11.5,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
       );
 
@@ -155,7 +159,7 @@ class AppTypography {
   static TextStyle get linkText => TextStyle(
         fontFamily: _font,
         fontSize: 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         color: AppColors.aqua,
       );
 
@@ -163,7 +167,7 @@ class AppTypography {
   static TextStyle pageHeadingOf(BuildContext context) => TextStyle(
         fontFamily: _font,
         fontSize: 28,
-        fontWeight: FontWeight.w800,
+        fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
         color: AppColors.of(context).textPrimary,
         height: 1.2,

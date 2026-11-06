@@ -30,9 +30,9 @@ class AppTheme {
   static final ValueNotifier<ThemeMode> themeModeNotifier =
       ValueNotifier<ThemeMode>(ThemeMode.light);
 
-  /// Global reactive font family notifier (default: System default).
+  /// Global reactive font family notifier (default: Inter - universal institutional typography).
   static final ValueNotifier<String> fontFamilyNotifier =
-      ValueNotifier<String>('System default');
+      ValueNotifier<String>('Inter');
 
   /// Global reactive text scale notifier (default: 1.0 = 100%).
   static final ValueNotifier<double> textScaleNotifier =
@@ -100,9 +100,8 @@ class AppTheme {
     } catch (_) {}
   }
 
-  /// Supported Typography Fonts
+  /// Supported Typography Fonts (Inter is the default universal standard)
   static const List<String> availableFonts = [
-    'System default',
     'Inter',
     'Roboto',
     'Poppins',
@@ -112,6 +111,7 @@ class AppTheme {
     'DM Sans',
     'Source Sans 3',
     'IBM Plex Sans',
+    'System default',
   ];
 
   /// Toggles between Dark and Light mode.
@@ -205,11 +205,20 @@ class AppTheme {
     final fontName = font ?? currentFontFamily;
     const colors = AppColors.dark;
     final fontFam = fontFamilyOrNull(fontName);
+    final baseTextTheme = ThemeData.dark().textTheme;
+    final resolvedTextTheme = fontFam != null
+        ? baseTextTheme.apply(
+            fontFamily: fontFam,
+            bodyColor: colors.textPrimary,
+            displayColor: colors.textPrimary,
+          )
+        : baseTextTheme;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.dark,
       fontFamily: fontFam,
+      textTheme: resolvedTextTheme,
       scaffoldBackgroundColor: colors.background,
       colorScheme: ColorScheme.dark(
         primary: colors.aqua,
@@ -280,11 +289,20 @@ class AppTheme {
     final fontName = font ?? currentFontFamily;
     const colors = AppColors.light;
     final fontFam = fontFamilyOrNull(fontName);
+    final baseTextTheme = ThemeData.light().textTheme;
+    final resolvedTextTheme = fontFam != null
+        ? baseTextTheme.apply(
+            fontFamily: fontFam,
+            bodyColor: colors.textPrimary,
+            displayColor: colors.textPrimary,
+          )
+        : baseTextTheme;
 
     return ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,
       fontFamily: fontFam,
+      textTheme: resolvedTextTheme,
       scaffoldBackgroundColor: colors.background,
       colorScheme: ColorScheme.light(
         primary: colors.aqua,

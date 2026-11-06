@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
@@ -358,9 +359,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         Text(
           'Upload your photo.',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: colors.textPrimary,
             fontSize: 26,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
         ),
@@ -987,9 +989,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
             Text(
               'KYC VERIFIED',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: colors.emerald,
                 fontSize: 8.5,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 0.8,
               ),
             ),
@@ -1040,9 +1043,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
             Text(
               'KYC BIOMETRIC AVATAR',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: colors.emerald,
                 fontSize: 12,
-                fontWeight: FontWeight.w800,
+                fontWeight: FontWeight.w600,
                 letterSpacing: 1.2,
               ),
             ),

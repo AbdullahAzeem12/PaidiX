@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../domain/payment_models.dart';
 
@@ -78,8 +79,9 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                       Text(
                         'FILTERS',
                         style: TextStyle(
+                          fontFamily: AppTheme.activeFontFamily,
                           fontSize: isMobile ? 10.5 : 11,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w600,
                           letterSpacing: isMobile ? 0.5 : 1.5,
                           color: colors.textSecondary,
                         ),
@@ -266,8 +268,9 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
             Text(
               'Reset',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: hasActiveFilters ? FontWeight.w800 : FontWeight.w600,
+                fontWeight: hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
                 color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),

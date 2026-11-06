@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/status_badge.dart';
@@ -101,8 +102,9 @@ class PaymentsTable extends StatelessWidget {
                     Text(
                       AppFormatters.formatUsd(item.amount),
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: colors.textPrimary,
                       ),
                     ),
@@ -127,8 +129,9 @@ class PaymentsTable extends StatelessWidget {
                     Text(
                       AppFormatters.formatPkr(item.netPkr),
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 13,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: colors.aquaLight,
                       ),
                     ),

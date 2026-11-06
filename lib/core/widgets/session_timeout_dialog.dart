@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 import '../services/session_timeout_service.dart';
 import 'spongy_tap.dart';
 
@@ -124,8 +125,9 @@ class SessionTimeoutDialog extends StatelessWidget {
                           child: Text(
                             'SESSION EXPIRED • 5 MIN INACTIVITY',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 9.5,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 0.4,
                               color: c.gold,
                             ),
@@ -142,8 +144,9 @@ class SessionTimeoutDialog extends StatelessWidget {
                   Text(
                     'Session Inactivity Timeout',
                     style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       fontSize: 19,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                       color: c.textPrimary,
                       letterSpacing: -0.3,
                     ),

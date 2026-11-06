@@ -336,9 +336,9 @@ Files: `lib/app/theme/app_colors.dart`, `app_theme.dart`, `app_typography.dart`,
 
 `test/theme_test.dart` locks many of these hex values — **change tokens and tests together**.
 
-**Typography & Interactive Font System:**
-- Reactive dynamic font selection via `AppTheme.fontFamilyNotifier` (`ValueNotifier<String>`, default `'System default'`).
-- 10 supported font families: System default, Inter, Roboto, Poppins, Lato, Nunito, Open Sans, DM Sans, Source Sans 3, IBM Plex Sans (via `google_fonts: ^9.0.0` with offline test fallback `GoogleFonts.config.allowRuntimeFetching = false`).
+**Typography & Universal Font System:**
+- Reactive dynamic font selection via `AppTheme.fontFamilyNotifier` (`ValueNotifier<String>`, default `'Inter'` — institutional tier-1 fintech standard).
+- 10 supported font families: Inter (default universal standard), Roboto, Poppins, Lato, Nunito, Open Sans, DM Sans, Source Sans 3, IBM Plex Sans, System default (via `google_fonts: ^9.0.0` with offline test fallback `GoogleFonts.config.allowRuntimeFetching = false`).
 - Text scale reactivity via `AppTheme.textScaleNotifier` (`ValueNotifier<double>`, range 80%–140%, default 100%).
 - Persistent preferences in local storage (`paidix_appearance.json`).
 - `AppTypography` dynamically connects every typography style to `AppTheme.activeFontFamily`, while the root `PaidiXApp` injects `MediaQuery.copyWith(textScaler: TextScaler.linear(scale))` wrapped in a multi-listenable builder.
@@ -348,7 +348,11 @@ Files: `lib/app/theme/app_colors.dart`, `app_theme.dart`, `app_typography.dart`,
 **Motion:** fast 120 / normal 220 / medium 320 / slow 450; button press scale **0.96** (`AppMotion`); `AppButton` uses **0.945** over 110ms + 260ms `easeOutBack`.  
 **Breakpoints used in UI:** ~360 narrow phone, ~380 auth/KYC, **768** tablet shell/table vs cards, ~850 dashboard finance row.
 
-Typography: heavy headings (w800/w900), tabular-looking stats, uppercase eyebrows with letter-spacing.
+Typography Invariant: Institutional balanced scale ("not too bold, not too thin" — 0 instances of w800/w900 across codebase):
+- Bold (`FontWeight.w700`): Headings, financial stat values (e.g. `Rs. 789,985.47`), score numerals (`845`), brand mark (`PX`). Crisp and proportional without OEM synthetic stroke blooming or heavy ink blobs.
+- SemiBold (`FontWeight.w600`): Eyebrow headers, section labels, card titles, table headers, buttons, active bottom nav items. Clean character spacing (`letterSpacing: 1.0–1.2`) avoiding letter fusion.
+- Medium (`FontWeight.w500`): Inactive nav labels, inputs, tabular data cells, badges.
+- Regular (`FontWeight.w400`): Helper text, subtitles, placeholders, legal disclaimers.
 
 ---
 

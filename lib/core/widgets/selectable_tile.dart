@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_motion.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../app/theme/app_theme.dart';
 
 class SelectableTile extends StatefulWidget {
   final String title;
@@ -123,8 +124,9 @@ class _SelectableTileState extends State<SelectableTile>
                           Text(
                             'SELECTED',
                             style: TextStyle(
+                              fontFamily: AppTheme.activeFontFamily,
                               fontSize: 10,
-                              fontWeight: FontWeight.w800,
+                              fontWeight: FontWeight.w600,
                               letterSpacing: 1.1,
                               color: colors.aqua,
                             ),

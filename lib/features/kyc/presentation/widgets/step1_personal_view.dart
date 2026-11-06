@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/phone_formatter.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../domain/kyc_models.dart';
@@ -196,9 +197,10 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
         Text(
           'Tell us about you.',
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             color: colors.textPrimary,
             fontSize: 26,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
             letterSpacing: -0.5,
           ),
         ),
@@ -579,13 +581,14 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
                             child: Text(
                               country.name,
                               style: TextStyle(
+                                fontFamily: AppTheme.activeFontFamily,
                                 color: isSelected
                                     ? colors.aqua
                                     : colors.textPrimary,
                                 fontSize: 13,
                                 fontWeight: isSelected
-                                    ? FontWeight.w800
-                                    : FontWeight.w600,
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),

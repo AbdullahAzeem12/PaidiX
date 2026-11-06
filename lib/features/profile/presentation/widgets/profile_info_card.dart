@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/profile_menu_dialog.dart';
 import '../../domain/user_profile.dart';
 
@@ -71,10 +72,11 @@ class ProfileInfoCard extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Text(
                     profile.avatarInitial,
-                    style: const TextStyle(
+                    style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
                       fontSize: 24,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF031415),
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF031415),
                     ),
                   ),
                 ),
@@ -89,8 +91,9 @@ class ProfileInfoCard extends StatelessWidget {
                     Text(
                       profile.fullName,
                       style: TextStyle(
+                        fontFamily: AppTheme.activeFontFamily,
                         fontSize: 18,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                         color: colors.textPrimary,
                         letterSpacing: -0.3,
                       ),
@@ -165,8 +168,9 @@ class ProfileInfoCard extends StatelessWidget {
         Text(
           title,
           style: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 10.5,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
             color: colors.textMuted,
           ),

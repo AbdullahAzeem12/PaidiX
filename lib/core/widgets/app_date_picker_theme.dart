@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../app/theme/app_colors.dart';
+import '../../app/theme/app_theme.dart';
 
 /// Provides a unified, high-contrast, beautiful dark-teal date picker theme
 /// for all date pickers across PaidiX.
@@ -37,18 +38,21 @@ Widget buildAppDatePickerTheme(BuildContext context, Widget child) {
       ),
       textTheme: TextTheme(
         titleSmall: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           fontSize: 15,
-          fontWeight: FontWeight.w800,
-          color: colors.textPrimary,
-        ),
-        bodyMedium: TextStyle(
-          fontSize: 14,
           fontWeight: FontWeight.w600,
           color: colors.textPrimary,
         ),
+        bodyMedium: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: colors.textPrimary,
+        ),
         bodyLarge: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           fontSize: 15,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: colors.textPrimary,
         ),
       ),
@@ -57,8 +61,9 @@ Widget buildAppDatePickerTheme(BuildContext context, Widget child) {
         headerBackgroundColor: colors.card,
         headerForegroundColor: colors.aqua,
         headerHeadlineStyle: TextStyle(
+          fontFamily: AppTheme.activeFontFamily,
           fontSize: 22,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
           color: colors.aqua,
         ),
         headerHelpStyle: TextStyle(
@@ -151,9 +156,10 @@ Widget buildAppDatePickerTheme(BuildContext context, Widget child) {
         ),
         confirmButtonStyle: TextButton.styleFrom(
           foregroundColor: colors.aqua,
-          textStyle: const TextStyle(
+          textStyle: TextStyle(
+            fontFamily: AppTheme.activeFontFamily,
             fontSize: 13,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0.8,
           ),
         ),
