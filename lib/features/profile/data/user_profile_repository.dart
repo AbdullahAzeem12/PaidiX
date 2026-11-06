@@ -270,20 +270,66 @@ class UserProfileRepository {
     _saveRegisteredUser(updated);
   }
 
+  /// Checks whether any registered user has already signed in or verified with this CNIC.
+  /// If [excludeEmail] is provided, ignores that user's own profile.
+  bool isCnicAlreadyRegistered(String rawCnic, {String? excludeEmail}) {
+    final cleanDigits = rawCnic.replaceAll(RegExp(r'\D'), '');
+    if (cleanDigits.length != 13) return false;
+
+    final normalizedExclude = excludeEmail?.trim().toLowerCase();
+    final isDemoAccount = normalizedExclude == 'kherool66@gmail.com' ||
+        normalizedExclude == 'kheroali66@gmail.com' ||
+        normalizedExclude == 'admin@paidix.com';
+
+    // Check against all registered users
+    for (final entry in _registeredUsers.entries) {
+      final entryEmail = entry.key.toLowerCase();
+      if (normalizedExclude != null) {
+        if (entryEmail == normalizedExclude) continue;
+        if (isDemoAccount &&
+            (entryEmail == 'kherool66@gmail.com' ||
+                entryEmail == 'kheroali66@gmail.com' ||
+                entryEmail == 'admin@paidix.com')) {
+          continue;
+        }
+      }
+      final existingClean =
+          entry.value.cnicNumber.replaceAll(RegExp(r'\D'), '');
+      if (existingClean == cleanDigits) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Finds an existing user profile registered with this CNIC.
+  UserProfile? findUserByCnic(String rawCnic) {
+    final cleanDigits = rawCnic.replaceAll(RegExp(r'\D'), '');
+    if (cleanDigits.length != 13) return null;
+    for (final user in _registeredUsers.values) {
+      if (user.cnicNumber.replaceAll(RegExp(r'\D'), '') == cleanDigits) {
+        return user;
+      }
+    }
+    return null;
+  }
+
   /// Synchronize details entered during the initial Sign-Up step
   void syncFromSignUp({
     required String fullName,
     required String email,
+    String? countryCode,
     String? phoneNumber,
     bool smsConsent = true,
   }) {
     final current = profileNotifier.value;
+    final effectiveCountryCode = countryCode ?? '+92';
     final newProfile = current.copyWith(
       fullName: fullName.trim(),
       email: email.trim(),
-      countryCode: '+92',
+      countryCode: effectiveCountryCode,
       phoneNumber: (phoneNumber != null && phoneNumber.trim().isNotEmpty)
-          ? (phoneNumber.trim().startsWith('+') ? phoneNumber.trim() : '+92 ${phoneNumber.trim().replaceAll(RegExp(r'\D'), '')}')
+          ? phoneNumber.trim()
           : '',
       smsConsent: smsConsent,
       // For a brand new user, KYC is not completed yet

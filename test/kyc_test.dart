@@ -41,7 +41,7 @@ void main() {
       expect(await CnicValidator.checkAvailability('35202'), equals(CnicStatus.incomplete));
       expect(await CnicValidator.checkAvailability('9520204504615'), equals(CnicStatus.invalidFormat));
       expect(await CnicValidator.checkAvailability('3520200000000'), equals(CnicStatus.alreadyRegistered));
-      expect(await CnicValidator.checkAvailability('3520204504615'), equals(CnicStatus.available));
+      expect(await CnicValidator.checkAvailability('4210112345671'), equals(CnicStatus.available));
     });
 
     test('CnicInputFormatter formats typed digits into hyphenated string dynamically', () {
@@ -329,12 +329,12 @@ void main() {
       expect(find.textContaining('State Bank KYC Requirement'), findsOneWidget);
 
       // Realtime validation test: typing CNIC dynamically triggers checking and Available
-      await tester.enterText(find.byType(TextField), '3520204504615');
+      await tester.enterText(find.byType(TextField), '4210112345671');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
 
       expect(find.text('Available'), findsOneWidget);
-      expect(find.text('NADRA Validated'), findsOneWidget);
+      expect(find.text('Unique CNIC • Unregistered'), findsOneWidget);
     });
 
     testWidgets('KycPage renders Step 3 Photo upload with camera capture and guidelines', (tester) async {

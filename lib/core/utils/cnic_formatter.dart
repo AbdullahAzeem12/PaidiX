@@ -1,6 +1,7 @@
 /// Defines cnic formatter in the application core utilities and reusable widgets.
 
 import 'package:flutter/services.dart';
+import '../../features/profile/data/user_profile_repository.dart';
 
 enum CnicStatus {
   empty,
@@ -66,8 +67,12 @@ class CnicValidator {
     return firstDigit >= 1 && firstDigit <= 8;
   }
 
-  /// Simulated real-time registry check with Nadra / PaidiX database
-  static Future<CnicStatus> checkAvailability(String raw) async {
+  /// Real-time registry check verifying CNIC uniqueness against user database.
+  /// Validates that no existing registered account has already claimed this CNIC.
+  static Future<CnicStatus> checkAvailability(
+    String raw, {
+    String? excludeEmail,
+  }) async {
     final digits = clean(raw);
     if (digits.isEmpty) return CnicStatus.empty;
     if (digits.length < 13) return CnicStatus.incomplete;
@@ -76,13 +81,26 @@ class CnicValidator {
       return CnicStatus.invalidFormat;
     }
 
+    // Realistic network check delay
+    await Future.delayed(const Duration(milliseconds: 240));
+
     // Blacklisted or already registered demo test cases
     if (digits == '1111111111111' || digits == '3520200000000') {
       return CnicStatus.alreadyRegistered;
     }
 
-    // Realistic network check delay
-    await Future.delayed(const Duration(milliseconds: 320));
+    // Dynamic verification: check if another registered user has already signed up/in with this CNIC
+    try {
+      final activeEmail =
+          excludeEmail ?? UserProfileRepository.instance.profile.email;
+      if (UserProfileRepository.instance.isCnicAlreadyRegistered(
+        digits,
+        excludeEmail: activeEmail,
+      )) {
+        return CnicStatus.alreadyRegistered;
+      }
+    } catch (_) {}
+
     return CnicStatus.available;
   }
 }

@@ -497,6 +497,8 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 4. Design tokens stay aligned with `theme_test.dart`.
 5. App starts at **`/signin`**.
 6. Keep Impeller off + texture render mode unless explicitly changing graphics stack.
+7. Sign-Up & KYC country selector supports PK (+92) and US (+1) with synchronized country code, dynamic phone mask/placeholder, and end-to-end repository sync (`UserProfileRepository.syncFromSignUp`).
+8. KYC Step 2 CNIC verification validates format (1-8 province code, 13 digits) and verifies uniqueness against existing registered users in `UserProfileRepository` (`isCnicAlreadyRegistered`). Displays institutional status pills (`Available` + `Unique CNIC • Unregistered`) or duplicate error (`This CNIC is already registered to an existing account. Please sign in.`), omitting fabricated external registry claims.
 
 **Gaps / traps**
 

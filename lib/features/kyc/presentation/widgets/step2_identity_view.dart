@@ -11,6 +11,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/cnic_formatter.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
@@ -110,9 +111,14 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
 
     setState(() => _cnicStatus = CnicStatus.checking);
 
+    final activeEmail = UserProfileRepository.instance.profile.email;
+
     if (debounce) {
       _debounceTimer = Timer(const Duration(milliseconds: 320), () async {
-        final status = await CnicValidator.checkAvailability(val);
+        final status = await CnicValidator.checkAvailability(
+          val,
+          excludeEmail: activeEmail,
+        );
         if (mounted) {
           setState(() => _cnicStatus = status);
           if (status == CnicStatus.available) {
@@ -121,7 +127,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         }
       });
     } else {
-      CnicValidator.checkAvailability(val).then((status) {
+      CnicValidator.checkAvailability(
+        val,
+        excludeEmail: activeEmail,
+      ).then((status) {
         if (mounted) {
           setState(() => _cnicStatus = status);
         }
@@ -743,12 +752,14 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               color: colors.textMuted,
             ),
             const SizedBox(width: 5),
-            Text(
-              'Enter complete 13-digit CNIC number (${digits.length}/13)',
-              style: TextStyle(
-                color: colors.textMuted,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Text(
+                'Enter complete 13-digit CNIC number (${digits.length}/13)',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -767,8 +778,9 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
             ),
             const SizedBox(width: 6),
             Text(
-              'Checking NADRA registry availability...',
+              'Checking CNIC registration status...',
               style: TextStyle(
+                fontFamily: AppTheme.activeFontFamily,
                 color: colors.aqua,
                 fontSize: 11.5,
                 fontWeight: FontWeight.w500,
@@ -792,6 +804,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               Text(
                 'Available',
                 style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
                   color: colors.emerald,
                   fontSize: 11.5,
                   fontWeight: FontWeight.w700,
@@ -806,8 +819,9 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  'NADRA Validated',
+                  'Unique CNIC • Unregistered',
                   style: TextStyle(
+                    fontFamily: AppTheme.activeFontFamily,
                     color: colors.emerald,
                     fontSize: 9.5,
                     fontWeight: FontWeight.w600,
@@ -827,12 +841,15 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               color: colors.ruby,
             ),
             const SizedBox(width: 4),
-            Text(
-              'CNIC already registered on PaidiX',
-              style: TextStyle(
-                color: colors.ruby,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                'This CNIC is already registered to an existing account. Please sign in.',
+                style: TextStyle(
+                  fontFamily: AppTheme.activeFontFamily,
+                  color: colors.ruby,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -847,12 +864,14 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               color: colors.ruby,
             ),
             const SizedBox(width: 4),
-            Text(
-              'Invalid province/division code (must start with 1-8)',
-              style: TextStyle(
-                color: colors.ruby,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
+            Expanded(
+              child: Text(
+                'Invalid province/division code (must start with 1-8)',
+                style: TextStyle(
+                  color: colors.ruby,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],

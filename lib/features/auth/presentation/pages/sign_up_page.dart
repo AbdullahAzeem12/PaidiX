@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/phone_formatter.dart';
 import '../../../../core/widgets/auth_header.dart';
@@ -36,6 +37,7 @@ class _SignUpPageState extends State<SignUpPage>
   bool _isPasswordVisible = false;
   bool _smsConsentChecked = false;
   bool _isLoading = false;
+  CountryCodeOption _selectedCountry = CountryCodeOption.pk;
 
   // Tapped link tracking for immediate color-flash animation
   String? _tappedLink; // 'privacy' | 'terms'
@@ -73,6 +75,25 @@ class _SignUpPageState extends State<SignUpPage>
     super.dispose();
   }
 
+  /// Updates the selected country code and reformats the phone value.
+  void _onCountryChanged(CountryCodeOption newCountry) {
+    if (newCountry == _selectedCountry) return;
+    HapticFeedback.selectionClick();
+
+    final digits = PhoneFormatter.clean(_phoneController.text);
+    final reformatted = digits.isNotEmpty
+        ? PhoneFormatter.format(digits, isUs: newCountry.isUs)
+        : '';
+
+    setState(() {
+      _selectedCountry = newCountry;
+      _phoneController.value = TextEditingValue(
+        text: reformatted,
+        selection: TextSelection.collapsed(offset: reformatted.length),
+      );
+    });
+  }
+
   /// Validates the fields, registers the local profile, and starts KYC onboarding.
   Future<void> _handleSignUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -94,20 +115,28 @@ class _SignUpPageState extends State<SignUpPage>
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // Clean and normalize phone number with default PK (+92) country code
+    // Clean and normalize phone number with selected country code
     final rawPhone = _phoneController.text.trim();
     String formattedPhone = '';
     if (rawPhone.isNotEmpty) {
       final cleanDigits = PhoneFormatter.clean(rawPhone);
-      // Strip leading 92 or 0 if user pasted it
       String nationalDigits = cleanDigits;
-      if (nationalDigits.startsWith('92') && nationalDigits.length > 2) {
-        nationalDigits = nationalDigits.substring(2);
-      } else if (nationalDigits.startsWith('0') && nationalDigits.length > 1) {
-        nationalDigits = nationalDigits.substring(1);
-      }
-      if (nationalDigits.isNotEmpty) {
-        formattedPhone = '+92 $nationalDigits';
+      if (_selectedCountry.isUs) {
+        if (nationalDigits.startsWith('1') && nationalDigits.length == 11) {
+          nationalDigits = nationalDigits.substring(1);
+        }
+        if (nationalDigits.isNotEmpty) {
+          formattedPhone = '+1 $nationalDigits';
+        }
+      } else {
+        if (nationalDigits.startsWith('92') && nationalDigits.length > 2) {
+          nationalDigits = nationalDigits.substring(2);
+        } else if (nationalDigits.startsWith('0') && nationalDigits.length > 1) {
+          nationalDigits = nationalDigits.substring(1);
+        }
+        if (nationalDigits.isNotEmpty) {
+          formattedPhone = '+92 $nationalDigits';
+        }
       }
     }
 
@@ -115,6 +144,7 @@ class _SignUpPageState extends State<SignUpPage>
     UserProfileRepository.instance.syncFromSignUp(
       fullName: _fullNameController.text.trim(),
       email: _emailController.text.trim(),
+      countryCode: _selectedCountry.display,
       phoneNumber: formattedPhone,
       smsConsent: _smsConsentChecked,
     );
@@ -216,40 +246,128 @@ class _SignUpPageState extends State<SignUpPage>
                       ),
                       const SizedBox(height: 20),
 
-                      // Phone (Optional) Field with default +92 country code
+                      // Phone (Optional) Field with country code selector
                       AuthTextField(
                         label: 'Phone (Optional)',
-                        placeholder: '300 1234567',
+                        placeholder: _selectedCountry.hintText,
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                          PhoneInputFormatter(isUs: false),
+                          PhoneInputFormatter(isUs: _selectedCountry.isUs),
                         ],
                         prefixIconConstraints:
                             const BoxConstraints(minWidth: 0, minHeight: 0),
                         prefixIcon: Padding(
-                          padding: const EdgeInsets.only(left: 14, right: 10),
+                          padding: const EdgeInsets.only(left: 12, right: 8),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Text(
-                                '🇵🇰',
-                                style: TextStyle(fontSize: 16),
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                '+92',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w700,
-                                  color: colors.textPrimary,
+                              DropdownButtonHideUnderline(
+                                child: DropdownButton<CountryCodeOption>(
+                                  value: _selectedCountry,
+                                  dropdownColor: colors.cardDark,
+                                  borderRadius: AppSpacing.radiusMd,
+                                  elevation: 8,
+                                  menuWidth: 220,
+                                  icon: Padding(
+                                    padding: const EdgeInsets.only(left: 2, right: 4),
+                                    child: Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 16,
+                                      color: colors.textSecondary,
+                                    ),
+                                  ),
+                                  style: TextStyle(
+                                    fontFamily: AppTheme.activeFontFamily,
+                                    color: colors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                  onChanged: (newCountry) {
+                                    if (newCountry != null) {
+                                      _onCountryChanged(newCountry);
+                                    }
+                                  },
+                                  selectedItemBuilder: (context) {
+                                    return CountryCodeOption.values.map((country) {
+                                      return Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            country.flag,
+                                            style: const TextStyle(fontSize: 16),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            country.dialCode,
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.activeFontFamily,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: colors.textPrimary,
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }).toList();
+                                  },
+                                  items: CountryCodeOption.values.map((country) {
+                                    final isSelected = country == _selectedCountry;
+                                    return DropdownMenuItem<CountryCodeOption>(
+                                      value: country,
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            country.flag,
+                                            style: const TextStyle(fontSize: 15),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              country.name,
+                                              style: TextStyle(
+                                                fontFamily: AppTheme.activeFontFamily,
+                                                color: isSelected
+                                                    ? colors.aqua
+                                                    : colors.textPrimary,
+                                                fontSize: 13,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w500,
+                                              ),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            country.display,
+                                            style: TextStyle(
+                                              fontFamily: AppTheme.activeFontFamily,
+                                              color: isSelected
+                                                  ? colors.aqua
+                                                  : colors.textSecondary,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                          if (isSelected) ...[
+                                            const SizedBox(width: 6),
+                                            Icon(
+                                              Icons.check_rounded,
+                                              size: 15,
+                                              color: colors.aqua,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
                                 ),
                               ),
-                              const SizedBox(width: 10),
                               Container(
                                 width: 1,
                                 height: 20,
+                                margin: const EdgeInsets.only(left: 4, right: 8),
                                 color: colors.border,
                               ),
                             ],
