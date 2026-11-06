@@ -499,6 +499,7 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 6. Keep Impeller off + texture render mode unless explicitly changing graphics stack.
 7. Sign-Up & KYC country selector supports PK (+92) and US (+1) with synchronized country code, dynamic phone mask/placeholder, and end-to-end repository sync (`UserProfileRepository.syncFromSignUp`).
 8. KYC Step 2 CNIC verification validates format (1-8 province code, 13 digits) and verifies uniqueness against existing registered users in `UserProfileRepository` (`isCnicAlreadyRegistered`). Displays institutional status pills (`Available` + `Unique CNIC • Unregistered`) or duplicate error (`This CNIC is already registered to an existing account. Please sign in.`), omitting fabricated external registry claims.
+9. KYC Step 4 Bank Linking & Settings Bank Accounts use separate text sections for Account Number (Required, MUST) and IBAN (Optional). `BankAccountValidator` detects unique account number lengths and rules across Pakistani commercial banks, Islamic banks, and digital wallets (JazzCash, EasyPaisa, SadaPay, NayaPay, Meezan, HBL, UBL, Alfalah, etc.) with real-time validation and length counters. IBAN is optional and validates 24-character `PK` standard when provided.
 
 **Gaps / traps**
 
@@ -513,7 +514,6 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 - New payments always `completed`.
 - Sidebar user is hardcoded, not from sign-up.
 - README architecture section omits KYC and is slightly stale vs this brain.
-- `BankInfo.isValid` IBAN length vs step-4 UI length differ.
 - `NotificationService` Android-only init settings (no iOS Darwin settings).
 
 ---

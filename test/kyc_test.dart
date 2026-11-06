@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
+import 'package:paidix/core/utils/bank_account_validator.dart';
 import 'package:paidix/core/utils/cnic_formatter.dart';
 import 'package:paidix/core/utils/phone_formatter.dart';
 import 'package:paidix/features/kyc/data/kyc_image_processor.dart';
@@ -200,23 +201,115 @@ void main() {
       expect(complete.isValid, isTrue);
     });
 
-    test('BankInfo validation requires valid Pakistani bank and IBAN', () {
+    test('BankInfo validation requires valid Pakistani bank and Account Number, with optional IBAN', () {
       const empty = BankInfo();
       expect(empty.isValid, isFalse);
 
-      const partial = BankInfo(
-        bankName: 'Meezan Bank',
-        beneficiaryTitle: 'Jerry DAT',
-        iban: 'PK36MEZN',
+      // Account number missing
+      const noAccount = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        accountNumber: '',
+        iban: '',
       );
-      expect(partial.isValid, isFalse);
+      expect(noAccount.isValid, isFalse);
 
-      const valid = BankInfo(
-        bankName: 'Meezan Bank',
-        beneficiaryTitle: 'Jerry DAT',
+      // Incomplete account number (e.g. 8 digits for Meezan which needs 10-14)
+      const incompleteAcc = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        accountNumber: '12345678',
+        iban: '',
+      );
+      expect(incompleteAcc.isValid, isFalse);
+
+      // Valid account number with empty IBAN (IBAN is optional) -> Valid!
+      const validWithoutIban = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        accountNumber: '01010102030405',
+        iban: '',
+      );
+      expect(validWithoutIban.isValid, isTrue);
+
+      // Valid account number with valid IBAN -> Valid!
+      const validWithIban = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        accountNumber: '01010102030405',
         iban: 'PK36MEZN0001234567890123',
       );
-      expect(valid.isValid, isTrue);
+      expect(validWithIban.isValid, isTrue);
+
+      // Valid account number with invalid IBAN format -> Invalid!
+      const invalidIban = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        accountNumber: '01010102030405',
+        iban: 'INVALID_IBAN_123',
+      );
+      expect(invalidIban.isValid, isFalse);
+
+      // Legacy fallback: valid when legacy 14+ digit iban was provided
+      const legacyValid = BankInfo(
+        bankName: 'Meezan Bank Limited',
+        beneficiaryTitle: 'Abdullah Azeem',
+        iban: 'PK36MEZN0001234567890123',
+      );
+      expect(legacyValid.isValid, isTrue);
+    });
+  });
+
+  group('BankAccountValidator & Intelligent Bank Rules', () {
+    test('detects unique account number lengths and rules for digital wallets and commercial banks', () {
+      // JazzCash: 11 digits starting with 03
+      final jcRule = BankAccountValidator.getRule('JazzCash');
+      expect(jcRule.isMobileWallet, isTrue);
+      expect(jcRule.typicalDigits, equals(11));
+      expect(BankAccountValidator.isAccountNumberValid('JazzCash', '03001234567'), isTrue);
+      expect(BankAccountValidator.isAccountNumberValid('JazzCash', '02001234567'), isFalse); // Not starting with 03
+      expect(BankAccountValidator.isAccountNumberValid('JazzCash', '0300123'), isFalse); // Incomplete
+
+      // EasyPaisa: 11 digits starting with 03
+      final epRule = BankAccountValidator.getRule('EasyPaisa');
+      expect(epRule.isMobileWallet, isTrue);
+      expect(BankAccountValidator.isAccountNumberValid('EasyPaisa', '03451234567'), isTrue);
+
+      // SadaPay: 11 digits starting with 03
+      expect(BankAccountValidator.isAccountNumberValid('SadaPay', '03217649976'), isTrue);
+
+      // Meezan Bank: 10-14 digits (standard 14)
+      final meezanRule = BankAccountValidator.getRule('Meezan Bank Limited');
+      expect(meezanRule.isMobileWallet, isFalse);
+      expect(meezanRule.typicalDigits, equals(14));
+      expect(meezanRule.ibanBankCode, equals('MEZN'));
+      expect(BankAccountValidator.isAccountNumberValid('Meezan Bank Limited', '01010102030405'), isTrue); // 14 digits
+      expect(BankAccountValidator.isAccountNumberValid('Meezan Bank Limited', '123456'), isFalse); // < 10 digits
+
+      // HBL: 14-16 digits
+      final hblRule = BankAccountValidator.getRule('Habib Bank Limited (HBL)');
+      expect(hblRule.ibanBankCode, equals('HABB'));
+      expect(BankAccountValidator.isAccountNumberValid('Habib Bank Limited (HBL)', '00427901234503'), isTrue); // 14 digits
+
+      // Bank Alfalah: 14 digits
+      final baflRule = BankAccountValidator.getRule('Bank Alfalah Limited');
+      expect(baflRule.ibanBankCode, equals('ALFH'));
+      expect(BankAccountValidator.isAccountNumberValid('Bank Alfalah Limited', '01231001234567'), isTrue); // 14 digits
+    });
+
+    test('validates IBAN optionally and enforces 24-character PK standard', () {
+      // Empty IBAN is valid because IBAN is optional
+      expect(BankAccountValidator.isIbanValid(''), isTrue);
+      expect(BankAccountValidator.isIbanValid('   '), isTrue);
+
+      // Valid Pakistani IBANs (24 characters)
+      expect(BankAccountValidator.isIbanValid('PK36MEZN0001234567890123'), isTrue);
+      expect(BankAccountValidator.isIbanValid('PK00 MEZN 0001 2345 6789 0123'), isTrue); // With spaces
+
+      // Invalid IBANs
+      expect(BankAccountValidator.isIbanValid('US12MEZN0001234567890123'), isFalse); // Not PK
+      expect(BankAccountValidator.isIbanValid('PK36MEZN0001'), isFalse); // < 24 chars
+      expect(BankAccountValidator.isIbanValid('PK36MEZN00012345678901234567'), isFalse); // > 24 chars
     });
   });
 
@@ -353,7 +446,7 @@ void main() {
       expect(find.text('OR CHOOSE EXISTING PHOTO FILE'), findsOneWidget);
     });
 
-    testWidgets('KycPage renders Step 4 Pakistani Bank Account linking', (tester) async {
+    testWidgets('KycPage renders Step 4 Pakistani Bank Account linking with separate Account Number and optional IBAN', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.darkTheme,
@@ -366,8 +459,8 @@ void main() {
       expect(find.text('Link your Pakistani Bank Account.'), findsOneWidget);
       expect(find.text('PAKISTANI BANK'), findsOneWidget);
       expect(find.text('BENEFICIARY ACCOUNT TITLE'), findsOneWidget);
-      expect(find.text('IBAN / ACCOUNT NUMBER'), findsOneWidget);
-      expect(find.text('PK00MEZN0000000000000000'), findsOneWidget);
+      expect(find.text('ACCOUNT NUMBER'), findsOneWidget);
+      expect(find.text('IBAN (OPTIONAL)'), findsOneWidget);
       expect(find.text('1-LINK & PRISM Real-time Direct Clearing'), findsOneWidget);
     });
 

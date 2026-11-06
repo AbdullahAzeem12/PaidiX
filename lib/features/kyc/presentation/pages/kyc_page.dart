@@ -69,6 +69,7 @@ class _KycPageState extends State<KycPage> {
                 profile.bankBeneficiary!.isNotEmpty)
             ? profile.bankBeneficiary!
             : profile.fullName,
+        accountNumber: profile.bankAccountNumber ?? '',
         iban: profile.bankIban ?? '',
       ),
     );

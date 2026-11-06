@@ -48,6 +48,7 @@ class UserProfile {
 
   // Linked payout bank details
   final String? bankName;
+  final String? bankAccountNumber;
   final String? bankIban;
   final String? bankBeneficiary;
 
@@ -73,6 +74,7 @@ class UserProfile {
     this.avatarBytes,
     this.avatarFilePath,
     this.bankName,
+    this.bankAccountNumber,
     this.bankIban,
     this.bankBeneficiary,
   });
@@ -93,6 +95,7 @@ class UserProfile {
       hasCompletedKyc: true,
       smsConsent: true,
       bankName: 'Meezan Bank Limited',
+      bankAccountNumber: '01010102030405',
       bankIban: null,
       bankBeneficiary: 'Abdullah Azeem',
     );
@@ -152,6 +155,7 @@ class UserProfile {
     String? avatarFilePath,
     bool clearAvatar = false,
     String? bankName,
+    String? bankAccountNumber,
     String? bankIban,
     String? bankBeneficiary,
   }) {
@@ -178,6 +182,7 @@ class UserProfile {
       avatarFilePath:
           clearAvatar ? null : (avatarFilePath ?? this.avatarFilePath),
       bankName: bankName ?? this.bankName,
+      bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankIban: bankIban ?? this.bankIban,
       bankBeneficiary: bankBeneficiary ?? this.bankBeneficiary,
     );
@@ -203,6 +208,7 @@ class UserProfile {
       'cnicBackFilePath': cnicBackFilePath,
       'avatarFilePath': avatarFilePath,
       'bankName': bankName,
+      'bankAccountNumber': bankAccountNumber,
       'bankIban': bankIban,
       'bankBeneficiary': bankBeneficiary,
     };
@@ -235,6 +241,7 @@ class UserProfile {
       cnicBackFilePath: json['cnicBackFilePath'] as String?,
       avatarFilePath: json['avatarFilePath'] as String?,
       bankName: json['bankName'] as String?,
+      bankAccountNumber: json['bankAccountNumber'] as String?,
       bankIban: json['bankIban'] as String?,
       bankBeneficiary: json['bankBeneficiary'] as String?,
     );

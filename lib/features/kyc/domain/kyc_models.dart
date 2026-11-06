@@ -1,6 +1,7 @@
 /// Defines kyc models in the kyc feature's domain layer.
 
 import 'dart:typed_data';
+import '../../../core/utils/bank_account_validator.dart';
 
 enum KycStep {
   personal(1, 'Personal', 'Tell us about you.', 'Basic details we\'ll use on your profile.'),
@@ -180,31 +181,45 @@ class PhotoDocInfo {
 class BankInfo {
   final String bankName;
   final String beneficiaryTitle;
+  final String accountNumber;
   final String iban;
   final bool is1LinkVerified;
 
   const BankInfo({
-    this.bankName = 'Meezan Bank',
+    this.bankName = 'Meezan Bank Limited',
     this.beneficiaryTitle = '',
+    this.accountNumber = '',
     this.iban = '',
     this.is1LinkVerified = true,
   });
 
-  bool get isValid =>
-      bankName.isNotEmpty &&
-      beneficiaryTitle.trim().length >= 3 &&
-      iban.trim().length >= 14;
+  bool get isValid {
+    if (bankName.isEmpty || beneficiaryTitle.trim().length < 3) {
+      return false;
+    }
+
+    final hasValidAcc = accountNumber.isNotEmpty
+        ? BankAccountValidator.isAccountNumberValid(bankName, accountNumber)
+        : (iban.trim().length >= 14); // Backward-compatible fallback
+
+    if (!hasValidAcc) return false;
+
+    // IBAN is optional: if empty, valid. If entered, must be valid.
+    return iban.trim().isEmpty || BankAccountValidator.isIbanValid(iban);
+  }
 
   /// Creates a copy while preserving fields that were not supplied.
   BankInfo copyWith({
     String? bankName,
     String? beneficiaryTitle,
+    String? accountNumber,
     String? iban,
     bool? is1LinkVerified,
   }) {
     return BankInfo(
       bankName: bankName ?? this.bankName,
       beneficiaryTitle: beneficiaryTitle ?? this.beneficiaryTitle,
+      accountNumber: accountNumber ?? this.accountNumber,
       iban: iban ?? this.iban,
       is1LinkVerified: is1LinkVerified ?? this.is1LinkVerified,
     );

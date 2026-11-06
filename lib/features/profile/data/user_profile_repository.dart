@@ -398,6 +398,9 @@ class UserProfileRepository {
       selfieFilePath: photo.filePath ?? current.selfieFilePath,
       // Bank details
       bankName: bank.bankName.isNotEmpty ? bank.bankName : current.bankName,
+      bankAccountNumber: bank.accountNumber.isNotEmpty
+          ? bank.accountNumber
+          : current.bankAccountNumber,
       bankIban: bank.iban.isNotEmpty ? bank.iban : current.bankIban,
       bankBeneficiary: bank.beneficiaryTitle.isNotEmpty
           ? bank.beneficiaryTitle
@@ -410,6 +413,31 @@ class UserProfileRepository {
 
     profileNotifier.value = updated;
     _saveRegisteredUser(updated);
+
+    // If submitted with account number, save directly to user's linked bank accounts
+    if (isSubmitted && bank.accountNumber.isNotEmpty) {
+      try {
+        final key = _normalizeEmailKey(updated.email);
+        final newAccount = BankAccountItem(
+          id: 'kyc_bank_${DateTime.now().millisecondsSinceEpoch}',
+          bankName: bank.bankName.isNotEmpty
+              ? bank.bankName
+              : 'Meezan Bank Limited',
+          holder: bank.beneficiaryTitle.isNotEmpty
+              ? bank.beneficiaryTitle
+              : updated.fullName,
+          accountNumber: bank.accountNumber,
+          iban: bank.iban,
+          isPrimary: true,
+        );
+        final existing = _bankAccountsCache[key] ?? [];
+        final updatedList = [
+          newAccount,
+          ...existing.map((a) => a.copyWith(isPrimary: false)),
+        ];
+        saveBankAccounts(updated.email, updatedList);
+      } catch (_) {}
+    }
   }
 
   /// Simulates server-side verification approval for the active user.

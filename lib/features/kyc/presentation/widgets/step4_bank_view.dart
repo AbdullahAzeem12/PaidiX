@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/utils/bank_account_validator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/bank_selector_sheet.dart';
 import '../../../profile/domain/pakistan_banks.dart';
@@ -31,6 +32,7 @@ class Step4BankView extends StatefulWidget {
 
 class _Step4BankViewState extends State<Step4BankView> {
   late final TextEditingController _titleController;
+  late final TextEditingController _accountNumberController;
   late final TextEditingController _ibanController;
   late String _selectedBank;
 
@@ -44,6 +46,18 @@ class _Step4BankViewState extends State<Step4BankView> {
     _selectedBank = findPakistaniBank(initial).name;
     _titleController =
         TextEditingController(text: widget.bankInfo.beneficiaryTitle);
+
+    // Initial Account Number (extract digits if legacy iban was passed, or use accountNumber)
+    final initialAccountNum = widget.bankInfo.accountNumber.isNotEmpty
+        ? widget.bankInfo.accountNumber
+        : (widget.bankInfo.iban.isNotEmpty &&
+                !widget.bankInfo.iban.startsWith('PK00MEZN') &&
+                !widget.bankInfo.iban.startsWith('PK36MEZN'))
+            ? BankAccountValidator.cleanDigits(widget.bankInfo.iban)
+            : '';
+    _accountNumberController =
+        TextEditingController(text: initialAccountNum);
+
     final rawIban = widget.bankInfo.iban.trim();
     final initialIban = (rawIban == 'PK00MEZN0000000000000000' ||
             rawIban == 'PK36MEZN0000000000000000')
@@ -56,6 +70,7 @@ class _Step4BankViewState extends State<Step4BankView> {
   @override
   void dispose() {
     _titleController.dispose();
+    _accountNumberController.dispose();
     _ibanController.dispose();
     super.dispose();
   }
@@ -66,6 +81,7 @@ class _Step4BankViewState extends State<Step4BankView> {
       widget.bankInfo.copyWith(
         bankName: _selectedBank,
         beneficiaryTitle: _titleController.text.trim(),
+        accountNumber: _accountNumberController.text.trim(),
         iban: _ibanController.text.trim().toUpperCase(),
       ),
     );
@@ -75,9 +91,18 @@ class _Step4BankViewState extends State<Step4BankView> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final rule = BankAccountValidator.getRule(_selectedBank);
 
-    final isFormValid = _titleController.text.trim().length >= 3 &&
-        _ibanController.text.trim().length >= 10;
+    final isTitleValid = _titleController.text.trim().length >= 3;
+    final isAccountValid = BankAccountValidator.isAccountNumberValid(
+      _selectedBank,
+      _accountNumberController.text,
+    );
+    final rawIban = _ibanController.text.trim();
+    final isIbanValid = rawIban.isEmpty ||
+        BankAccountValidator.isIbanValid(rawIban);
+
+    final isFormValid = isTitleValid && isAccountValid && isIbanValid;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -115,7 +140,8 @@ class _Step4BankViewState extends State<Step4BankView> {
 
         // Main Card Container
         Container(
-          padding: EdgeInsets.all(MediaQuery.of(context).size.width < 400 ? 16 : 24),
+          padding: EdgeInsets.all(
+              MediaQuery.of(context).size.width < 400 ? 16 : 24),
           decoration: BoxDecoration(
             color: colors.card,
             borderRadius: AppSpacing.radiusXl,
@@ -193,7 +219,8 @@ class _Step4BankViewState extends State<Step4BankView> {
                 ),
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
-                    value: kAllPakistaniBanks.any((b) => b.name == _selectedBank)
+                    value: kAllPakistaniBanks
+                            .any((b) => b.name == _selectedBank)
                         ? _selectedBank
                         : kAllPakistaniBanks.first.name,
                     isExpanded: true,
@@ -289,7 +316,10 @@ class _Step4BankViewState extends State<Step4BankView> {
                       vertical: 12,
                     ),
                   ),
-                  onChanged: (_) => _notifyChange(),
+                  onChanged: (_) {
+                    setState(() {});
+                    _notifyChange();
+                  },
                 ),
               ),
               const SizedBox(height: 4),
@@ -302,11 +332,11 @@ class _Step4BankViewState extends State<Step4BankView> {
               ),
               const SizedBox(height: 18),
 
-              // IBAN / Account Number
+              // ─── ACCOUNT NUMBER * (Required) ───────────────────────────
               Row(
                 children: [
                   Text(
-                    'IBAN / ACCOUNT NUMBER',
+                    'ACCOUNT NUMBER',
                     style: TextStyle(
                       color: colors.textSecondary,
                       fontSize: 11,
@@ -331,32 +361,112 @@ class _Step4BankViewState extends State<Step4BankView> {
                   color: colors.inputBackground,
                   borderRadius: AppSpacing.radiusMd,
                   border: Border.all(
-                    color: colors.border.withValues(alpha: 0.8),
+                    color: isAccountValid
+                        ? colors.emerald.withValues(alpha: 0.6)
+                        : (_accountNumberController.text.isNotEmpty &&
+                                !isAccountValid)
+                            ? colors.ruby.withValues(alpha: 0.8)
+                            : colors.border.withValues(alpha: 0.8),
                     width: 1.2,
                   ),
                 ),
                 child: TextField(
-                  controller: _ibanController,
-                  textCapitalization: TextCapitalization.characters,
+                  controller: _accountNumberController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(rule.maxDigits),
+                  ],
                   style: TextStyle(
                     color: colors.textPrimary,
-                    fontSize: 13.5,
+                    fontSize: 14,
                     fontFamily: 'monospace',
                     letterSpacing: 0.8,
+                    fontWeight: FontWeight.w600,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'PK00MEZN0000000000000000',
-                    hintStyle:
-                        TextStyle(color: colors.textMuted, fontSize: 13.5),
+                    hintText: rule.hintText,
+                    hintStyle: TextStyle(
+                      color: colors.textMuted.withValues(alpha: 0.5),
+                      fontSize: 13.5,
+                      fontFamily: 'monospace',
+                    ),
                     border: InputBorder.none,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 12,
                     ),
                   ),
-                  onChanged: (_) => _notifyChange(),
+                  onChanged: (_) {
+                    setState(() {});
+                    _notifyChange();
+                  },
                 ),
               ),
+              const SizedBox(height: 6),
+              _buildRealtimeAccountNumberStatus(colors, rule),
+              const SizedBox(height: 18),
+
+              // ─── IBAN (OPTIONAL) ─────────────────────────────────────────
+              Text(
+                'IBAN (OPTIONAL)',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                decoration: BoxDecoration(
+                  color: colors.inputBackground,
+                  borderRadius: AppSpacing.radiusMd,
+                  border: Border.all(
+                    color: (rawIban.isNotEmpty && isIbanValid)
+                        ? colors.emerald.withValues(alpha: 0.6)
+                        : (rawIban.isNotEmpty && !isIbanValid)
+                            ? colors.ruby.withValues(alpha: 0.8)
+                            : colors.border.withValues(alpha: 0.8),
+                    width: 1.2,
+                  ),
+                ),
+                child: TextField(
+                  controller: _ibanController,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(
+                        RegExp(r'[a-zA-Z0-9\s]')),
+                    LengthLimitingTextInputFormatter(29), // 24 chars + 5 spaces
+                  ],
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 13.5,
+                    fontFamily: 'monospace',
+                    letterSpacing: 0.8,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'PK00 ${rule.ibanBankCode} 0000 0000 0000 0000',
+                    hintStyle: TextStyle(
+                      color: colors.textMuted.withValues(alpha: 0.5),
+                      fontSize: 13.5,
+                      fontFamily: 'monospace',
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                  ),
+                  onChanged: (_) {
+                    setState(() {});
+                    _notifyChange();
+                  },
+                ),
+              ),
+              const SizedBox(height: 6),
+              _buildRealtimeIbanStatus(colors, rule),
               const SizedBox(height: 20),
 
               // 1-LINK / PRISM Verification Notice Card
@@ -462,5 +572,294 @@ class _Step4BankViewState extends State<Step4BankView> {
         ),
       ],
     );
+  }
+
+  /// Real-time status display for the required Account Number field.
+  Widget _buildRealtimeAccountNumberStatus(
+    PaidiXColorScheme colors,
+    BankAccountRule rule,
+  ) {
+    final raw = _accountNumberController.text.trim();
+    final status =
+        BankAccountValidator.validateAccountNumber(_selectedBank, raw);
+    final digitsCount = BankAccountValidator.cleanDigits(raw).length;
+
+    switch (status) {
+      case AccountNumberStatus.empty:
+        return Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 13,
+              color: colors.textMuted,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                '${rule.bankName}: ${rule.helperText}',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case AccountNumberStatus.incomplete:
+        return Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 13,
+              color: colors.textMuted,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Enter complete ${rule.lengthLabel} account number ($digitsCount/${rule.typicalDigits} digits)',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case AccountNumberStatus.invalidWalletPrefix:
+        return Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 13,
+              color: colors.ruby,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Mobile wallet account number must start with 03 (e.g. 0300 1234567)',
+                style: TextStyle(
+                  color: colors.ruby,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case AccountNumberStatus.tooLong:
+        return Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 13,
+              color: colors.ruby,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Account number exceeds maximum ${rule.maxDigits} digits',
+                style: TextStyle(
+                  color: colors.ruby,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case AccountNumberStatus.valid:
+        return AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(milliseconds: 250),
+          child: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline_rounded,
+                size: 13,
+                color: colors.emerald,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Valid Account Number',
+                style: TextStyle(
+                  color: colors.emerald,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.emerald.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${rule.bankCode} • $digitsCount Digits',
+                  style: TextStyle(
+                    color: colors.emerald,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    }
+  }
+
+  /// Real-time status display for the optional IBAN field.
+  Widget _buildRealtimeIbanStatus(
+    PaidiXColorScheme colors,
+    BankAccountRule rule,
+  ) {
+    final raw = _ibanController.text.trim();
+    if (raw.isEmpty) {
+      return Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            size: 13,
+            color: colors.textMuted,
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Text(
+              'Optional: Enter 24-character Pakistani IBAN, or leave blank',
+              style: TextStyle(
+                color: colors.textMuted,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final clean = BankAccountValidator.cleanIban(raw);
+    final status = BankAccountValidator.validateIban(clean);
+
+    switch (status) {
+      case IbanStatus.empty:
+        return const SizedBox.shrink();
+
+      case IbanStatus.invalidPrefix:
+        return Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 13,
+              color: colors.ruby,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Pakistani IBAN must begin with country code "PK"',
+                style: TextStyle(
+                  color: colors.ruby,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case IbanStatus.incomplete:
+        return Row(
+          children: [
+            Icon(
+              Icons.info_outline_rounded,
+              size: 13,
+              color: colors.textMuted,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'Incomplete IBAN (${clean.length}/24 characters)',
+                style: TextStyle(
+                  color: colors.textMuted,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case IbanStatus.invalidCharacters:
+        return Row(
+          children: [
+            Icon(
+              Icons.error_outline_rounded,
+              size: 13,
+              color: colors.ruby,
+            ),
+            const SizedBox(width: 5),
+            Expanded(
+              child: Text(
+                'IBAN must be exactly 24 alphanumeric characters',
+                style: TextStyle(
+                  color: colors.ruby,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+
+      case IbanStatus.valid:
+        return AnimatedOpacity(
+          opacity: 1.0,
+          duration: const Duration(milliseconds: 250),
+          child: Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline_rounded,
+                size: 13,
+                color: colors.emerald,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Valid Pakistani IBAN',
+                style: TextStyle(
+                  color: colors.emerald,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.2,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colors.emerald.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '24 Alphanumeric • Verified',
+                  style: TextStyle(
+                    color: colors.emerald,
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+    }
   }
 }
