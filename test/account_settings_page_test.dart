@@ -559,6 +559,11 @@ void main() {
       expect(FxDisplayPreferences.isStealthMode, isTrue);
       expect(find.text('Stealth Active'), findsOneWidget);
       expect(find.text('Rs. ••••••••••'), findsOneWidget);
+      expect(
+        find.text('Tap any masked balance on the dashboard to reveal temporarily.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('💡'), findsNothing);
 
       // Toggle Compact Currency Notation
       final compactToggle = find.text('Compact Currency Notation');

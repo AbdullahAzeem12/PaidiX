@@ -357,11 +357,11 @@ class FxConverterStudio extends StatelessWidget {
           if (isStealth) ...[
             const SizedBox(height: 8),
             Text(
-              '💡 Tap anywhere on the masked volume in Dashboard to temporarily reveal.',
+              'Tap any masked balance on the dashboard to reveal temporarily.',
               style: TextStyle(
-                fontSize: 10,
+                fontSize: 11,
                 color: c.textSecondary,
-                fontStyle: FontStyle.italic,
+                height: 1.35,
               ),
             ),
           ],
