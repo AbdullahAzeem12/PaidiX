@@ -1093,19 +1093,19 @@ class _ProfileSectionState extends State<_ProfileSection> {
           selfieBytes: finalBytes,
           selfieFilePath: picked.path,
         );
-        _showToast(c, 'Selfie replaced and enhanced successfully.');
+        _showToast(c, 'Selfie updated successfully.');
       } else if (documentType == 'cnic_front') {
         UserProfileRepository.instance.updateProfile(
           cnicFrontBytes: finalBytes,
           cnicFrontFilePath: picked.path,
         );
-        _showToast(c, 'CNIC — FRONT replaced and enhanced successfully.');
+        _showToast(c, 'CNIC — Front updated successfully.');
       } else if (documentType == 'cnic_back') {
         UserProfileRepository.instance.updateProfile(
           cnicBackBytes: finalBytes,
           cnicBackFilePath: picked.path,
         );
-        _showToast(c, 'CNIC — BACK replaced and enhanced successfully.');
+        _showToast(c, 'CNIC — Back updated successfully.');
       }
     } catch (e) {
       debugPrint('Error processing picked file: $e');
@@ -1347,7 +1347,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enhanced Identity Documents Preview',
+                      'Identity Documents on File',
                       style: TextStyle(
                         color: c.emerald,
                         fontSize: 12.5,
@@ -1356,7 +1356,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Your KYC identity documents and biometric photo have been auto-aligned, glare-removed, and contrast-enhanced. Tap any image to inspect details.',
+                      'Your KYC identity documents and biometric photo on file with State Bank compliance. Tap any image to inspect details.',
                       style: TextStyle(
                         color: c.textSecondary,
                         fontSize: 11.5,
@@ -1507,7 +1507,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                       ),
                       const SizedBox(width: 3),
                       Text(
-                        'Enhanced',
+                        'Verified',
                         style: TextStyle(
                           color: c.emerald,
                           fontSize: 10,

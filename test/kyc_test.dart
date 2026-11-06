@@ -326,7 +326,7 @@ void main() {
       expect(find.text('CNIC NUMBER'), findsOneWidget);
       expect(find.text('CNIC — FRONT'), findsOneWidget);
       expect(find.text('CNIC — BACK'), findsOneWidget);
-      expect(find.textContaining('Automatic Document Enhancement'), findsOneWidget);
+      expect(find.textContaining('State Bank KYC Requirement'), findsOneWidget);
 
       // Realtime validation test: typing CNIC dynamically triggers checking and Available
       await tester.enterText(find.byType(TextField), '3520204504615');

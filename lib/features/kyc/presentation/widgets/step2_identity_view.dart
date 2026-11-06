@@ -318,15 +318,23 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                 ),
                 const SizedBox(height: 8),
 
-                // Enhancement badges
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                // Regulatory compliance note
+                Row(
                   children: [
-                    _buildPill('✓ Auto-Aligned', colors),
-                    _buildPill('✓ Glare Suppressed', colors),
-                    _buildPill('✓ Contrast Boosted', colors),
-                    _buildPill('✓ AES-256 Encrypted', colors),
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 13,
+                      color: colors.aqua,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'State Bank KYC Compliance • Encrypted Vault',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -382,28 +390,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     );
   }
 
-  /// Builds the pill section of this interface.
-  Widget _buildPill(String text, PaidiXColorScheme colors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: colors.emerald.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colors.emerald.withValues(alpha: 0.35),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: colors.emerald,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+
 
   /// Builds the widget subtree from its current properties and inherited context.
   @override
@@ -689,7 +676,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                Icons.auto_awesome_rounded,
+                Icons.shield_outlined,
                 size: 18,
                 color: colors.gold,
               ),
@@ -704,12 +691,12 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                     ),
                     children: const [
                       TextSpan(
-                        text: 'Automatic Document Enhancement: ',
+                        text: 'State Bank KYC Requirement: ',
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(
                         text:
-                            'Uploaded CNIC photos are automatically auto-aligned, glare-reduced, enhanced, and compressed upon submission.',
+                            'Ensure all four corners of your CNIC are clearly visible and text is sharp and legible without glare.',
                       ),
                     ],
                   ),
@@ -720,11 +707,11 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         ),
         const SizedBox(height: 24),
 
-        // Action Button: Enhance & Continue with spring bounce & ripple
+        // Action Button: Continue with spring bounce & ripple
         Align(
           alignment: Alignment.centerRight,
           child: AppButton(
-            text: 'Enhance & Continue',
+            text: 'Continue',
             icon: const Icon(Icons.arrow_forward_rounded, size: 16),
             variant: AppButtonVariant.primary,
             onPressed: (_cnicStatus == CnicStatus.available &&
@@ -901,7 +888,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enhanced CNIC Document Preview',
+                      'CNIC Document Preview',
                       style: TextStyle(
                         color: colors.emerald,
                         fontSize: 12.5,
@@ -910,7 +897,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Your CNIC document images have been auto-cropped, deskewed, glare-removed, and contrast-enhanced. Tap any image to inspect details.',
+                      'Your CNIC document images have been securely processed and encrypted. Tap any image to inspect details.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11.5,
@@ -932,7 +919,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               Expanded(
                 child: _buildDocCard(
                   colors: colors,
-                  title: 'CNIC — Front (Enhanced)',
+                  title: 'CNIC — Front',
                   bytes: widget.identityInfo.enhancedFrontBytes ??
                       widget.identityInfo.frontBytes,
                   filePath: widget.identityInfo.frontFilePath,
@@ -943,7 +930,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
               Expanded(
                 child: _buildDocCard(
                   colors: colors,
-                  title: 'CNIC — Back (Enhanced)',
+                  title: 'CNIC — Back',
                   bytes: widget.identityInfo.enhancedBackBytes ??
                       widget.identityInfo.backBytes,
                   filePath: widget.identityInfo.backFilePath,
@@ -955,7 +942,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         else ...[
           _buildDocCard(
             colors: colors,
-            title: 'CNIC — Front (Enhanced)',
+            title: 'CNIC — Front',
             bytes: widget.identityInfo.enhancedFrontBytes ??
                 widget.identityInfo.frontBytes,
             filePath: widget.identityInfo.frontFilePath,
@@ -964,7 +951,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
           const SizedBox(height: 16),
           _buildDocCard(
             colors: colors,
-            title: 'CNIC — Back (Enhanced)',
+            title: 'CNIC — Back',
             bytes: widget.identityInfo.enhancedBackBytes ??
                 widget.identityInfo.backBytes,
             filePath: widget.identityInfo.backFilePath,
@@ -1073,7 +1060,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          'Enhanced',
+                          'Uploaded',
                           style: TextStyle(
                             color: colors.emerald,
                             fontSize: 10,

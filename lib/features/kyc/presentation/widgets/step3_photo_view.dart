@@ -237,7 +237,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              'Enhanced Selfie Inspection',
+                              'Selfie Biometric Inspection',
                               style: TextStyle(
                                 color: colors.textPrimary,
                                 fontSize: 15,
@@ -260,15 +260,23 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                 ),
                 const SizedBox(height: 12),
 
-                // Processing badges
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                // Regulatory biometric compliance note
+                Row(
                   children: [
-                    _buildPill('Auto-Oriented', colors),
-                    _buildPill('Glare Reduced', colors),
-                    _buildPill('Facial Biometrics OK', colors),
-                    _buildPill('256-bit Encrypted', colors),
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 13,
+                      color: colors.aqua,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Biometric Verification • 256-bit Encrypted Vault',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.textSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 14),
@@ -323,28 +331,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     );
   }
 
-  /// Builds the pill section of this interface.
-  Widget _buildPill(String text, PaidiXColorScheme colors) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: colors.emerald.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colors.emerald.withValues(alpha: 0.35),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: colors.emerald,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
+
 
   /// Builds the widget subtree from its current properties and inherited context.
   @override
@@ -676,7 +663,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(
-                Icons.auto_awesome_rounded,
+                Icons.shield_outlined,
                 size: 18,
                 color: colors.gold,
               ),
@@ -691,12 +678,12 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                     ),
                     children: const [
                       TextSpan(
-                        text: 'Automatic Document Enhancement: ',
+                        text: 'Biometric Photo Standard: ',
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(
                         text:
-                            'Uploaded photo is automatically auto-oriented, glare-reduced, enhanced, and compressed upon submission.',
+                            'Ensure your face is centered, evenly lit, and clearly visible without hats or sunglasses.',
                       ),
                     ],
                   ),
@@ -707,11 +694,11 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         ),
         const SizedBox(height: 24),
 
-        // Action Button: Enhance & Continue with spring bounce & ripple
+        // Action Button: Continue with spring bounce & ripple
         Align(
           alignment: Alignment.centerRight,
           child: AppButton(
-            text: 'Enhance & Continue',
+            text: 'Continue',
             icon: const Icon(Icons.arrow_forward_rounded, size: 16),
             variant: AppButtonVariant.primary,
             onPressed: (widget.photoInfo.fileName != null)
@@ -780,7 +767,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Enhanced Profile Photo Preview',
+                      'Biometric Photo Preview',
                       style: TextStyle(
                         color: colors.emerald,
                         fontSize: 12.5,
@@ -789,7 +776,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Your profile photo has been auto-oriented, contrast-enhanced, and compressed.',
+                      'Your biometric profile photo has been securely processed for identity verification.',
                       style: TextStyle(
                         color: colors.textSecondary,
                         fontSize: 11.5,
@@ -866,7 +853,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              'Enhanced',
+                              'Uploaded',
                               style: TextStyle(
                                 color: colors.emerald,
                                 fontSize: 11,
