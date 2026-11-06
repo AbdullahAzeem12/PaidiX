@@ -89,28 +89,6 @@ class _KycPageState extends State<KycPage> {
     final nextIndex = _state.currentStep.index + 1;
     if (nextIndex < KycStep.values.length) {
       final nextStep = KycStep.values[nextIndex];
-      switch (nextStep) {
-        case KycStep.identity:
-          PaidiXToast.showSuccess(
-            context,
-            'Personal info saved. Proceeding to ID verification.',
-          );
-          break;
-        case KycStep.photo:
-          PaidiXToast.showSuccess(
-            context,
-            'ID documents recorded. Proceeding to biometric selfie.',
-          );
-          break;
-        case KycStep.bank:
-          PaidiXToast.showSuccess(
-            context,
-            'Biometrics verified. Final step: Link bank account.',
-          );
-          break;
-        case KycStep.personal:
-          break;
-      }
       _goToStep(nextStep);
     }
   }

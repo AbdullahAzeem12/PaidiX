@@ -278,7 +278,7 @@ class _Step4BankViewState extends State<Step4BankView> {
                   controller: _titleController,
                   style: TextStyle(color: colors.textPrimary, fontSize: 13.5),
                   decoration: InputDecoration(
-                    hintText: 'HASSAN AZEEM',
+                    hintText: 'e.g. As shown on bank statement',
                     hintStyle:
                         TextStyle(color: colors.textMuted, fontSize: 13.5),
                     border: InputBorder.none,
