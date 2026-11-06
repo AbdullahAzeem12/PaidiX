@@ -159,7 +159,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
     setState(() {
       _isProcessing = true;
       _processingProgress = 0.0;
-      _processingStage = 'Detecting facial landmarks & orientation...';
+      _processingStage = 'Verifying portrait framing...';
     });
 
     final res = await _processor.enhanceDocument(
@@ -317,7 +317,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: AppButton(
-                    text: 'Looks Good, Close',
+                    text: 'Close Preview',
                     icon: const Icon(Icons.check_rounded, size: 16),
                     variant: AppButtonVariant.primary,
                     onPressed: () => Navigator.of(ctx).pop(),
@@ -452,7 +452,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Biometric Verification & Optimization...',
+              'Processing Biometric Photo...',
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 16,
@@ -478,7 +478,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                 border: Border.all(color: colors.border.withValues(alpha: 0.5)),
               ),
               child: Text(
-                'Auto-orientation • Glare Suppression • Contrast Enhancement • Lossless Compression',
+                'Format Verification • Lighting Balance • Quality Check',
                 style: TextStyle(
                   color: colors.textMuted,
                   fontSize: 11,
@@ -527,7 +527,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
                   ),
                 ),
                 child: Icon(
-                  Icons.face_retouching_natural_rounded,
+                  Icons.face_rounded,
                   color: colors.aqua,
                   size: 24,
                 ),

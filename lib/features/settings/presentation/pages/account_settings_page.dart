@@ -1068,7 +1068,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
           avatarBytes: croppedBytes,
           avatarFilePath: picked.path,
         );
-        _showToast(c, 'Profile picture auto-cropped & updated successfully.');
+        _showToast(c, 'Profile photo updated successfully.');
         return;
       }
 
@@ -1741,7 +1741,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.face_retouching_natural_rounded,
+                      Icons.face_rounded,
                       size: 11,
                       color: c.emerald,
                     ),

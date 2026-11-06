@@ -199,7 +199,7 @@ class DocumentViewerDialog extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(
-          isSelfie ? Icons.face_retouching_natural : Icons.badge_rounded,
+          isSelfie ? Icons.face_rounded : Icons.badge_rounded,
           size: 64,
           color: colors.aquaLight.withValues(alpha: 0.7),
         ),

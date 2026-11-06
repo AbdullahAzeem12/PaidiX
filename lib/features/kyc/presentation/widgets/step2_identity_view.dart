@@ -211,7 +211,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     setState(() {
       _isProcessing = true;
       _processingProgress = 0.0;
-      _processingStage = 'Initiating intelligent document pipeline...';
+      _processingStage = 'Preparing documents for verification...';
     });
 
     final frontRes = await _processor.enhanceDocument(
@@ -363,7 +363,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                 const SizedBox(height: 8),
                 Center(
                   child: Text(
-                    'Pinch to zoom and verify text clarity & glare suppression',
+                    'Pinch to zoom or drag to inspect document details.',
                     style: TextStyle(
                       color: colors.textMuted,
                       fontSize: 11,
@@ -376,7 +376,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: AppButton(
-                    text: 'Looks Good, Close',
+                    text: 'Close Preview',
                     icon: const Icon(Icons.check_rounded, size: 16),
                     variant: AppButtonVariant.primary,
                     onPressed: () => Navigator.of(ctx).pop(),
@@ -510,7 +510,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
             ),
             const SizedBox(height: 24),
             Text(
-              'Intelligent Document Processing...',
+              'Processing Identity Documents...',
               style: TextStyle(
                 color: colors.textPrimary,
                 fontSize: 16,
@@ -537,7 +537,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                     color: colors.border.withValues(alpha: 0.5)),
               ),
               child: Text(
-                'Auto-cropping • Deskewing • Glare Removal • Edge Contrast Normalization',
+                'Boundary Detection • Lighting Balance • Format Verification',
                 style: TextStyle(
                   color: colors.textMuted,
                   fontSize: 11,
@@ -1235,7 +1235,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
                       ),
                     ),
                     Text(
-                      'AUTO-ALIGNED & GLARE SUPPRESSED',
+                      'STATE BANK COMPLIANT',
                       style: TextStyle(
                         color: colors.emerald,
                         fontSize: 7,

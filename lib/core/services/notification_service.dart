@@ -62,7 +62,7 @@ class NotificationService {
         'paidix_kyc_channel',
         'PaidiX Verification Notifications',
         channelDescription:
-            'Real-time regulatory KYC and document enhancement alerts',
+            'Real-time regulatory KYC and verification alerts',
         importance: Importance.high,
         priority: Priority.high,
         showWhen: true,

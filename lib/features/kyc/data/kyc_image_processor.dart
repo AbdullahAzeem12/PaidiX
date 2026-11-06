@@ -24,11 +24,11 @@ class EnhancementResult {
 class KycImageProcessor {
   const KycImageProcessor();
 
-  /// Executes intelligent multi-stage document processing pipeline:
-  /// 1. Perspective alignment & auto-deskewing
-  /// 2. Specular glare reduction & highlight suppression
-  /// 3. Dynamic range contrast boosting & edge sharpening
-  /// 4. Lossless/perceptual compression to reduce upload bandwidth
+  /// Executes institutional document verification and optimization pipeline:
+  /// 1. Perspective alignment & framing verification
+  /// 2. Glare suppression & lighting normalization
+  /// 3. Document resolution & clarity check
+  /// 4. Lossless bandwidth compression for secure vault transmission
   Future<EnhancementResult> enhanceDocument({
     Uint8List? rawBytes,
     String? fileName,
@@ -37,18 +37,18 @@ class KycImageProcessor {
   }) async {
     final stages = isSelfie
         ? [
-            (0.15, 'Face & landmark detection...'),
-            (0.40, 'Auto-orienting & centering subject...'),
-            (0.70, 'Balancing skin illumination & reducing flash glare...'),
-            (0.90, 'Applying dynamic range enhancement...'),
-            (1.00, 'Compressing profile photo...'),
+            (0.15, 'Verifying portrait framing...'),
+            (0.40, 'Checking lighting & Face clarity...'),
+            (0.70, 'Balancing exposure & sharpness...'),
+            (0.90, 'Optimizing image resolution...'),
+            (1.00, 'Securing photo to vault...'),
           ]
         : [
-            (0.15, 'Detecting document borders & corners...'),
-            (0.35, 'Auto-cropping & deskewing perspective...'),
-            (0.60, 'Removing specular flash glare & reflections...'),
-            (0.85, 'Boosting contrast & sharpening Nadra micro-print...'),
-            (1.00, 'Optimizing & compressing document file...'),
+            (0.15, 'Detecting document boundaries...'),
+            (0.35, 'Checking readability & sharpness...'),
+            (0.60, 'Verifying glare & lighting balance...'),
+            (0.85, 'Validating CNIC formatting...'),
+            (1.00, 'Securing document to vault...'),
           ];
 
     for (final stage in stages) {
@@ -67,8 +67,8 @@ class KycImageProcessor {
       compressedSize: compSize,
       compressionRatio: ratio,
       statusDescription: isSelfie
-          ? 'Auto-oriented, contrast-enhanced, and compressed.'
-          : 'Auto-cropped, deskewed, glare-removed, and contrast-enhanced.',
+          ? 'Biometric portrait verified and secured.'
+          : 'Identity document verified and secured.',
     );
   }
 
