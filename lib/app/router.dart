@@ -16,8 +16,8 @@ import '../features/profile/domain/user_profile.dart';
 import '../features/profile/presentation/pages/onboarding_profile_page.dart';
 import '../features/settings/presentation/pages/account_settings_page.dart';
 
-// Shared instance of the Payments repository for state synchronization with pre-seeded mock data
-final sharedPaymentsRepository = PaymentsRepositoryImpl(seedMockData: true);
+// Shared instance of the Payments repository for state synchronization (clean empty state)
+final sharedPaymentsRepository = PaymentsRepositoryImpl();
 
 /// Root navigator key for modal overlays, global toasts, and security timeout dialogs
 final rootNavigatorKey = GlobalKey<NavigatorState>(debugLabel: 'rootNavigator');

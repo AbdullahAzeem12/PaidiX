@@ -9,10 +9,11 @@ import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/core/widgets/paidi_x_bottom_nav_bar.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
+import 'test_fixtures.dart';
 
 void main() {
   setUp(() {
-    UserProfileRepository.instance.resetToDefault();
+    setupTestState();
   });
 
   group('Onboarding Navigation Lifecycle & Server Verification Retirement Suite', () {
@@ -139,6 +140,34 @@ void main() {
       // Route must have redirected to dashboard
       expect(router.routeInformationProvider.value.uri.path, '/app/dashboard');
       expect(find.text('YOUR MONEY, AT A GLANCE'), findsOneWidget);
+    });
+
+    testWidgets(
+        'KYC resubmit after login keeps Onboarding until server/admin verification',
+        (WidgetTester tester) async {
+      UserProfileRepository.instance.markKycPendingReview();
+      expect(UserProfileRepository.instance.profile.kycStatus,
+          KycReviewStatus.pendingReview);
+      expect(UserProfileRepository.instance.profile.hasCompletedKyc, isTrue);
+
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const AppShell(
+            currentPath: '/app/dashboard',
+            child: Text('Dashboard Content'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Onboarding'), findsOneWidget);
+      expect(find.text('Dashboard'), findsOneWidget);
     });
   });
 }

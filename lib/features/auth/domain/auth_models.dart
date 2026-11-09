@@ -18,6 +18,7 @@ class SignUpRequest {
   /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() => {
         'fullName': fullName,
+        'full_name': fullName,
         'email': email,
         if (phone != null && phone!.isNotEmpty) 'phone': phone,
         'password': password,

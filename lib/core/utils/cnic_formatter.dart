@@ -1,6 +1,8 @@
 /// Defines cnic formatter in the application core utilities and reusable widgets.
 
 import 'package:flutter/services.dart';
+import '../config/app_config.dart';
+import '../network/api_client.dart';
 import '../../features/profile/data/user_profile_repository.dart';
 
 enum CnicStatus {
@@ -84,12 +86,30 @@ class CnicValidator {
     // Realistic network check delay
     await Future.delayed(const Duration(milliseconds: 240));
 
-    // Blacklisted or already registered demo test cases
+    // Reserved test verification cases
     if (digits == '1111111111111' || digits == '3520200000000') {
       return CnicStatus.alreadyRegistered;
     }
 
     // Dynamic verification: check if another registered user has already signed up/in with this CNIC
+    if (AppConfig.hasCustomBackend && ApiClient.instance.authToken != null) {
+      try {
+        final formattedCnic = format(digits);
+        final res = await ApiClient.instance.get(
+          '/accounts/cnic-available/?cnic=$formattedCnic',
+        );
+        if (res['available'] == false) {
+          return CnicStatus.alreadyRegistered;
+        }
+        if (res['format_valid'] == false) {
+          return CnicStatus.invalidFormat;
+        }
+        return CnicStatus.available;
+      } catch (_) {
+        // Fall back gracefully to local check on network latency
+      }
+    }
+
     try {
       final activeEmail =
           excludeEmail ?? UserProfileRepository.instance.profile.email;

@@ -11,8 +11,11 @@ import '../../../../core/widgets/auth_text_field.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/server_error_page.dart';
 import '../../../../core/widgets/spongy_tap.dart';
-import '../../../profile/data/user_profile_repository.dart';
-import '../../../profile/domain/user_profile.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/config/app_config.dart';
+import '../widgets/email_otp_dialog.dart';
+import '../../data/auth_repository.dart';
+import '../../domain/auth_models.dart';
 import '../../domain/auth_validators.dart';
 
 class SignInPage extends StatefulWidget {
@@ -38,7 +41,7 @@ class _SignInPageState extends State<SignInPage> {
     super.dispose();
   }
 
-  /// Validates the form, resolves the local demo user, and routes by KYC status.
+  /// Validates the form, authenticates via AuthRepository, and routes by KYC status.
   Future<void> _handleSignIn() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
       PaidiXToast.showWarning(context, 'Please enter a valid email and password.');
@@ -46,41 +49,22 @@ class _SignInPageState extends State<SignInPage> {
     }
 
     setState(() => _isLoading = true);
-    // Real integration endpoint boundary
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
 
-    final inputEmail = _emailController.text.trim().toLowerCase();
-
-    // Backend error simulation handler (for error testing or network failure)
-    if (inputEmail.startsWith('error') || inputEmail.startsWith('500')) {
-      ServerErrorDialog.show(
-        context,
-        info: const ServerErrorInfo(
-          statusCode: 503,
-          title: 'Authentication Gateway Latency',
-          message:
-              'Unable to reach the core authentication and settlement cluster. Please retry or verify your network connection.',
-          errorCode: 'ERR_AUTH_503_UNAVAILABLE',
+    try {
+      final inputEmail = _emailController.text.trim().toLowerCase();
+      final result = await AuthRepository.instance.signIn(
+        SignInRequest(
+          email: inputEmail,
+          password: _passwordController.text,
         ),
-        onRetry: () => _handleSignIn(),
       );
-      return;
-    }
 
-    final repo = UserProfileRepository.instance;
-    final registered =
-        await repo.findOrLoadUser(inputEmail) ?? repo.findUser(inputEmail);
+      if (!mounted) return;
 
-    // If registered user exists, activate their synchronized profile
-    if (registered != null) {
-      repo.setActiveUser(registered);
-      // If user has already completed KYC, route straight to Dashboard
-      if (registered.hasCompletedKyc) {
+      if (result.profile.hasCompletedKyc) {
         PaidiXToast.showSuccess(
           context,
-          'Welcome back, ${registered.firstName}! Authenticated successfully.',
+          'Welcome back, ${result.profile.firstName}! Authenticated successfully.',
         );
         context.go('/app/dashboard');
       } else {
@@ -90,86 +74,249 @@ class _SignInPageState extends State<SignInPage> {
         );
         context.go('/kyc');
       }
-      return;
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.errorCode == 'EMAIL_UNVERIFIED') {
+        _showOtpVerificationDialog(_emailController.text.trim().toLowerCase());
+      } else if (e.isRetryable) {
+        // 500, 502, 503, 504 — transient server errors → full ServerErrorDialog
+        ServerErrorDialog.show(
+          context,
+          info: ServerErrorInfo(
+            statusCode: e.statusCode,
+            title: _serverErrorTitle(e.statusCode),
+            message: e.message,
+            errorCode: e.errorCode ?? 'ERR_AUTH_${e.statusCode}',
+          ),
+          onRetry: () => _handleSignIn(),
+        );
+      } else if (e.statusCode == 429) {
+        // 429 Too Many Requests — rate limited
+        final hint = e.retryAfterSeconds != null
+            ? ' Try again in ${e.retryAfterSeconds}s.'
+            : '';
+        PaidiXToast.showWarning(context, '${e.message}$hint');
+      } else {
+        // 400, 401, 403, 404, 409 — show specific error message
+        PaidiXToast.showError(context, e.message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      PaidiXToast.showError(context, 'Authentication failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
-
-    // Fallback logic preserving admin/verified routes
-    if (inputEmail.contains('admin') || inputEmail.contains('verified')) {
-      final verifiedUser = UserProfile.defaultProfile().copyWith(
-        email: inputEmail,
-        hasCompletedKyc: true,
-        kycStatus: KycReviewStatus.verified,
-      );
-      repo.setActiveUser(verifiedUser);
-      PaidiXToast.showSuccess(
-        context,
-        'Welcome, ${verifiedUser.firstName}! Verified session started.',
-      );
-      context.go('/app/dashboard');
-      return;
-    }
-
-    // New unverified customer signing in for the first time must complete KYC
-    final newUser = UserProfile(
-      fullName: inputEmail.split('@').first,
-      email: inputEmail,
-      countryCode: '+92',
-      phoneNumber: '',
-      cnicNumber: '',
-      city: '',
-      address: '',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      hasCompletedKyc: false,
-      kycStatus: KycReviewStatus.notStarted,
-    );
-    repo.setActiveUser(newUser);
-    PaidiXToast.showInfo(
-      context,
-      'Welcome to PaidiX! Please proceed with regulatory KYC.',
-    );
-    context.go('/kyc');
   }
 
-  /// Shows the simulated password-recovery instructions dialog.
+  /// Returns a human-readable title for server error dialogs based on status code.
+  String _serverErrorTitle(int statusCode) {
+    switch (statusCode) {
+      case 500: return 'Server Error';
+      case 502: return 'Gateway Error';
+      case 503: return 'Service Unavailable';
+      case 504: return 'Gateway Timeout';
+      default:  return 'Connection Error';
+    }
+  }
+
+  /// Displays the OTP email verification modal.
+  void _showOtpVerificationDialog(String email) {
+    EmailOtpDialog.show(
+      context,
+      email: email,
+      password: _passwordController.text,
+      onVerified: () {
+        if (!mounted) return;
+        PaidiXToast.showSuccess(context, 'Email verified! Signing you in...');
+        _handleSignIn();
+      },
+    );
+  }
+
+  /// Shows the password recovery dialog with live OTP reset workflow.
   void _showForgotPasswordDialog() {
     final colors = AppColors.of(context);
+    final emailController = TextEditingController(
+      text: _emailController.text.trim().toLowerCase(),
+    );
+    final codeController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    int currentStep = 1; // 1: Email input, 2: Code & New Password
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: colors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppSpacing.radiusLg,
-          side: BorderSide(color: colors.border, width: 1.2),
-        ),
-        title: Text(
-          'Reset Password',
-          style: TextStyle(color: colors.textPrimary),
-        ),
-        content: Text(
-          'Password recovery instructions will be sent to your registered email address.',
-          style: TextStyle(color: colors.textSecondary),
-        ),
-        actions: [
-          SpongyLinkButton(
-            text: 'Send Link',
-            onTap: () {
-              Navigator.of(ctx).pop();
-              PaidiXToast.showSuccess(
-                context,
-                'Password recovery instructions sent to registered email.',
-              );
-            },
-            normalColor: colors.aqua,
-            activeColor: colors.aquaLight,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: colors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppSpacing.radiusLg,
+            side: BorderSide(color: colors.border, width: 1.2),
           ),
-          SpongyLinkButton(
-            text: 'Close',
-            onTap: () => Navigator.of(ctx).pop(),
-            normalColor: colors.textSecondary,
-            activeColor: colors.textPrimary,
+          title: Text(
+            currentStep == 1 ? 'Reset Password' : 'Enter Reset Code',
+            style: TextStyle(
+              color: colors.textPrimary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ],
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (currentStep == 1) ...[
+                Text(
+                  'Enter your registered email address to receive a 6-digit password reset code.',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'Email Address',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    filled: true,
+                    fillColor: colors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: AppSpacing.radiusMd,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  'A 6-digit reset code was sent to ${emailController.text}. Enter the code and your new password:',
+                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: codeController,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 18,
+                    letterSpacing: 4,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: '••••••',
+                    labelText: '6-Digit Code',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    filled: true,
+                    fillColor: colors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: AppSpacing.radiusMd,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: true,
+                  style: TextStyle(color: colors.textPrimary),
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    labelStyle: TextStyle(color: colors.textSecondary),
+                    filled: true,
+                    fillColor: colors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: AppSpacing.radiusMd,
+                      borderSide: BorderSide(color: colors.border),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final email = emailController.text.trim().toLowerCase();
+                      if (email.isEmpty) {
+                        PaidiXToast.showWarning(context, 'Please enter your email.');
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      try {
+                        if (currentStep == 1) {
+                          if (AppConfig.hasCustomBackend) {
+                            await AuthRepository.instance.requestPasswordResetOtp(email: email);
+                          }
+                          setDialogState(() {
+                            currentStep = 2;
+                            isSubmitting = false;
+                          });
+                          if (!mounted) return;
+                          PaidiXToast.showSuccess(context, 'Reset code sent to $email');
+                        } else {
+                          final code = codeController.text.trim();
+                          final newPassword = newPasswordController.text;
+                          if (code.length != 6) {
+                            PaidiXToast.showWarning(context, 'Please enter the 6-digit code.');
+                            setDialogState(() => isSubmitting = false);
+                            return;
+                          }
+                          if (newPassword.length < 8) {
+                            PaidiXToast.showWarning(context, 'Password must be at least 8 characters.');
+                            setDialogState(() => isSubmitting = false);
+                            return;
+                          }
+
+                          if (AppConfig.hasCustomBackend) {
+                            await AuthRepository.instance.resetPasswordWithOtp(
+                              email: email,
+                              code: code,
+                              newPassword: newPassword,
+                            );
+                          }
+                          if (!mounted) return;
+                          Navigator.of(ctx).pop();
+                          _passwordController.text = newPassword;
+                          PaidiXToast.showSuccess(
+                            context,
+                            'Password updated! You can now log in with your new password.',
+                          );
+                        }
+                      } on ApiException catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        if (!mounted) return;
+                        PaidiXToast.showError(context, e.message);
+                      } catch (e) {
+                        setDialogState(() => isSubmitting = false);
+                        if (!mounted) return;
+                        PaidiXToast.showError(context, 'Reset request failed: $e');
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colors.aqua,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+              ),
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text(currentStep == 1 ? 'Send Code' : 'Update Password'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -5,14 +5,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../core/utils/permission_helper.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
+import 'kyc_media_access.dart';
 
 class Step3PhotoView extends StatefulWidget {
   final PhotoDocInfo photoInfo;
@@ -33,10 +35,13 @@ class Step3PhotoView extends StatefulWidget {
   State<Step3PhotoView> createState() => _Step3PhotoViewState();
 }
 
-class _Step3PhotoViewState extends State<Step3PhotoView> {
+class _Step3PhotoViewState extends State<Step3PhotoView>
+    with WidgetsBindingObserver {
   final _picker = ImagePicker();
   final _processor = const KycImageProcessor();
   bool _isProcessing = false;
+  bool _isPickingImage = false;
+  bool _isCheckingLostData = false;
   double _processingProgress = 0.0;
   String _processingStage = '';
 
@@ -46,13 +51,39 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkLostData();
+  }
+
+  /// Re-syncs lost images and schedules a fresh frame on returning from external camera/gallery.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkLostData();
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.scheduleFrame();
+      }
+    }
+  }
+
+  /// Releases resources owned by this object before it is removed.
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   /// Restores photo if the Android OS destroyed and recreated MainActivity
   /// while taking camera selfie or selecting photo from gallery.
   Future<void> _checkLostData() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb ||
+        !Platform.isAndroid ||
+        _isPickingImage ||
+        _isCheckingLostData) {
+      return;
+    }
+    _isCheckingLostData = true;
     try {
       final response = await _picker.retrieveLostData();
       if (response.isEmpty) return;
@@ -62,6 +93,8 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       }
     } catch (e) {
       debugPrint('retrieveLostData error: $e');
+    } finally {
+      _isCheckingLostData = false;
     }
   }
 
@@ -69,6 +102,20 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
   Future<void> _applyPickedPhoto(XFile xFile, {required bool isCamera}) async {
     try {
       final bytes = await xFile.readAsBytes();
+
+      // Reject undecodable files (e.g. HEIC/HEIF on some devices) up-front
+      // instead of letting them blank the screen later in Image.memory.
+      if (!await KycMediaAccess.isDecodable(bytes)) {
+        if (mounted) {
+          PaidiXToast.showError(
+            context,
+            'This image format is not supported. Please choose a JPEG or PNG photo.',
+          );
+        }
+        return;
+      }
+      if (!mounted) return;
+
       final fileName = xFile.name.isNotEmpty
           ? xFile.name
           : (isCamera ? 'selfie_camera.jpg' : 'selfie_gallery.jpg');
@@ -84,52 +131,71 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
       );
     } catch (e) {
       debugPrint('Failed to apply picked photo: $e');
+      if (mounted) {
+        PaidiXToast.showError(context, 'Error processing photo: $e');
+      }
     }
   }
 
   /// Directly requests physical phone camera permission from Android OS
   /// and opens native camera to capture live biometric selfie photo.
   Future<void> _captureWithCamera() async {
+    if (_isPickingImage) return;
+    _isPickingImage = true;
     HapticFeedback.mediumImpact();
     _lastPickWasCamera = true;
 
     try {
-      if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
-        await Permission.camera.request();
-      }
+      final hasPerm = await PermissionHelper.requestCameraPermission(context);
+      if (!hasPerm || !mounted) return;
 
       final xFile = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
+        maxWidth: KycMediaAccess.maxDimension,
+        maxHeight: KycMediaAccess.maxDimension,
+        imageQuality: KycMediaAccess.jpegQuality,
       );
 
       if (xFile != null) {
         await _applyPickedPhoto(xFile, isCamera: true);
       }
     } catch (e) {
-      // Fallback sample for simulated environments
-      final fileName = 'selfie_verification_live.png';
-      widget.onChanged(
-        widget.photoInfo.copyWith(
-          fileName: fileName,
-          isCameraCapture: true,
-          isEnhanced: false,
-        ),
-      );
+      debugPrint('Camera capture error: $e');
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not capture photo. Please check camera permissions.',
+        );
+      }
+    } finally {
+      _isPickingImage = false;
     }
   }
 
-  /// Opens physical device photo gallery without in-memory bitmap downscaling OOM spikes.
+  /// Requests native photo permission when needed, then opens the system
+  /// picker. The picker downscales high-resolution photos before Dart reads
+  /// them, which bounds memory use on lower-memory devices.
   Future<void> _pickFromGallery() async {
+    if (_isPickingImage) return;
+    _isPickingImage = true;
     HapticFeedback.lightImpact();
     _lastPickWasCamera = false;
 
     try {
+      final canOpenPicker = await KycMediaAccess.ensureGalleryAccess(context);
+      if (!canOpenPicker || !mounted) return;
+
       XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
+        maxWidth: KycMediaAccess.maxDimension,
+        maxHeight: KycMediaAccess.maxDimension,
+        imageQuality: KycMediaAccess.jpegQuality,
       );
 
-      if (xFile == null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      if (xFile == null &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android) {
         try {
           final lost = await _picker.retrieveLostData();
           if (!lost.isEmpty && lost.file != null) {
@@ -142,14 +208,15 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         await _applyPickedPhoto(xFile, isCamera: false);
       }
     } catch (e) {
-      final fileName = 'selfie_gallery_photo.png';
-      widget.onChanged(
-        widget.photoInfo.copyWith(
-          fileName: fileName,
-          isCameraCapture: false,
-          isEnhanced: false,
-        ),
-      );
+      debugPrint('Gallery pick error: $e');
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not select photo from gallery. Please check permissions.',
+        );
+      }
+    } finally {
+      _isPickingImage = false;
     }
   }
 
@@ -949,11 +1016,14 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
 
   /// Builds the avatar image section of this interface.
   Widget _buildAvatarImage(PaidiXColorScheme colors) {
+    // errorBuilder: an undecodable photo falls back to the avatar placeholder
+    // instead of replacing the screen with a blank/grey ErrorWidget.
     if (widget.photoInfo.enhancedBytes != null) {
       return Image.memory(
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.cover,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
       );
     }
     if (widget.photoInfo.bytes != null) {
@@ -961,6 +1031,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         widget.photoInfo.bytes!,
         fit: BoxFit.cover,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -970,9 +1041,14 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         File(widget.photoInfo.filePath!),
         fit: BoxFit.cover,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
       );
     }
 
+    return _buildAvatarPlaceholder(colors);
+  }
+
+  Widget _buildAvatarPlaceholder(PaidiXColorScheme colors) {
     // High fidelity synthetic avatar graphic
     return Container(
       color: const Color(0xFF072B2B),
@@ -1009,6 +1085,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.contain,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
       );
     }
     if (widget.photoInfo.bytes != null) {
@@ -1016,6 +1093,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         widget.photoInfo.bytes!,
         fit: BoxFit.contain,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -1025,9 +1103,14 @@ class _Step3PhotoViewState extends State<Step3PhotoView> {
         File(widget.photoInfo.filePath!),
         fit: BoxFit.contain,
         cacheWidth: 800,
+        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
       );
     }
 
+    return _buildAvatarFullPlaceholder(colors);
+  }
+
+  Widget _buildAvatarFullPlaceholder(PaidiXColorScheme colors) {
     return Container(
       color: const Color(0xFF072B2B),
       child: Center(

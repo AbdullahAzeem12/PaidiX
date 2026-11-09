@@ -13,9 +13,14 @@ import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/settings/presentation/pages/account_settings_page.dart';
 import 'package:paidix/features/settings/domain/fx_display_preferences.dart';
+import 'test_fixtures.dart';
 
 /// Configures and launches the application or test suite.
 void main() {
+  setUp(() {
+    setupTestState();
+  });
+
   group('AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite', () {
     final screenWidths = [320.0, 360.0, 375.0, 414.0, 768.0, 1024.0, 1200.0];
 

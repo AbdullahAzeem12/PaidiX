@@ -7,9 +7,13 @@ import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/features/dashboard/presentation/pages/dashboard_page.dart';
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
 import 'package:paidix/features/dashboard/presentation/widgets/status_metric_card.dart';
+import 'test_fixtures.dart';
 
 /// Configures and launches the application or test suite.
 void main() {
+  setUp(() {
+    setupTestState();
+  });
   testWidgets('Dashboard renders clean empty state with accurate metrics',
       (WidgetTester tester) async {
     final repo = PaymentsRepositoryImpl();
@@ -203,7 +207,7 @@ void main() {
       (WidgetTester tester) async {
     FxDisplayPreferences.resetToDefault();
     // Seed mock data with completed payments so PKR RECEIVED and TOTAL TRANSFERRED are rendered
-    final repo = PaymentsRepositoryImpl(seedMockData: true);
+    final repo = PaymentsRepositoryImpl(createTestPayments());
 
     await tester.pumpWidget(
       MaterialApp(
@@ -265,7 +269,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final repo = PaymentsRepositoryImpl(seedMockData: true);
+    final repo = PaymentsRepositoryImpl(createTestPayments());
 
     await tester.pumpWidget(
       MaterialApp(
@@ -357,7 +361,7 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
 
-    final repo = PaymentsRepositoryImpl(seedMockData: true);
+    final repo = PaymentsRepositoryImpl(createTestPayments());
 
     await tester.pumpWidget(
       MaterialApp(

@@ -7,6 +7,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/utils/permission_helper.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
@@ -88,25 +89,45 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   }) async {
     HapticFeedback.lightImpact();
 
+    final hasPerm =
+        await PermissionHelper.requestStorageOrPhotosPermission(context);
+    if (!hasPerm) return;
+
     try {
       final xFile = await _picker.pickImage(
         source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 80,
       );
 
       if (xFile != null) {
-        final bytes = await xFile.readAsBytes();
+        final rawBytes = await xFile.readAsBytes();
+        if (rawBytes.isEmpty) return;
+
+        final safeBytes = await PermissionHelper.safeDownscaleBytes(
+          rawBytes,
+          maxDimension: 1280,
+        );
+
         final fileName = xFile.name.isNotEmpty
             ? xFile.name
             : '${typeLabel.toLowerCase().replaceAll(' ', '_')}.jpg';
 
         setState(() {
-          onPicked(bytes, fileName, xFile.path);
+          onPicked(safeBytes, fileName, xFile.path);
         });
 
         HapticFeedback.selectionClick();
       }
-    } catch (_) {
-      // Graceful error handling for cancelled or denied permissions
+    } catch (e) {
+      debugPrint('EditProfileDialog pick error: $e');
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not load image from gallery. Please check permissions.',
+        );
+      }
     }
   }
 
@@ -264,7 +285,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                   _buildLabel('CNIC NUMBER', colors),
                   _buildInput(
                     controller: _cnicController,
-                    hint: '35202-04504615',
+                    hint: '42201-0000000-0',
                     colors: colors,
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {

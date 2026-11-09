@@ -9,6 +9,7 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/phone_formatter.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../profile/data/user_profile_repository.dart';
 import '../../domain/kyc_models.dart';
 
 class Step1PersonalView extends StatefulWidget {
@@ -48,22 +49,30 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
   @override
   void initState() {
     super.initState();
-    _selectedCountry =
-        CountryCodeOption.fromCodeOrDisplay(widget.personalInfo.countryCode);
-
-    final initialName = widget.personalInfo.fullName;
+    final initialName = widget.personalInfo.fullName.isNotEmpty
+        ? widget.personalInfo.fullName
+        : UserProfileRepository.instance.profile.fullName;
     _nameController = TextEditingController(text: initialName);
 
-    final rawPhone = widget.personalInfo.phoneNumber;
-    final formattedPhone = rawPhone.isNotEmpty
-        ? PhoneFormatter.format(rawPhone, isUs: _selectedCountry.isUs)
-        : '';
+    var rawPhone = widget.personalInfo.phoneNumber;
+    if (rawPhone.isEmpty) {
+      rawPhone = UserProfileRepository.instance.profile.phoneNumber;
+    }
+
+    final (parsedCountry, formattedPhone) = PhoneFormatter.parse(
+      rawPhone,
+      defaultCountry:
+          CountryCodeOption.fromCodeOrDisplay(widget.personalInfo.countryCode),
+    );
+    _selectedCountry = parsedCountry;
     _phoneController = TextEditingController(text: formattedPhone);
 
-    final initialAddress = widget.personalInfo.address ?? '';
+    final initialAddress = widget.personalInfo.address ??
+        UserProfileRepository.instance.profile.address;
     _addressController = TextEditingController(text: initialAddress);
 
-    final initialCity = widget.personalInfo.city ?? '';
+    final initialCity = widget.personalInfo.city ??
+        UserProfileRepository.instance.profile.city;
     _cityController = TextEditingController(text: initialCity);
 
     _smsConsent = widget.personalInfo.smsConsent;
@@ -80,6 +89,54 @@ class _Step1PersonalViewState extends State<Step1PersonalView>
         reverseCurve: Curves.easeOutBack,
       ),
     );
+
+    // Ensure parent is notified if we seeded initial phone from profile
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _notifyChange();
+      }
+    });
+  }
+
+  /// Synchronizes controllers when draft data finishes loading from server.
+  @override
+  void didUpdateWidget(Step1PersonalView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (widget.personalInfo.phoneNumber != oldWidget.personalInfo.phoneNumber &&
+        _phoneController.text.trim().isEmpty &&
+        widget.personalInfo.phoneNumber.isNotEmpty) {
+      final (parsedCountry, formattedPhone) = PhoneFormatter.parse(
+        widget.personalInfo.phoneNumber,
+        defaultCountry: _selectedCountry,
+      );
+      setState(() {
+        _selectedCountry = parsedCountry;
+        _phoneController.text = formattedPhone;
+      });
+      _notifyChange();
+    }
+
+    if (widget.personalInfo.fullName != oldWidget.personalInfo.fullName &&
+        _nameController.text.trim().isEmpty &&
+        widget.personalInfo.fullName.isNotEmpty) {
+      _nameController.text = widget.personalInfo.fullName;
+      _notifyChange();
+    }
+
+    if (widget.personalInfo.address != oldWidget.personalInfo.address &&
+        _addressController.text.trim().isEmpty &&
+        (widget.personalInfo.address ?? '').isNotEmpty) {
+      _addressController.text = widget.personalInfo.address!;
+      _notifyChange();
+    }
+
+    if (widget.personalInfo.city != oldWidget.personalInfo.city &&
+        _cityController.text.trim().isEmpty &&
+        (widget.personalInfo.city ?? '').isNotEmpty) {
+      _cityController.text = widget.personalInfo.city!;
+      _notifyChange();
+    }
   }
 
   /// Releases resources owned by this object before it is removed.

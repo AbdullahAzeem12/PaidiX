@@ -18,9 +18,11 @@ import '../../../../core/widgets/spongy_tap.dart';
 import '../../../kyc/data/kyc_image_processor.dart';
 import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
 import '../../../profile/presentation/widgets/profile_picture_crop_dialog.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../features/profile/data/user_profile_repository.dart';
 import '../../../../features/profile/domain/bank_account_item.dart';
 import '../../../../features/profile/domain/user_profile.dart';
+import '../../../auth/data/auth_repository.dart';
 import '../widgets/fx_converter_studio.dart';
 
 // ============================================================
@@ -1152,7 +1154,12 @@ class _ProfileSectionState extends State<_ProfileSection> {
       final picker = ImagePicker();
       XFile? picked;
       try {
-        picked = await picker.pickImage(source: source);
+        picked = await picker.pickImage(
+          source: source,
+          maxWidth: 1024,
+          maxHeight: 1024,
+          imageQuality: 80,
+        );
       } catch (e) {
         debugPrint('pickImage error: $e');
       }
@@ -2228,7 +2235,7 @@ class _SecuritySectionState extends State<_SecuritySection> {
     super.dispose();
   }
 
-  /// Checks the entered password fields and applies the simulated password update.
+  /// Checks the entered password fields and applies password update via live API or fallback.
   void _updatePassword() async {
     if (_currentPassCtrl.text.isEmpty ||
         _newPassCtrl.text.isEmpty ||
@@ -2242,13 +2249,30 @@ class _SecuritySectionState extends State<_SecuritySection> {
     }
     HapticFeedback.mediumImpact();
     setState(() => _loading = true);
-    await Future.delayed(const Duration(milliseconds: 700));
-    if (mounted) {
-      setState(() => _loading = false);
-      _currentPassCtrl.clear();
-      _newPassCtrl.clear();
-      _confirmPassCtrl.clear();
-      PaidiXToast.showSuccess(context, 'Password updated successfully.');
+    try {
+      if (AppConfig.hasCustomBackend) {
+        await AuthRepository.instance.changePassword(
+          oldPassword: _currentPassCtrl.text,
+          newPassword: _newPassCtrl.text,
+        );
+      } else {
+        await Future.delayed(const Duration(milliseconds: 700));
+      }
+      if (mounted) {
+        setState(() => _loading = false);
+        _currentPassCtrl.clear();
+        _newPassCtrl.clear();
+        _confirmPassCtrl.clear();
+        PaidiXToast.showSuccess(context, 'Password updated successfully.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        PaidiXToast.showError(
+          context,
+          e.toString().replaceFirst('Exception: ', ''),
+        );
+      }
     }
   }
 
@@ -2408,6 +2432,25 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
   bool get _pinIsSet =>
       _globalStoredPin != null && _globalStoredPin!.trim().isNotEmpty;
 
+  @override
+  void initState() {
+    super.initState();
+    _checkPinStatus();
+  }
+
+  Future<void> _checkPinStatus() async {
+    if (AppConfig.hasCustomBackend) {
+      try {
+        final isSet = await AuthRepository.instance.checkPaymentsPinStatus();
+        if (mounted && isSet && _globalStoredPin == null) {
+          setState(() {
+            _globalStoredPin = '••••';
+          });
+        }
+      } catch (_) {}
+    }
+  }
+
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
@@ -2451,15 +2494,30 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
 
     HapticFeedback.mediumImpact();
     setState(() => _loadingSet = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      setState(() {
-        _loadingSet = false;
-        _globalStoredPin = pin;
-        _initialPinCtrl.clear();
-        _initialConfirmPinCtrl.clear();
-      });
-      _showSnack(c, 'Payments PIN set. Your payments page is now locked.');
+    try {
+      if (AppConfig.hasCustomBackend) {
+        await AuthRepository.instance.setPaymentsPin(pin: pin);
+      } else {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        setState(() {
+          _loadingSet = false;
+          _globalStoredPin = pin;
+          _initialPinCtrl.clear();
+          _initialConfirmPinCtrl.clear();
+        });
+        _showSnack(c, 'Payments PIN set. Your payments page is now locked.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingSet = false);
+        _showSnack(
+          c,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -2505,16 +2563,34 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
 
     HapticFeedback.mediumImpact();
     setState(() => _loadingUpdate = true);
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (mounted) {
-      setState(() {
-        _loadingUpdate = false;
-        _globalStoredPin = newPin;
-        _currentPinUpdateCtrl.clear();
-        _newPinUpdateCtrl.clear();
-        _confirmPinUpdateCtrl.clear();
-      });
-      _showSnack(c, 'Payments PIN updated successfully.');
+    try {
+      if (AppConfig.hasCustomBackend) {
+        await AuthRepository.instance.updatePaymentsPin(
+          currentPin: current,
+          newPin: newPin,
+        );
+      } else {
+        await Future.delayed(const Duration(milliseconds: 600));
+      }
+      if (mounted) {
+        setState(() {
+          _loadingUpdate = false;
+          _globalStoredPin = newPin;
+          _currentPinUpdateCtrl.clear();
+          _newPinUpdateCtrl.clear();
+          _confirmPinUpdateCtrl.clear();
+        });
+        _showSnack(c, 'Payments PIN updated successfully.');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingUpdate = false);
+        _showSnack(
+          c,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -2523,7 +2599,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     final c = widget.colors;
     final profile = UserProfileRepository.instance.profile;
     final email =
-        profile.email.isNotEmpty ? profile.email : 'kherool66@gmail.com';
+        profile.email.isNotEmpty ? profile.email : 'your registered email';
 
     HapticFeedback.lightImpact();
     showDialog(
@@ -2625,15 +2701,33 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(ctx).pop();
               HapticFeedback.mediumImpact();
-              // Assign temporary PIN code for recovery
-              _globalStoredPin = '1234';
-              _showSnack(
-                c,
-                'Temporary PIN (1234) sent to $email. Enter it in CURRENT PIN.',
-              );
+              if (AppConfig.hasCustomBackend && profile.email.isNotEmpty) {
+                try {
+                  await AuthRepository.instance.requestPasswordResetOtp(
+                    email: profile.email,
+                  );
+                  _showSnack(
+                    c,
+                    'Security reset code sent to $email. Please check your inbox.',
+                  );
+                } catch (e) {
+                  _showSnack(
+                    c,
+                    e.toString().replaceFirst('Exception: ', ''),
+                    isError: true,
+                  );
+                }
+              } else {
+                // Assign temporary PIN code for recovery
+                _globalStoredPin = '1234';
+                _showSnack(
+                  c,
+                  'Temporary PIN (1234) sent to $email. Enter it in CURRENT PIN.',
+                );
+              }
             },
             child: const Text(
               'Send Reset Email',
@@ -2669,17 +2763,32 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
 
     HapticFeedback.mediumImpact();
     setState(() => _loadingRemove = true);
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) {
-      setState(() {
-        _loadingRemove = false;
-        _globalStoredPin = null;
-        _currentPinRemoveCtrl.clear();
-      });
-      _showSnack(
-        c,
-        'PIN removed successfully. Your payments page is now open.',
-      );
+    try {
+      if (AppConfig.hasCustomBackend) {
+        await AuthRepository.instance.removePaymentsPin(currentPin: current);
+      } else {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+      if (mounted) {
+        setState(() {
+          _loadingRemove = false;
+          _globalStoredPin = null;
+          _currentPinRemoveCtrl.clear();
+        });
+        _showSnack(
+          c,
+          'PIN removed successfully. Your payments page is now open.',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loadingRemove = false);
+        _showSnack(
+          c,
+          e.toString().replaceFirst('Exception: ', ''),
+          isError: true,
+        );
+      }
     }
   }
 
@@ -3961,7 +4070,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'e.g. Abdullah Azeem',
+                    hintText: 'e.g. Account Title as per CNIC',
                     hintStyle: TextStyle(
                       color: c.textPlaceholder,
                       fontSize: 13.5,
@@ -4014,7 +4123,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                     fontWeight: FontWeight.w500,
                   ),
                   decoration: InputDecoration(
-                    hintText: 'e.g. 03225352786',
+                    hintText: 'e.g. Account Number (digits only)',
                     hintStyle: TextStyle(
                       color: c.textPlaceholder,
                       fontSize: 13.5,

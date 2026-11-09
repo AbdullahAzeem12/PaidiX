@@ -79,29 +79,26 @@ class UserProfile {
     this.bankBeneficiary,
   });
 
-  /// Canonical initial profile matching verified screenshot prototype
-  factory UserProfile.defaultProfile() {
+  /// Initial unauthenticated clean profile for the application.
+  factory UserProfile.empty() {
+    final now = DateTime.now();
     return UserProfile(
-      fullName: 'Abdullah Azeem',
-      email: 'kherool66@gmail.com',
+      fullName: '',
+      email: '',
       countryCode: '+92',
-      phoneNumber: '+923217649976',
-      cnicNumber: '35202-04504615',
-      city: 'لاہور',
-      address: 'Canalberg Housing Society',
-      createdAt: DateTime(2026, 10, 29, 1, 9),
-      updatedAt: DateTime(2026, 10, 29, 21, 33),
-      kycStatus: KycReviewStatus.pendingReview,
-      hasCompletedKyc: true,
-      smsConsent: true,
-      bankName: 'Meezan Bank Limited',
-      bankAccountNumber: '01010102030405',
-      bankIban: null,
-      bankBeneficiary: 'Abdullah Azeem',
+      phoneNumber: '',
+      cnicNumber: '',
+      city: '',
+      address: '',
+      createdAt: now,
+      updatedAt: now,
+      kycStatus: KycReviewStatus.notStarted,
+      hasCompletedKyc: false,
+      smsConsent: false,
     );
   }
 
-  /// First name for greetings (e.g. "Hello, Abdullah.")
+  /// First name for greetings.
   String get firstName {
     final trimmed = fullName.trim();
     if (trimmed.isEmpty) return 'User';

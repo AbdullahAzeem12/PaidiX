@@ -6,6 +6,7 @@ import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/features/payments/data/payments_repository_impl.dart';
 import 'package:paidix/features/payments/domain/payment_models.dart';
 import 'package:paidix/features/payments/presentation/pages/payments_page.dart';
+import 'test_fixtures.dart';
 // import 'package:paidix/features/payments/presentation/widgets/bulk_add_payments_dialog.dart';
 import 'package:paidix/features/payments/presentation/widgets/payments_filter_bar.dart';
 
@@ -331,7 +332,7 @@ void main() {
   testWidgets(
       'PaymentsPage mock data, recycler view animation, and interactive Showing Rows Page pagination controls',
       (WidgetTester tester) async {
-    final repo = PaymentsRepositoryImpl(seedMockData: true);
+    final repo = PaymentsRepositoryImpl(createTestPayments());
 
     expect(repo.payments.length, equals(32));
     expect(repo.payments[0].reference, equals('PBX-2026-001332'));

@@ -114,6 +114,34 @@ class PhoneFormatter {
   static String format(String raw, {required bool isUs}) {
     return isUs ? formatUs(raw) : formatPk(raw);
   }
+
+  /// Parses a raw phone string from server or database and returns the detected
+  /// [CountryCodeOption] and formatted display digits (e.g. '321 7649975').
+  static (CountryCodeOption, String) parse(
+    String raw, {
+    CountryCodeOption defaultCountry = CountryCodeOption.pk,
+  }) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return (defaultCountry, '');
+
+    if (trimmed.startsWith('+1') ||
+        trimmed.toUpperCase().startsWith('US') ||
+        (defaultCountry.isUs && !trimmed.startsWith('+92') && !trimmed.startsWith('92'))) {
+      final digits = clean(trimmed);
+      final national =
+          digits.startsWith('1') && digits.length > 10 ? digits.substring(1) : digits;
+      return (CountryCodeOption.us, formatUs(national));
+    }
+
+    // Pakistan standard
+    var digits = clean(trimmed);
+    if (digits.startsWith('92') && digits.length > 2) {
+      digits = digits.substring(2);
+    } else if (digits.startsWith('0') && digits.length > 1) {
+      digits = digits.substring(1);
+    }
+    return (CountryCodeOption.pk, formatPk(digits));
+  }
 }
 
 /// Smart real-time text input formatter for phone fields.

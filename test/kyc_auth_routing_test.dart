@@ -9,11 +9,12 @@ import 'package:paidix/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:paidix/features/kyc/domain/kyc_models.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
+import 'test_fixtures.dart';
 
 /// Configures and launches the application or test suite.
 void main() {
   setUp(() {
-    UserProfileRepository.instance.resetToDefault();
+    setupTestState();
   });
 
   group('One-Time KYC Verification Routing & Persistence Suite', () {
@@ -285,15 +286,7 @@ void main() {
       expect(repo.profile.cnicFrontBytes, equals(dummyFront));
       expect(repo.profile.cnicBackBytes, equals(dummyBack));
 
-      // Verify canonical alias kheroali66@gmail.com is synced
-      final userAli = repo.findUser('kheroali66@gmail.com');
-      expect(userAli, isNotNull);
-      expect(userAli!.fullName, equals('Abdullah Azeem Updated'));
-      expect(userAli.city, equals('Lahore Model Town'));
-      expect(userAli.avatarBytes, equals(dummyAvatar));
-      expect(userAli.selfieBytes, equals(dummySelfie));
-
-      // Verify canonical alias kherool66@gmail.com is synced
+      // Verify updated user in registry
       final userOol = repo.findUser('kherool66@gmail.com');
       expect(userOol, isNotNull);
       expect(userOol!.fullName, equals('Abdullah Azeem Updated'));
@@ -301,7 +294,7 @@ void main() {
       expect(userOol.avatarBytes, equals(dummyAvatar));
     });
 
-    testWidgets('Re-login with kheroali66@gmail.com restores all updated details, documents and routes to /app/dashboard', (tester) async {
+    testWidgets('Re-login with kherool66@gmail.com restores all updated details, documents and routes to /app/dashboard', (tester) async {
       final repo = UserProfileRepository.instance;
       final dummyAvatar = Uint8List.fromList([1, 2, 3]);
       final dummySelfie = Uint8List.fromList([4, 5, 6]);
@@ -352,8 +345,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Enter kheroali66@gmail.com and sign in
-      await tester.enterText(find.byType(TextFormField).at(0), 'kheroali66@gmail.com');
+      // Enter kherool66@gmail.com and sign in
+      await tester.enterText(find.byType(TextFormField).at(0), 'kherool66@gmail.com');
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 

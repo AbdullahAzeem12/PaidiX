@@ -1,23 +1,26 @@
 # Package metadata, supported SDK range, Flutter plugins, and app asset settings.
 name: paidix
 description: "PaidiX Mobile App - Global invoice, payment and spending platform."
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: ">=3.0.0 <4.0.0"
   flutter: ">=3.10.0"
 
 dependencies:
   flutter:
     sdk: flutter
+  http: ^1.2.2
+  # Optional: For hardware-encrypted secure storage of JWT tokens
+  flutter_secure_storage: ^9.2.2
   cupertino_icons: ^2.0.0
-  go_router: ^18.1.2
+  go_router: ^18.1.3
   image_picker: ^1.2.4
   permission_handler: ^13.0.2
-  flutter_local_notifications: ^22.3.3
+  flutter_local_notifications: ^23.0.0
   url_launcher: ^6.3.3
-  path_provider: ^2.1.2
+  path_provider: ^2.1.5
   google_fonts: ^9.0.0
 
 dev_dependencies:

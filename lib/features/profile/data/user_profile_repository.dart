@@ -14,7 +14,7 @@ import '../domain/user_profile.dart';
 /// Follows PaidiX architecture (single process-memory ValueNotifier,
 /// identical to PaymentsRepositoryImpl, with resilient background disk caching).
 class UserProfileRepository {
-  /// Creates the singleton repository and seeds the built-in demo profiles.
+  /// Creates the singleton repository and initializes user state.
   UserProfileRepository._internal() {
     _initDefaultUsers();
   }
@@ -27,27 +27,40 @@ class UserProfileRepository {
   final Map<String, UserProfile> _registeredUsers = {};
   Directory? _storageDir;
 
-  /// Seeds demo profiles and starts restoring any saved profile data.
-  void _initDefaultUsers() {
-    final def = UserProfile.defaultProfile();
-    _registeredUsers[def.email.toLowerCase()] = def;
-    // Canonical aliases for demo logins (e.g. kheroali66@gmail.com)
-    _registeredUsers['kheroali66@gmail.com'] =
-        def.copyWith(email: 'kheroali66@gmail.com');
-    _registeredUsers['admin@paidix.com'] =
-        def.copyWith(email: 'admin@paidix.com');
+  /// Sets active profile and bank accounts strictly for automated test suites.
+  @visibleForTesting
+  void setProfileForTesting(UserProfile user, {List<BankAccountItem>? banks}) {
+    if (user.email.isNotEmpty) {
+      _registeredUsers[user.email.toLowerCase()] = user;
+    }
+    profileNotifier.value = user;
+    if (banks != null && user.email.isNotEmpty) {
+      final key = _normalizeEmailKey(user.email);
+      _bankAccountsCache[key] = List<BankAccountItem>.from(banks);
+    }
+  }
 
+  /// Initializes user profile state with clean unauthenticated profile.
+  void _initDefaultUsers() {
     // Attempt to restore previously saved profile details & documents from disk
     _loadPersistedDefaultUsers();
   }
 
+  /// Explicitly awaits restoration of persisted active user from disk.
+  Future<void> init() async {
+    await _loadPersistedDefaultUsers();
+  }
+
   final ValueNotifier<UserProfile> profileNotifier =
-      ValueNotifier<UserProfile>(UserProfile.defaultProfile());
+      ValueNotifier<UserProfile>(UserProfile.empty());
 
   UserProfile get profile => profileNotifier.value;
 
   /// Remembers the current KYC onboarding step across activity pause/destruction
   KycStep activeKycStep = KycStep.personal;
+
+  /// Remembers whether the user was picking CNIC front or back across process reclamation
+  String? pendingPickSide;
 
   /// Normalizes an email into a filesystem-safe key for the user's storage folder.
   String _normalizeEmailKey(String email) {
@@ -83,8 +96,51 @@ class UserProfileRepository {
     }
   }
 
-  /// Writes the profile and its identity-document data to the user's storage folder.
+  // Latest profile waiting to be written, per user key. KYC calls syncFromKyc
+  // on every field edit / image pick, so rapid successive changes are
+  // coalesced (only the newest state is written) and disk writes never overlap.
+  final Map<String, UserProfile> _pendingPersist = {};
+  bool _persistRunning = false;
+
+  // Byte buffers already written to disk (by file path). Unchanged — and
+  // potentially large — images are not rewritten on every sync.
+  final Map<String, Uint8List> _persistedBytes = {};
+
   Future<void> _persistUser(UserProfile user) async {
+    if (user.email.isEmpty || kIsWeb) return;
+    _pendingPersist[_normalizeEmailKey(user.email)] = user;
+    if (_persistRunning) return;
+
+    _persistRunning = true;
+    try {
+      while (_pendingPersist.isNotEmpty) {
+        final key = _pendingPersist.keys.first;
+        final next = _pendingPersist.remove(key)!;
+        await _persistUserNow(next);
+      }
+    } finally {
+      _persistRunning = false;
+    }
+  }
+
+  /// Writes [bytes] to [file] unless this exact buffer was already written
+  /// there. Returns the path to record in profile.json.
+  Future<String?> _writeImageIfChanged(
+    File file,
+    Uint8List? bytes,
+    String? fallbackPath,
+  ) async {
+    if (bytes == null || bytes.isEmpty) return fallbackPath;
+    final alreadyWritten =
+        identical(_persistedBytes[file.path], bytes) && file.existsSync();
+    if (!alreadyWritten) {
+      await file.writeAsBytes(bytes, flush: true);
+      _persistedBytes[file.path] = bytes;
+    }
+    return file.path;
+  }
+
+  Future<void> _persistUserNow(UserProfile user) async {
     if (user.email.isEmpty || kIsWeb) return;
     try {
       final baseDir = await _getStorageDir();
@@ -96,32 +152,31 @@ class UserProfileRepository {
         userDir.createSync(recursive: true);
       }
 
-      String? selfiePath = user.selfieFilePath;
-      if (user.selfieBytes != null && user.selfieBytes!.isNotEmpty) {
-        final f = File('${userDir.path}/selfie.jpg');
-        await f.writeAsBytes(user.selfieBytes!, flush: true);
-        selfiePath = f.path;
-      }
+      final selfiePath = await _writeImageIfChanged(
+        File('${userDir.path}/selfie.jpg'),
+        user.selfieBytes,
+        user.selfieFilePath,
+      );
 
-      String? cnicFrontPath = user.cnicFrontFilePath;
-      if (user.cnicFrontBytes != null && user.cnicFrontBytes!.isNotEmpty) {
-        final f = File('${userDir.path}/cnic_front.jpg');
-        await f.writeAsBytes(user.cnicFrontBytes!, flush: true);
-        cnicFrontPath = f.path;
-      }
+      final cnicFrontPath = await _writeImageIfChanged(
+        File('${userDir.path}/cnic_front.jpg'),
+        user.cnicFrontBytes,
+        user.cnicFrontFilePath,
+      );
 
-      String? cnicBackPath = user.cnicBackFilePath;
-      if (user.cnicBackBytes != null && user.cnicBackBytes!.isNotEmpty) {
-        final f = File('${userDir.path}/cnic_back.jpg');
-        await f.writeAsBytes(user.cnicBackBytes!, flush: true);
-        cnicBackPath = f.path;
-      }
+      final cnicBackPath = await _writeImageIfChanged(
+        File('${userDir.path}/cnic_back.jpg'),
+        user.cnicBackBytes,
+        user.cnicBackFilePath,
+      );
 
       String? avatarPath = user.avatarFilePath;
       if (user.avatarBytes != null && user.avatarBytes!.isNotEmpty) {
-        final f = File('${userDir.path}/avatar.jpg');
-        await f.writeAsBytes(user.avatarBytes!, flush: true);
-        avatarPath = f.path;
+        avatarPath = await _writeImageIfChanged(
+          File('${userDir.path}/avatar.jpg'),
+          user.avatarBytes,
+          user.avatarFilePath,
+        );
       } else if (!user.hasCustomAvatar) {
         final f = File('${userDir.path}/avatar.jpg');
         if (f.existsSync()) {
@@ -140,6 +195,13 @@ class UserProfileRepository {
 
       final jsonFile = File('${userDir.path}/profile.json');
       await jsonFile.writeAsString(jsonEncode(profileToSave.toJson()),
+          flush: true);
+
+      final lastUserFile = File('${baseDir.path}/last_active_user.txt');
+      await lastUserFile.writeAsString(user.email.trim(), flush: true);
+
+      final lastStepFile = File('${baseDir.path}/last_active_kyc_step.txt');
+      await lastStepFile.writeAsString(activeKycStep.index.toString(),
           flush: true);
     } catch (e) {
       debugPrint('Persistence error: $e');
@@ -198,16 +260,30 @@ class UserProfileRepository {
     }
   }
 
-  /// Restores saved demo profiles into the in-memory user registry.
+  /// Restores the last active saved user profile from local storage.
   Future<void> _loadPersistedDefaultUsers() async {
     try {
-      final saved = await _loadUserFromDisk('kheroali66@gmail.com') ??
-          await _loadUserFromDisk('kherool66@gmail.com');
-      if (saved != null) {
-        _saveRegisteredUser(saved, persist: false);
-        if (profileNotifier.value.email == 'kherool66@gmail.com' ||
-            profileNotifier.value.email == 'kheroali66@gmail.com') {
-          profileNotifier.value = saved;
+      final dir = await _getStorageDir();
+      if (dir != null && dir.existsSync()) {
+        final lastStepFile = File('${dir.path}/last_active_kyc_step.txt');
+        if (lastStepFile.existsSync()) {
+          final stepStr = (await lastStepFile.readAsString()).trim();
+          final idx = int.tryParse(stepStr);
+          if (idx != null && idx >= 0 && idx < KycStep.values.length) {
+            activeKycStep = KycStep.values[idx];
+          }
+        }
+
+        final lastUserFile = File('${dir.path}/last_active_user.txt');
+        if (lastUserFile.existsSync()) {
+          final lastEmail = (await lastUserFile.readAsString()).trim();
+          if (lastEmail.isNotEmpty) {
+            final saved = await _loadUserFromDisk(lastEmail);
+            if (saved != null) {
+              _saveRegisteredUser(saved, persist: false);
+              profileNotifier.value = saved;
+            }
+          }
         }
       }
     } catch (_) {}
@@ -218,15 +294,6 @@ class UserProfileRepository {
     if (user.email.isEmpty) return;
     final lower = user.email.trim().toLowerCase();
     _registeredUsers[lower] = user;
-
-    // Cross-link canonical aliases so updating either updates both
-    if (lower == 'kheroali66@gmail.com') {
-      _registeredUsers['kherool66@gmail.com'] =
-          user.copyWith(email: 'kherool66@gmail.com');
-    } else if (lower == 'kherool66@gmail.com') {
-      _registeredUsers['kheroali66@gmail.com'] =
-          user.copyWith(email: 'kheroali66@gmail.com');
-    }
 
     if (persist) {
       _persistUser(user);
@@ -270,6 +337,11 @@ class UserProfileRepository {
     _saveRegisteredUser(updated);
   }
 
+  /// Explicitly marks KYC submission as pending review.
+  void markKycPendingReview() {
+    markKycCompleted();
+  }
+
   /// Checks whether any registered user has already signed in or verified with this CNIC.
   /// If [excludeEmail] is provided, ignores that user's own profile.
   bool isCnicAlreadyRegistered(String rawCnic, {String? excludeEmail}) {
@@ -277,21 +349,12 @@ class UserProfileRepository {
     if (cleanDigits.length != 13) return false;
 
     final normalizedExclude = excludeEmail?.trim().toLowerCase();
-    final isDemoAccount = normalizedExclude == 'kherool66@gmail.com' ||
-        normalizedExclude == 'kheroali66@gmail.com' ||
-        normalizedExclude == 'admin@paidix.com';
 
     // Check against all registered users
     for (final entry in _registeredUsers.entries) {
       final entryEmail = entry.key.toLowerCase();
-      if (normalizedExclude != null) {
-        if (entryEmail == normalizedExclude) continue;
-        if (isDemoAccount &&
-            (entryEmail == 'kherool66@gmail.com' ||
-                entryEmail == 'kheroali66@gmail.com' ||
-                entryEmail == 'admin@paidix.com')) {
-          continue;
-        }
+      if (normalizedExclude != null && entryEmail == normalizedExclude) {
+        continue;
       }
       final existingClean =
           entry.value.cnicNumber.replaceAll(RegExp(r'\D'), '');
@@ -500,9 +563,10 @@ class UserProfileRepository {
     _saveRegisteredUser(updated);
   }
 
-  /// Restores the display preferences and temporary balance reveal state to their defaults.
+  /// Resets the user profile repository to clean unauthenticated guest state.
   void resetToDefault() {
-    profileNotifier.value = UserProfile.defaultProfile();
+    _bankAccountsCache.clear();
+    profileNotifier.value = UserProfile.empty();
     activeKycStep = KycStep.personal;
   }
 
@@ -510,28 +574,17 @@ class UserProfileRepository {
 
   /// Synchronous retrieval of bank accounts for initial UI render
   List<BankAccountItem> getBankAccountsSync(String email) {
+    if (email.trim().isEmpty) return const [];
     final key = _normalizeEmailKey(email);
     if (_bankAccountsCache.containsKey(key)) {
       return List<BankAccountItem>.from(_bankAccountsCache[key]!);
     }
-    final defaultList = [
-      BankAccountItem(
-        id: 'default_jazzcash',
-        bankName: 'JazzCash (Mobilink Microfinance Bank)',
-        holder: profileNotifier.value.fullName.isNotEmpty
-            ? profileNotifier.value.fullName
-            : 'Abdullah Azeem',
-        accountNumber: '03225352786',
-        iban: '',
-        isPrimary: true,
-      ),
-    ];
-    _bankAccountsCache[key] = defaultList;
-    return List<BankAccountItem>.from(defaultList);
+    return const [];
   }
 
   /// Loads bank accounts for a given user email, with local disk caching
   Future<List<BankAccountItem>> loadBankAccounts(String email) async {
+    if (email.trim().isEmpty) return const [];
     final key = _normalizeEmailKey(email);
     if (_bankAccountsCache.containsKey(key)) {
       return List<BankAccountItem>.from(_bankAccountsCache[key]!);
@@ -558,21 +611,7 @@ class UserProfileRepository {
       debugPrint('Error loading bank accounts: $e');
     }
 
-    // Default seed account matching Screenshot 1 & 2
-    final defaultList = [
-      BankAccountItem(
-        id: 'default_jazzcash',
-        bankName: 'JazzCash (Mobilink Microfinance Bank)',
-        holder: profileNotifier.value.fullName.isNotEmpty
-            ? profileNotifier.value.fullName
-            : 'Abdullah Azeem',
-        accountNumber: '03225352786',
-        iban: '',
-        isPrimary: true,
-      ),
-    ];
-    _bankAccountsCache[key] = defaultList;
-    return List<BankAccountItem>.from(defaultList);
+    return const [];
   }
 
   /// Saves bank accounts for a given user email to memory and disk, syncing primary details

@@ -126,7 +126,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   Future<void> _pickImage() async {
     HapticFeedback.lightImpact();
 
-    // Fast-path in widget test harness where native platform channels are not mocked
+    // Fast-path in widget test harness where native camera/gallery channels are unavailable
     if (!kIsWeb && Platform.environment.containsKey('FLUTTER_TEST')) {
       _simulateFilePick();
       return;
@@ -177,9 +177,9 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     }
   }
 
-  /// Supplies a demo receipt name when the platform file picker is unavailable.
+  /// Supplies a fallback receipt name when the platform file picker is unavailable.
   void _simulateFilePick() {
-    // Allows selecting a sample proof file for testing workflow
+    // Allows selecting a proof file for verification workflow
     setState(() {
       _selectedFileName =
           'payment_receipt_${DateTime.now().millisecondsSinceEpoch % 10000}.png';

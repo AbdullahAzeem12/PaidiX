@@ -11,10 +11,12 @@ import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/cnic_formatter.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
+import 'kyc_media_access.dart';
 
 class Step2IdentityView extends StatefulWidget {
   final IdentityDocInfo identityInfo;
@@ -35,12 +37,15 @@ class Step2IdentityView extends StatefulWidget {
   State<Step2IdentityView> createState() => _Step2IdentityViewState();
 }
 
-class _Step2IdentityViewState extends State<Step2IdentityView> {
+class _Step2IdentityViewState extends State<Step2IdentityView>
+    with WidgetsBindingObserver {
   late final TextEditingController _cnicController;
   final _picker = ImagePicker();
   final _processor = const KycImageProcessor();
 
   bool _isProcessing = false;
+  bool _isPickingImage = false;
+  bool _isCheckingLostData = false;
   double _processingProgress = 0.0;
   String _processingStage = '';
 
@@ -53,6 +58,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final initialCnic = widget.identityInfo.cnicNumber;
     _cnicController = TextEditingController(text: initialCnic);
     if (initialCnic.isNotEmpty) {
@@ -64,23 +70,51 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
   /// Restores image if the Android OS destroyed and recreated MainActivity
   /// while the user was interacting with external Gallery app.
   Future<void> _checkLostData() async {
-    if (kIsWeb || !Platform.isAndroid) return;
+    if (kIsWeb ||
+        !Platform.isAndroid ||
+        _isPickingImage ||
+        _isCheckingLostData) {
+      return;
+    }
+    _isCheckingLostData = true;
     try {
       final response = await _picker.retrieveLostData();
       if (response.isEmpty) return;
+      if (response.exception != null) {
+        debugPrint('retrieveLostData exception: ${response.exception}');
+      }
       final file = response.file;
       if (file != null) {
-        final isFront = _pendingPickSide != 'back';
+        final pending =
+            UserProfileRepository.instance.pendingPickSide ?? _pendingPickSide;
+        final isFront = pending != 'back';
         await _applyPickedImage(file, isFront);
+        UserProfileRepository.instance.pendingPickSide = null;
+        _pendingPickSide = null;
       }
     } catch (e) {
       debugPrint('retrieveLostData error: $e');
+    } finally {
+      _isCheckingLostData = false;
+    }
+  }
+
+  /// Re-syncs lost images and schedules a fresh frame on returning from external gallery.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkLostData();
+      if (mounted) {
+        setState(() {});
+        WidgetsBinding.instance.scheduleFrame();
+      }
     }
   }
 
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _debounceTimer?.cancel();
     _cnicController.dispose();
     super.dispose();
@@ -142,6 +176,23 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
   Future<void> _applyPickedImage(XFile xFile, bool isFront) async {
     try {
       final bytes = await xFile.readAsBytes();
+
+      // Reject files the engine cannot decode (e.g. HEIC/HEIF on some
+      // devices) up-front, instead of letting them blow up later inside
+      // Image.memory and blank the screen.
+      if (!await KycMediaAccess.isDecodable(bytes)) {
+        if (mounted) {
+          PaidiXToast.showError(
+            context,
+            'This image format is not supported. Please choose a JPEG or PNG photo of your CNIC.',
+          );
+        }
+        return;
+      }
+      // The view can be disposed while the gallery / file read was in flight
+      // (Android recreating the activity). Don't push state into a dead tree.
+      if (!mounted) return;
+
       final fileName = xFile.name.isNotEmpty
           ? xFile.name
           : (isFront ? 'cnic_front.jpg' : 'cnic_back.jpg');
@@ -167,20 +218,38 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
       }
     } catch (e) {
       debugPrint('Error applying picked image bytes: $e');
+      if (mounted) {
+        PaidiXToast.showError(context, 'Error processing image: $e');
+      }
     }
   }
 
-  /// Opens native photo gallery without in-memory bitmap downscaling OOM spikes.
+  /// Requests native photo permission when needed, then opens the system
+  /// picker. The picker downscales high-resolution photos before Dart reads
+  /// them, which bounds memory use on lower-memory devices.
   Future<void> _pickImage(bool isFront) async {
+    if (_isPickingImage) return;
+    _isPickingImage = true;
     HapticFeedback.lightImpact();
     _pendingPickSide = isFront ? 'front' : 'back';
+    UserProfileRepository.instance.pendingPickSide = _pendingPickSide;
 
+    // Permission request is handled by the OS; scoped picker access still
+    // works if the user declines broad photo-library access.
     try {
+      final canOpenPicker = await KycMediaAccess.ensureGalleryAccess(context);
+      if (!canOpenPicker || !mounted) return;
+
       XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
+        maxWidth: KycMediaAccess.maxDimension,
+        maxHeight: KycMediaAccess.maxDimension,
+        imageQuality: KycMediaAccess.jpegQuality,
       );
 
-      if (xFile == null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      if (xFile == null &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android) {
         try {
           final lost = await _picker.retrieveLostData();
           if (!lost.isEmpty && lost.file != null) {
@@ -191,26 +260,19 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
 
       if (xFile != null) {
         await _applyPickedImage(xFile, isFront);
+        UserProfileRepository.instance.pendingPickSide = null;
+        _pendingPickSide = null;
       }
     } catch (e) {
       debugPrint('pickImage error: $e');
-      // Fallback for simulated or desktop test harness
-      final fallbackName = isFront ? 'image (3).png' : 'image (2).png';
-      if (isFront) {
-        widget.onChanged(
-          widget.identityInfo.copyWith(
-            frontFileName: fallbackName,
-            isEnhanced: false,
-          ),
-        );
-      } else {
-        widget.onChanged(
-          widget.identityInfo.copyWith(
-            backFileName: fallbackName,
-            isEnhanced: false,
-          ),
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not load photo from gallery. Please check permissions.',
         );
       }
+    } finally {
+      _isPickingImage = false;
     }
   }
 
@@ -1151,6 +1213,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
     bool isBack,
     PaidiXColorScheme colors,
   ) {
+    // errorBuilder: if bytes/file can't be decoded (corrupt file, unsupported
+    // codec, the 64-byte stub from a failed pick) fall back to the CNIC
+    // placeholder instead of letting Flutter replace the screen with a
+    // blank/grey ErrorWidget in release builds.
     if (bytes != null) {
       return Image.memory(
         bytes,
@@ -1158,6 +1224,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         width: double.infinity,
         height: double.infinity,
         cacheWidth: 1080,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => _buildCnicPlaceholder(isBack, colors),
       );
     }
     if (filePath != null && !kIsWeb && File(filePath).existsSync()) {
@@ -1167,9 +1235,17 @@ class _Step2IdentityViewState extends State<Step2IdentityView> {
         width: double.infinity,
         height: double.infinity,
         cacheWidth: 1080,
+        gaplessPlayback: true,
+        errorBuilder: (_, __, ___) => _buildCnicPlaceholder(isBack, colors),
       );
     }
 
+    return _buildCnicPlaceholder(isBack, colors);
+  }
+
+  /// High fidelity synthetic CNIC illustration shown when no decodable image
+  /// is available.
+  Widget _buildCnicPlaceholder(bool isBack, PaidiXColorScheme colors) {
     final displayCnic = _cnicController.text.isNotEmpty
         ? CnicValidator.format(_cnicController.text)
         : '42101-1234567-1';

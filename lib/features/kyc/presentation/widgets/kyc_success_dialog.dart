@@ -77,9 +77,12 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
   }
 
   /// Closes the KYC success dialog and navigates to the dashboard.
+  ///
+  /// Local submission is never treated as admin approval. Onboarding stays
+  /// visible until the server marks the account verified.
   void _onProceedToDashboard() {
     HapticFeedback.mediumImpact();
-    UserProfileRepository.instance.markKycCompleted();
+    UserProfileRepository.instance.markKycPendingReview();
     Navigator.of(context).pop();
     context.go('/app/dashboard');
   }

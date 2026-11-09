@@ -2,7 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:paidix/app/theme/app_theme.dart';
+import 'package:paidix/features/profile/data/user_profile_repository.dart';
+import 'package:paidix/features/profile/domain/user_profile.dart';
+import 'test_fixtures.dart';
 import 'package:paidix/core/utils/bank_account_validator.dart';
 import 'package:paidix/core/utils/cnic_formatter.dart';
 import 'package:paidix/core/utils/phone_formatter.dart';
@@ -608,6 +612,52 @@ void main() {
       expect(find.text('Submitted & Under Review'), findsOneWidget);
       expect(find.text('Go to Dashboard'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets(
+        'KycSuccessDialog Go to Dashboard keeps pending review, not local admin approval',
+        (tester) async {
+      setupTestState();
+      UserProfileRepository.instance.markKycPendingReview();
+
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => Scaffold(
+              body: ElevatedButton(
+                onPressed: () => KycSuccessDialog.show(context),
+                child: const Text('Show Kyc Dialog'),
+              ),
+            ),
+          ),
+          GoRoute(
+            path: '/app/dashboard',
+            builder: (context, state) =>
+                const Scaffold(body: Text('Dashboard Page')),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        MaterialApp.router(
+          theme: AppTheme.lightTheme,
+          routerConfig: router,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Show Kyc Dialog'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Go to Dashboard'));
+      await tester.pumpAndSettle();
+
+      expect(
+        UserProfileRepository.instance.profile.kycStatus,
+        KycReviewStatus.pendingReview,
+      );
+      expect(find.text('Dashboard Page'), findsOneWidget);
     });
   });
 }

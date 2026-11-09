@@ -2,7 +2,12 @@
 
 import 'package:flutter/material.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/phone_formatter.dart';
+import '../../../auth/data/auth_repository.dart';
+import '../../data/kyc_repository.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../domain/kyc_models.dart';
 import '../widgets/kyc_header.dart';
@@ -73,6 +78,87 @@ class _KycPageState extends State<KycPage> {
         iban: profile.bankIban ?? '',
       ),
     );
+
+    if (AppConfig.hasCustomBackend) {
+      _loadServerDraft();
+    }
+  }
+
+  /// Restores any previously saved onboarding step and fields from the server.
+  Future<void> _loadServerDraft() async {
+    try {
+      final draft = await KycRepository.instance.getOnboardingProgress();
+      if (!mounted || draft.isEmpty) return;
+
+      final goto = draft['goto'] as int? ?? draft['onboarding_step'] as int?;
+      final data = draft['data'] as Map<String, dynamic>? ?? {};
+
+      setState(() {
+        if (data.isNotEmpty) {
+          final serverPhone =
+              (data['phone'] ?? data['phoneNumber']) as String? ?? '';
+          final serverFullName =
+              (data['full_name'] ?? data['fullName']) as String? ?? '';
+          final serverAddress = data['address'] as String? ?? '';
+          final serverCity = data['city'] as String? ?? '';
+          final serverCnic =
+              (data['cnic_number'] ?? data['cnicNumber']) as String? ?? '';
+
+          _state = _state.copyWith(
+            personal: _state.personal.copyWith(
+              fullName: serverFullName.isNotEmpty
+                  ? serverFullName
+                  : _state.personal.fullName,
+              phoneNumber: serverPhone.isNotEmpty
+                  ? serverPhone
+                  : _state.personal.phoneNumber,
+              address: serverAddress.isNotEmpty
+                  ? serverAddress
+                  : _state.personal.address,
+              city: serverCity.isNotEmpty ? serverCity : _state.personal.city,
+            ),
+            identity: _state.identity.copyWith(
+              cnicNumber: serverCnic.isNotEmpty
+                  ? serverCnic
+                  : _state.identity.cnicNumber,
+            ),
+          );
+        }
+
+        if (goto != null && goto >= 0 && goto < KycStep.values.length) {
+          final targetStep = KycStep.values[goto];
+          _goToStep(targetStep);
+        }
+      });
+
+      // If phone is still not populated, check /auth/me/
+      if (_state.personal.phoneNumber.isEmpty) {
+        try {
+          final me = await AuthRepository.instance.fetchCurrentUserProfile();
+          final mePhone =
+              (me['phone'] ?? me['phoneNumber']) as String? ?? '';
+          final meFullName =
+              (me['full_name'] ?? me['fullName']) as String? ?? '';
+          if (mounted && (mePhone.isNotEmpty || meFullName.isNotEmpty)) {
+            setState(() {
+              _state = _state.copyWith(
+                personal: _state.personal.copyWith(
+                  phoneNumber: mePhone.isNotEmpty
+                      ? mePhone
+                      : _state.personal.phoneNumber,
+                  fullName: meFullName.isNotEmpty
+                      ? meFullName
+                      : _state.personal.fullName,
+                ),
+              );
+            });
+            UserProfileRepository.instance.syncFromKyc(_state);
+          }
+        } catch (_) {}
+      }
+    } catch (_) {
+      // Non-blocking draft load fallback
+    }
   }
 
   /// Saves the current KYC data and moves the form to [step].
@@ -91,6 +177,26 @@ class _KycPageState extends State<KycPage> {
     if (nextIndex < KycStep.values.length) {
       final nextStep = KycStep.values[nextIndex];
       _goToStep(nextStep);
+
+      // Asynchronously sync step draft to backend
+      if (AppConfig.hasCustomBackend) {
+        final digits = PhoneFormatter.clean(_state.personal.phoneNumber);
+        final apiPhone = _state.personal.countryCode.contains('US') ||
+                _state.personal.countryCode.contains('+1')
+            ? '+1$digits'
+            : (digits.isNotEmpty ? '+92$digits' : _state.personal.phoneNumber);
+
+        KycRepository.instance.saveOnboardingStepDraft(
+          step: nextIndex,
+          fields: {
+            'full_name': _state.personal.fullName,
+            'phone': apiPhone,
+            'address': _state.personal.address ?? '',
+            'city': _state.personal.city ?? '',
+            'cnic_number': _state.identity.cnicNumber,
+          },
+        );
+      }
     }
   }
 
@@ -103,18 +209,41 @@ class _KycPageState extends State<KycPage> {
     }
   }
 
+  bool _isSubmitting = false;
+
   /// Marks KYC complete, syncs the submitted data, and opens the success dialog.
-  void _handleSubmit() {
+  Future<void> _handleSubmit() async {
+    if (_isSubmitting) return;
     setState(() {
-      _state = _state.copyWith(isSubmitted: true);
+      _isSubmitting = true;
     });
-    UserProfileRepository.instance.syncFromKyc(_state);
-    UserProfileRepository.instance.markKycCompleted();
-    PaidiXToast.showSuccess(
-      context,
-      'KYC documents submitted successfully for 1-LINK clearance.',
-    );
-    KycSuccessDialog.show(context);
+
+    try {
+      await KycRepository.instance.submitKyc(_state);
+
+      if (!mounted) return;
+      setState(() {
+        _state = _state.copyWith(isSubmitted: true);
+      });
+
+      PaidiXToast.showSuccess(
+        context,
+        'KYC documents submitted successfully for 1-LINK clearance.',
+      );
+      KycSuccessDialog.show(context);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      PaidiXToast.showError(context, 'KYC submission error: ${e.message}');
+    } catch (e) {
+      if (!mounted) return;
+      PaidiXToast.showError(context, 'Unable to submit KYC: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   /// Builds the widget subtree from its current properties and inherited context.

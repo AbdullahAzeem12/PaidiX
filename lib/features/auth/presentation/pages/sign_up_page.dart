@@ -14,8 +14,13 @@ import '../../../../core/widgets/auth_header.dart';
 import '../../../../core/widgets/auth_primary_button.dart';
 import '../../../../core/widgets/auth_text_field.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/widgets/server_error_page.dart';
 import '../../../../core/widgets/spongy_tap.dart';
-import '../../../profile/data/user_profile_repository.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/config/app_config.dart';
+import '../widgets/email_otp_dialog.dart';
+import '../../data/auth_repository.dart';
+import '../../domain/auth_models.dart';
 import '../../domain/auth_validators.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -94,6 +99,17 @@ class _SignUpPageState extends State<SignUpPage>
     });
   }
 
+  /// Returns a human-readable title for server error dialogs based on status code.
+  String _serverErrorTitle(int statusCode) {
+    switch (statusCode) {
+      case 500: return 'Server Error';
+      case 502: return 'Gateway Error';
+      case 503: return 'Service Unavailable';
+      case 504: return 'Gateway Timeout';
+      default:  return 'Connection Error';
+    }
+  }
+
   /// Validates the fields, registers the local profile, and starts KYC onboarding.
   Future<void> _handleSignUp() async {
     if (!(_formKey.currentState?.validate() ?? false)) {
@@ -110,52 +126,107 @@ class _SignUpPageState extends State<SignUpPage>
     }
 
     setState(() => _isLoading = true);
-    // Real integration endpoint boundary
-    await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _isLoading = false);
 
-    // Clean and normalize phone number with selected country code
-    final rawPhone = _phoneController.text.trim();
-    String formattedPhone = '';
-    if (rawPhone.isNotEmpty) {
-      final cleanDigits = PhoneFormatter.clean(rawPhone);
-      String nationalDigits = cleanDigits;
-      if (_selectedCountry.isUs) {
-        if (nationalDigits.startsWith('1') && nationalDigits.length == 11) {
-          nationalDigits = nationalDigits.substring(1);
-        }
-        if (nationalDigits.isNotEmpty) {
-          formattedPhone = '+1 $nationalDigits';
-        }
-      } else {
-        if (nationalDigits.startsWith('92') && nationalDigits.length > 2) {
-          nationalDigits = nationalDigits.substring(2);
-        } else if (nationalDigits.startsWith('0') && nationalDigits.length > 1) {
-          nationalDigits = nationalDigits.substring(1);
-        }
-        if (nationalDigits.isNotEmpty) {
-          formattedPhone = '+92 $nationalDigits';
+    try {
+      // Clean and normalize phone number with selected country code
+      final rawPhone = _phoneController.text.trim();
+      String formattedPhone = '';
+      if (rawPhone.isNotEmpty) {
+        final cleanDigits = PhoneFormatter.clean(rawPhone);
+        String nationalDigits = cleanDigits;
+        if (_selectedCountry.isUs) {
+          if (nationalDigits.startsWith('1') && nationalDigits.length == 11) {
+            nationalDigits = nationalDigits.substring(1);
+          }
+          if (nationalDigits.isNotEmpty) {
+            formattedPhone = '+1 $nationalDigits';
+          }
+        } else {
+          if (nationalDigits.startsWith('92') && nationalDigits.length > 2) {
+            nationalDigits = nationalDigits.substring(2);
+          } else if (nationalDigits.startsWith('0') && nationalDigits.length > 1) {
+            nationalDigits = nationalDigits.substring(1);
+          }
+          if (nationalDigits.isNotEmpty) {
+            formattedPhone = '+92 $nationalDigits';
+          }
         }
       }
+
+      final request = SignUpRequest(
+        fullName: _fullNameController.text.trim(),
+        email: _emailController.text.trim().toLowerCase(),
+        phone: formattedPhone.isNotEmpty ? formattedPhone : null,
+        password: _passwordController.text,
+        smsConsent: _smsConsentChecked,
+      );
+
+      await AuthRepository.instance.signUp(request);
+
+      if (!mounted) return;
+
+      if (AppConfig.hasCustomBackend) {
+        _showOtpVerificationDialog(
+          email: request.email,
+          password: request.password,
+        );
+      } else {
+        PaidiXToast.showSuccess(
+          context,
+          'Account created successfully! Proceeding to KYC verification.',
+        );
+        context.go('/kyc');
+      }
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      if (e.isRetryable) {
+        // 500, 502, 503, 504 — transient server errors → full ServerErrorDialog
+        ServerErrorDialog.show(
+          context,
+          info: ServerErrorInfo(
+            statusCode: e.statusCode,
+            title: _serverErrorTitle(e.statusCode),
+            message: e.message,
+            errorCode: e.errorCode ?? 'ERR_SIGNUP_${e.statusCode}',
+          ),
+          onRetry: () => _handleSignUp(),
+        );
+      } else if (e.statusCode == 429) {
+        final hint = e.retryAfterSeconds != null
+            ? ' Try again in ${e.retryAfterSeconds}s.'
+            : '';
+        PaidiXToast.showWarning(context, '${e.message}$hint');
+      } else {
+        PaidiXToast.showError(context, e.message);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      PaidiXToast.showError(context, 'Sign up failed: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
+  }
 
-    // Sync signed-up user credentials into global repository
-    UserProfileRepository.instance.syncFromSignUp(
-      fullName: _fullNameController.text.trim(),
-      email: _emailController.text.trim(),
-      countryCode: _selectedCountry.display,
-      phoneNumber: formattedPhone,
-      smsConsent: _smsConsentChecked,
-    );
-
-    PaidiXToast.showSuccess(
+  /// Displays the OTP email verification modal after signup.
+  void _showOtpVerificationDialog({
+    required String email,
+    required String password,
+  }) {
+    EmailOtpDialog.show(
       context,
-      'Account created successfully! Proceeding to KYC verification.',
+      email: email,
+      password: password,
+      onVerified: () {
+        if (!mounted) return;
+        PaidiXToast.showSuccess(
+          context,
+          'Email verified successfully! Proceeding to KYC onboarding.',
+        );
+        context.go('/kyc');
+      },
     );
-
-    // Newly registered accounts proceed to regulatory KYC verification
-    context.go('/kyc');
   }
 
   /// Toggles the user's optional SMS consent value.

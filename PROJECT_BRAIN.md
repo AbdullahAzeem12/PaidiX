@@ -2,11 +2,11 @@
 
 **Read this file first.** It is the source of truth for architecture, routing, Gradle, domain rules, and file locations. Do **not** recursively scan `lib/`, `android/`, or `build/` unless a task requires editing a specific file listed here.
 
-- **Maintained as of:** 2026-10-30
+- **Maintained as of:** 2026-11-09
 - **App version:** `1.0.0+1` (`pubspec.yaml`)
 - **Flutter package name:** `paidix`
 - **Product:** Global invoice / incoming-payment / spending platform. Tagline: *Move Money. Build Trust.*
-- **Current stage:** Client-side Flutter UI with **in-memory repositories**. No HTTP client, no persistence, no auth backend, no Firebase.
+- **Current stage:** Production-grade Flutter application with zero hardcoded demo data. Full backend and authentication integration ready (`ApiClient`, `AuthRepository`, `KycRepository`, secure storage token persistence, and isolated test fixtures in `test/test_fixtures.dart`).
 
 When you change behavior, **update this file in the same change** (routes, formulas, Gradle, new features, invariants).
 
@@ -52,14 +52,18 @@ When you change behavior, **update this file in the same change** (routes, formu
 | Layer | Choice |
 | :--- | :--- |
 | UI | Flutter Material 3, `MaterialApp.router` |
-| Routing | `go_router` `^14.8.1` |
+| Routing | `go_router` `^18.1.3` |
 | State | Widget local `setState` + one shared `ValueNotifier` on payments |
+| Network & HTTP | `http` `^1.2.2`, `ApiClient` (`lib/core/network/api_client.dart`) with Bearer auth token injection & multipart upload |
+| Secure Storage | `flutter_secure_storage` `^9.2.4` for JWT session token persistence |
+| Config | `AppConfig` (`lib/core/config/app_config.dart`) via compile-time `--dart-define` |
 | Images | `image_picker` `^1.2.4` (KYC only) |
 | Permissions | `permission_handler` `^13.0.2` |
-| Notifications | `flutter_local_notifications` `^22.3.3` (Android channel `paidix_kyc_channel`) |
-| Icons | `cupertino_icons` `^1.0.8` |
+| Notifications | `flutter_local_notifications` `^23.0.0` (Android channel `paidix_kyc_channel`) |
+| Icons | `cupertino_icons` `^2.0.0` |
+| Fonts | `google_fonts` `^9.0.0` |
 | SDK | Dart `>=3.0.0 <4.0.0`, Flutter `>=3.10.0` |
-| Lint | `flutter_lints` `^5.0.0` via `package:lints/recommended.yaml` |
+| Lint | `flutter_lints` `^6.0.0` via `package:lints/recommended.yaml` |
 | Analyzer excludes | `build/**`, `android/**`, `ios/**`, `web/**`, `windows/**`, `macos/**`, `linux/**` |
 
 ---
@@ -124,8 +128,9 @@ kotlin.incremental.jvm=false
 - Adaptive Icons: `mipmap-anydpi-v26/ic_launcher.xml` and `ic_launcher_round.xml` with `@color/ic_launcher_background` (`#022F32`) and centered safe-zone `@mipmap/ic_launcher_foreground`
 - Activity: `.MainActivity`, `singleTop`, `adjustResize`, Flutter embedding **2**
 - **Impeller disabled:** `io.flutter.embedding.android.EnableImpeller` = `false`
+- `<queries>`: `PROCESS_TEXT`, `VIEW https`, plus package-visibility intents for the image picker / camera (`GET_CONTENT image/*`, `PICK image/*`, `IMAGE_CAPTURE`) so OEM builds (Huawei EMUI/HarmonyOS) don't hide the gallery/camera app from `image_picker`
 
-**`MainActivity.kt`** (`com.paidix.paidix`): `FlutterActivity` configured with `RenderMode.texture` (`getRenderMode()` and AndroidManifest meta-data) to permanently prevent black/blank screen freezes when resuming from external Gallery/Camera activities on Huawei EMUI/HarmonyOS devices.
+**`MainActivity.kt`** (`com.paidix.paidix`): `FlutterActivity` configured with `RenderMode.surface` (`getRenderMode()` returning `RenderMode.surface`) to ensure Android WindowManager directly manages and automatically restores the surface context on resume from external Gallery/Camera activities on Huawei EMUI/HarmonyOS devices. Image picker calls across KYC and settings constrain resolution to `1024x1024` with quality 80 to eliminate native BitmapFactory Dalvik/ART OOM heap crashes on high-res photos. Lifecycle redraw is enforced via `WidgetsBindingObserver` on resume.
 
 **Debug/profile manifests:** `INTERNET` only (hot reload).
 
@@ -162,12 +167,14 @@ lib/
 │   ├── router.dart           go_router + sharedPaymentsRepository
 │   └── theme/                colors, theme, typography, spacing, motion
 ├── core/
+│   ├── config/app_config.dart (API Base URL, client API keys via compile-time --dart-define)
+│   ├── network/api_client.dart (Resilient HTTP client, Bearer JWT injection, multipart streaming, timeouts)
 │   ├── services/notification_service.dart
 │   ├── utils/                formatters, payment validators, CNIC
 │   └── widgets/              shell, buttons, fields, badges, nav
 └── features/
-    ├── auth/                 domain models + validators + sign in/up pages (no repository)
-    ├── kyc/                  models, image processor (simulated), 4-step UI
+    ├── auth/                 domain models, AuthRepository (live API & offline fallback), validators, sign in/up pages
+    ├── kyc/                  models, KycRepository (multipart KYC upload & offline fallback), image processor, 4-step UI
     ├── dashboard/            models + impl wrapping payments repo + page
     ├── payments/             models, abstract repo, in-memory impl, list + new form
     └── settings/             Account Settings (Profile, Security, Bank Accounts, Payments PIN, Appearance)
@@ -185,7 +192,25 @@ final appRouter = createAppRouter(initialLocation: '/signin');
 
 Tests that need a clean router should call `createAppRouter(...)` with a fresh location; production uses `appRouter`.
 
-There is **no** HTTP client or auth backend. User profile, KYC identity documents (Selfie, CNIC Front, CNIC Back), and avatar are stored persistently via `UserProfileRepository` in local device storage (`paidix_users/<email>/profile.json` and image files) with synchronized in-memory caching, surviving logout, re-login, and app restarts. Payments repository remains process-memory based.
+**Backend & Authentication Integration:**
+PaidiX supports both live server communication and offline persistent state with zero hardcoded demo data:
+- **Live Mode:** Configured with default base URL `https://201.79.42.93.nip.io/api/v1` in `lib/core/config/app_config.dart` (or via `--dart-define=API_BASE_URL=...`). `CLIENT_API_KEY` is optional and omitted when empty (`clientApiKey.isEmpty ? null : clientApiKey`). `ApiClient` manages automatic double-token storage (`paidix_auth_jwt_token` for 60-minute access token and `paidix_auth_refresh_token` for 7-day refresh token in `FlutterSecureStorage`), with resilient silent refresh on 401 `token_not_valid` (`POST /auth/refresh/`), slash normalization, and comprehensive Django REST framework error parsing (`detail`, `code`, and field error dictionaries).
+- **Authentication Endpoints:**
+  - `POST /auth/signup/request-otp/` & `POST /auth/email/verify/` & `POST /auth/email/resend/`: Registration, 6-digit OTP verification dialog, and code resend.
+  - `POST /auth/login/`: SimpleJWT authentication returning `access` and `refresh` tokens, profile completeness, and KYC status (`approved`, `pending`, `draft`, `rejected`).
+  - `POST /auth/logout/`: Revokes active refresh token and cleans local storage.
+  - `GET /auth/me/` & `PATCH /auth/me/`: Current profile retrieval and live profile updates (with multipart avatar support).
+  - `POST /auth/forgot-password/request-otp/` & `POST /auth/forgot-password/reset/`: Password recovery flow.
+  - `POST /auth/change-password/`: Authenticated user password update.
+  - `GET /auth/payments-pin/`, `POST /auth/payments-pin/`, `DELETE /auth/payments-pin/`, `POST /auth/payments-pin/verify/`: Payments PIN lifecycle and sensitive operations verification.
+  - `GET /accounts/cnic-available/?cnic=...`: Live real-time CNIC availability check during KYC Step 2.
+  - `POST /accounts/process-img/`: Server-side enhancement & auto-crop for regulatory documents.
+  - `GET /banking/banks/pk/`: Real Pakistani bank directory lookup.
+  - `POST /accounts/profile/`: Multipart KYC document bundle submission (`cnic_front`, `cnic_back`, `selfie`).
+  - `POST /banking/bank-accounts/`: Primary settlement bank account registration.
+  - `GET /auth/onboarding-step/` & `PATCH /auth/onboarding-step/`: Multi-step onboarding state restoration and draft autosave.
+  - `GET /accounts/profile/`: Real-time KYC approval status verification.
+- **Local Persistence & Clean Slate:** Retains local disk storage via `UserProfileRepository` (`paidix_users/<email>/profile.json`) with zero pre-seeded demo users or mock cards. Production code in `lib/` contains 0 fake transactions and 0 hardcoded accounts. Automated test suites run against isolated test fixtures in `test/test_fixtures.dart`, maintaining 100% test pass rate across all 142 tests.
 
 ---
 
@@ -201,19 +226,26 @@ Defined in `lib/app/router.dart`. Transitions: fade (most), slide+fade for `/app
 | `/server-error` | no | `ServerErrorPage` | Full-screen server/gateway outage fallback with retry & diagnostic drawer |
 | `/app/dashboard` | **AppShell** | `DashboardPage` | |
 | `/app/onboarding` | **AppShell** | `OnboardingProfilePage` | Dynamic user profile & KYC review |
-| `/app/settings` | AppShell | `AccountSettingsPage` | 5-tab settings: Profile (read/edit name, phone with single +92 prefix without duplication, CNIC, city, address, camera badge avatar with auto-crop & enhance, responsive update/remove avatar dialog with dual-theme color management [clean white surface with soft border in light mode & sunken dark teal in dark mode; soft rose `#FFF1F3` background with crimson `#BE123C` title in light mode & midnight ruby `#261217` in dark mode for destructive action], and high-fidelity 3-card saved documents section for Selfie, CNIC Front, CNIC Back featuring emerald preview banner, header row with `✓ Enhanced` badges, 155px container with floating zoom lens overlay, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` flow), Security (password update, 3 eye-toggle fields), Bank Accounts (responsive cards matching desktop/mobile specifications: gold ACCOUNTS eyebrow, security audit notice, PKR RECEIVING (PAKISTAN) + Add account pill, cards with uppercase bank headers, ☆ Primary badge / Set as primary toggle, prominent holder title, •••• •••• 2786 masked number, divider, Edit and Remove actions with confirmation dialog; Edit/Add Pakistani bank account modal with audit notice, 39-institution authoritative banking & digital wallet directory with clean bank account names, standard semantic outline icons, real-time search, BankSelectorSheet, letters-only / digits-only validation, optional IBAN, persistent storage via UserProfileRepository in paidix_users/<email>/bank_accounts.json, and zero overflow on 320px–1200px), Payments PIN (4–8 digit lock, update with previous PIN verification, email recovery, and destructive remove), Appearance (Dark/Light/System theme cards + Financial Display & Privacy Preferences Studio featuring Stealth Privacy Mode for balance masking, tap-to-reveal on Dashboard Customer Score card, Compact Currency Notation formatting, live preview, persistent storage in paidix_fx_display_prefs.json, and zero overflow on 320px–1200px screens). Slide-in/slide-out page transition. On mobile viewports, `AppShell` automatically hides its global `AppBar` and `PaidiXBottomNavBar` on `/app/settings`, eliminating double headers and stacked navigation bars. Tapping the back button (`_buildMobileTopBar` and `_buildSideNav`) navigates directly to `/app/dashboard` with spongy haptic feedback and smooth easeOutCubic slide+fade transition. Responsive wide breakpoint requires `width >= 768 && height >= 520` so tilted/landscape mobile phones (740x360, 800x360, 850x390, 896x414) automatically render the mobile layout with the 48px horizontal tab bar and full-width content, completely eliminating the 223px sidebar flex overflow; sidebar navigation and modal dialogs are wrapped in `SingleChildScrollView` to guarantee zero pixel overflow on any phone orientation. |
+| `/app/settings` | AppShell | `AccountSettingsPage` | 5-tab settings: Profile (read/edit name, phone with single +92 prefix without duplication, CNIC, city, address, camera badge avatar with auto-crop & enhance, responsive update/remove avatar dialog with dual-theme color management [clean white surface with soft border in light mode & sunken dark teal in dark mode; soft rose `#FFF1F3` background with crimson `#BE123C` title in light mode & midnight ruby `#261217` in dark mode for destructive action], and high-fidelity 3-card saved documents section for Selfie, CNIC Front, CNIC Back featuring emerald preview banner, header row with `✓ Enhanced` badges, 155px container with floating zoom lens overlay, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` flow), Security (password update via `POST /auth/change-password/`, 3 eye-toggle fields), Bank Accounts (responsive cards matching desktop/mobile specifications: gold ACCOUNTS eyebrow, security audit notice, PKR RECEIVING (PAKISTAN) + Add account pill, cards with uppercase bank headers, ☆ Primary badge / Set as primary toggle, prominent holder title, •••• •••• 2786 masked number, divider, Edit and Remove actions with confirmation dialog; Edit/Add Pakistani bank account modal with audit notice, 39-institution authoritative banking & digital wallet directory with clean bank account names, standard semantic outline icons, real-time search, BankSelectorSheet, letters-only / digits-only validation, optional IBAN, persistent storage via UserProfileRepository in paidix_users/<email>/bank_accounts.json, and zero overflow on 320px–1200px), Payments PIN (4–8 digit lock, set/update/remove via `POST/DELETE /auth/payments-pin/` with previous PIN verification, email recovery, and destructive remove), Appearance (Dark/Light/System theme cards + Financial Display & Privacy Preferences Studio featuring Stealth Privacy Mode for balance masking, tap-to-reveal on Dashboard Customer Score card, Compact Currency Notation formatting, live preview, persistent storage in paidix_fx_display_prefs.json, and zero overflow on 320px–1200px screens). Slide-in/slide-out page transition. On mobile viewports, `AppShell` automatically hides its global `AppBar` and `PaidiXBottomNavBar` on `/app/settings`, eliminating double headers and stacked navigation bars. Tapping the back button (`_buildMobileTopBar` and `_buildSideNav`) navigates directly to `/app/dashboard` with spongy haptic feedback and smooth easeOutCubic slide+fade transition. Responsive wide breakpoint requires `width >= 768 && height >= 520` so tilted/landscape mobile phones (740x360, 800x360, 850x390, 896x414) automatically render the mobile layout with the 48px horizontal tab bar and full-width content, completely eliminating the 223px sidebar flex overflow; sidebar navigation and modal dialogs are wrapped in `SingleChildScrollView` to guarantee zero pixel overflow on any phone orientation. |
 | `/app/payments` | AppShell | `PaymentsPage` | Payments list with `SmoothAnimatedListItem` pop-in/fade-in entrance & bouncy physics, search, interactive `PaginationControls` (Showing range, interactive Rows selector chips 10/20/30/50/100/Custom, Page navigation with direct jump dialog), and collapsible `PaymentsFilterBar` (closed by default, animated expand/collapse, horizontal slider for side-by-side Range/Currency/Status chips with popup menus). Bulk Add option and connectivity are commented out. |
 | `/app/payments/new` | AppShell | `NewPaymentPage` | nested under payments |
 
-**Auth (simulated 600ms delay, no API):**
+**Auth Flow:**
 
-- Sign up success: registers user with `hasCompletedKyc: false` → routes to `/kyc` for initial onboarding
-- Sign in: if email contains `admin` or `verified`, or account has completed KYC (`hasCompletedKyc == true`) → `/app/dashboard`; else unverified new user → `/kyc`
-- Forgot password: dialog only (“instructions will be sent”)
-- Sign-up SMS consent is a checkbox; phone is optional
+- Sign up: Calls `POST /auth/signup/request-otp/` -> Opens 6-digit OTP verification dialog (`POST /auth/email/verify/`) with 60s resend timer -> Automatically authenticates user via `POST /auth/login/` -> Saves JWT tokens to secure storage -> Routes to `/kyc` for initial onboarding.
+- Sign in: Calls `POST /auth/login/` -> If server returns 401 `EMAIL_UNVERIFIED`, opens OTP dialog -> On success, saves access & refresh tokens -> If KYC is approved and complete -> `/app/dashboard`; else unverified/draft new user -> `/kyc` restoring saved server step.
+- Forgot password: Opens live dialog requesting 6-digit email OTP (`POST /auth/forgot-password/request-otp/`) and verifies new password (`POST /auth/forgot-password/reset/`).
+- Sign-up SMS consent is a checkbox; phone is optional.
 - **Active Session Inactivity Timeout (5 Minutes Idle Security):** Monitored automatically via `SessionTimeoutService.instance` and transparent `Listener` + `Focus` hooks in `AppShell`. Every pointer touch, scroll, drag, gesture, keystroke, and tab switch resets the 5-minute timer. If the user leaves the application idle with 0 interaction for 5 continuous minutes while in an authenticated session, the active session locks and displays `SessionTimeoutDialog` (non-dismissible modal with `PopScope(canPop: false)`, illuminated gold timer halo, eyebrow badge `SESSION EXPIRED • 5 MIN INACTIVITY`, and financial reassurance copy). Tapping **"Log In Again"** executes immediate logout, clears local repository states, navigates cleanly to `/signin`, and displays a top PaidiX warning notification (`Session expired due to 5 minutes of inactivity. Please sign in again.`).
 
-**KYC:**
+**KYC Flow:**
+
+- Header can `go('/signin')`
+- Auto-draft sync: On Step 1-3 changes, automatically saves progress to `PATCH /auth/onboarding-step/` (`goto: 'stepN'`).
+- Live CNIC validation: Calls `GET /accounts/cnic-available/?cnic=...` as user types.
+- Image processing: Enhances regulatory photos (`POST /accounts/process-img/`).
+- Bank Accounts: Fetches live directory (`GET /banking/banks/pk/`).
+- Submit KYC: Submits multipart identity bundle (`POST /accounts/profile/`), creates primary bank account (`POST /banking/bank-accounts/`), sets step 4 complete, saves KYC details, sets `hasCompletedKyc: true` -> `KycSuccessDialog` (non-dismissible) -> **Go to Dashboard** -> `/app/dashboard`. Zero push notifications during document/selfie enhancement.
 
 - Header can `go('/signin')`
 - Submit last step: saves all KYC details permanently, sets `hasCompletedKyc: true` → `KycSuccessDialog` (non-dismissible) → **Go to Dashboard** → `/app/dashboard`. Zero push notifications during document/selfie enhancement.
@@ -227,7 +259,7 @@ Defined in `lib/app/router.dart`. Transitions: fade (most), slide+fade for `/app
 
 Bottom navigation bar (`PaidiXBottomNavBar`) provides fully responsive adaptive horizontal spacing (320px–480px+), zero text truncation via auto-fitting typography (`FittedBox(fit: BoxFit.scaleDown)`), 0ms raw pointer touch compression (`Curves.easeInOutCubic`), bouncy spring release (`Curves.easeOutBack` on scale), animated icon scaling & color transitions, active pill illumination, and fluid micro-indicator accent lines with strictly monotonic easing (`Curves.easeOutCubic`) to guarantee non-negative `BoxShadow` blur radii during backward and forward tab transitions.
 
-Dynamic user profile state via `UserProfileRepository.instance`. Default profile: **Abdullah Azeem** / `kheroali66@gmail.com` (with `kherool66@gmail.com` synchronized alias) / avatar **A**. Dashboard greeting: **Hello, ${profile.firstName}.** Plan badge: **BASIC PLAN**. Edit Profile & Account Settings provide real-time updates, single clean `PK +92` phone prefix without duplication, elevated camera badge avatar (76px/88px diameter, clean circular teal border without background shadow, high-contrast floating badge, centered face alignment `Alignment(0.0, -0.22)`), interactive update/remove avatar modal restoring initial letter "A", and responsive 3-card saved documents section (Selfie, CNIC Front, CNIC Back). For Selfie: dedicated biometric portrait presentation with atmospheric frosted blurred backdrop, centered 118x144 emerald-framed portrait preview targeting human face/eyes without vertical squishing (background radial guide ring removed for a clean focused look), `PORTRAIT BIOMETRIC` badge, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` action with zero overflow across 320px–1200px screens. User profile details, custom avatars, and regulatory documents are persisted to local device storage and restored automatically upon re-login. Avatar updates are synchronized across `AppShell` mobile header and desktop sidebar.
+Dynamic user profile state via `UserProfileRepository.instance`. Default unauthenticated state: `UserProfile.empty()`. Dashboard greeting: **Hello, ${profile.firstName.isNotEmpty ? profile.firstName : 'User'}.** Edit Profile & Account Settings provide real-time updates, single clean `PK +92` phone prefix without duplication, elevated camera badge avatar (76px/88px diameter, clean circular teal border without background shadow, high-contrast floating badge, centered face alignment `Alignment(0.0, -0.22)`), interactive update/remove avatar modal restoring initial letter "U", and responsive 3-card saved documents section (Selfie, CNIC Front, CNIC Back). For Selfie: dedicated biometric portrait presentation with atmospheric frosted blurred backdrop, centered 118x144 emerald-framed portrait preview targeting human face/eyes without vertical squishing (background radial guide ring removed for a clean focused look), `PORTRAIT BIOMETRIC` badge, tap-to-inspect `DocumentViewerDialog`, and spongy `Replace` action with zero overflow across 320px–1200px screens. User profile details, custom avatars, and regulatory documents are persisted to local device storage and restored automatically upon re-login. Avatar updates are synchronized across `AppShell` mobile header and desktop sidebar. Dedicated test profiles and aliases are isolated exclusively in `test/test_fixtures.dart`.
 
 ---
 
@@ -243,7 +275,7 @@ Constants (must stay in sync with tests):
 - New item `id`: `pay_<epochMs>`
 - **Every `submitPayment` sets `status: PaymentStatusType.completed`**
 - List is newest-first (`insert(0, ...)`)
-- Default constructor `PaymentsRepositoryImpl({bool seedMockData = false})` starts **empty** by default for unit tests, while `sharedPaymentsRepository` in `router.dart` enables `seedMockData: true` so all active users immediately experience 32 realistic mock items where the top 4 exactly mirror production screenshots (`PBX-2026-001332`, `PBX-2026-001331`, `PBX-2026-001333`, `PBX-2026-001330` Completed), with realistic mock data distribution across all 7 statuses: Completed (18 items), Pending Review / Under Review (3 items: `pay_1329`, `pay_1327`, `pay_1324`), Awaiting PKR / PKR Sent (3 items: `pay_1328`, `pay_1325`, `pay_1322`), Submitted (2 items: `pay_1309`, `pay_1308`), Verified (2 items: `pay_1307`, `pay_1306`), On Hold (2 items: `pay_1305`, `pay_1304`), and Rejected (2 items: `pay_1303`, `pay_1302`). Methods `seedMockData()` and `clearPayments()` are available on repository.
+- Clean production state: `sharedPaymentsRepository` in `router.dart` initializes with `PaymentsRepositoryImpl()`, providing a 100% clean, empty transaction ledger with authentic empty states across Dashboard and Payments screens. Mock payments are completely purged from `lib/` and isolated in `test/test_fixtures.dart`.
 
 Formula:
 
@@ -316,6 +348,16 @@ Simulated registry (`CnicValidator.checkAvailability`, 320ms):
 - else `available`
 
 **Image “enhancement”** (`KycImageProcessor.enhanceDocument`): timed progress stages (~280ms each), returns original bytes (or 64-byte stub), fake ~62% size reduction. Not real CV.
+
+**Gallery / camera pick hardening** (`kyc/presentation/widgets/kyc_media_access.dart`, used by `step2_identity_view` CNIC front/back and `step3_photo_view` selfie):
+
+- `KycMediaAccess.ensureGalleryAccess(context)` requests native OS photo access when unavailable (Android 13+ photos, older Android storage, iOS photos), without an app-specific permission dialog. It still opens the platform picker if broad access is denied because the system picker grants access to the selected image.
+- KYC pick calls pass `maxWidth/maxHeight = 1600`, `imageQuality = 88` to bound decoded image memory on lower-memory phones. `image_picker_android` resizes before Dart reads the returned file.
+- Step 2 and Step 3 serialize picker/recovery operations so `retrieveLostData()` cannot race the active external picker on activity resume.
+- `KycMediaAccess.isDecodable(bytes)` rejects images the engine can't decode (e.g. some HEIC/HEIF) with a toast before they're stored; `if (!mounted) return` guards state pushes after the async pick.
+- Every `Image.memory` / `Image.file` that shows KYC documents has an `errorBuilder` falling back to the placeholder (step 2 CNIC card, step 3 avatar, `document_viewer_dialog`), because an undecodable image (incl. the 64-byte stub from the failed-pick fallback) would otherwise render a blank/grey `ErrorWidget` in release.
+- `UserProfileRepository._persistUser` coalesces overlapping writes (latest state wins, never concurrent) and skips rewriting image files whose exact `Uint8List` was already written (`_persistedBytes`), instead of rewriting selfie/CNIC/avatar with `flush: true` on every `syncFromKyc`.
+- Known limit: if the OS kills the whole process while the gallery is open, app state is in-memory only (auth is a timer, `activeKycStep` is not persisted) so the user restarts at `/signin`; `retrieveLostData` only recovers the image once step 2/3 is shown again.
 
 **Notifications:** KYC pick/enhance paths call `NotificationService` (Android). Init uses `@mipmap/ic_launcher`. Permission request failures are swallowed (`return true` in catch).
 
@@ -415,7 +457,7 @@ Feature widgets stay under `features/*/presentation/widgets/`.
 - `lib/features/kyc/domain/kyc_models.dart`
 - `lib/features/kyc/data/kyc_image_processor.dart`
 - `lib/features/kyc/presentation/pages/kyc_page.dart`
-- widgets: `kyc_header`, `kyc_stepper`, `kyc_success_dialog`, `kyc_permission_dialog`, `kyc_file_picker_tile`, `step1_personal_view`, `step2_identity_view`, `step3_photo_view`, `step4_bank_view`
+- widgets: `kyc_header`, `kyc_stepper`, `kyc_success_dialog`, `kyc_permission_dialog`, `kyc_media_access`, `kyc_file_picker_tile`, `step1_personal_view`, `step2_identity_view`, `step3_photo_view`, `step4_bank_view`
 
 ### Profile & Onboarding
 
@@ -500,6 +542,7 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 7. Sign-Up & KYC country selector supports PK (+92) and US (+1) with synchronized country code, dynamic phone mask/placeholder, and end-to-end repository sync (`UserProfileRepository.syncFromSignUp`).
 8. KYC Step 2 CNIC verification validates format (1-8 province code, 13 digits) and verifies uniqueness against existing registered users in `UserProfileRepository` (`isCnicAlreadyRegistered`). Displays institutional status pills (`Available` + `Unique CNIC • Unregistered`) or duplicate error (`This CNIC is already registered to an existing account. Please sign in.`), omitting fabricated external registry claims.
 9. KYC Step 4 Bank Linking & Settings Bank Accounts use separate text sections for Account Number (Required, MUST) and IBAN (Optional). `BankAccountValidator` detects unique account number lengths and rules across Pakistani commercial banks, Islamic banks, and digital wallets (JazzCash, EasyPaisa, SadaPay, NayaPay, Meezan, HBL, UBL, Alfalah, etc.) with real-time validation and length counters. IBAN is optional and validates 24-character `PK` standard when provided.
+10. KYC Step 1 pre-populates the phone number and country code from the registered user's profile (`UserProfileRepository.instance.profile.phoneNumber`) or server onboarding draft (`/auth/onboarding-step/` or `/auth/me/`) via `PhoneFormatter.parse`. KYC gallery picking uses native OS photo permission prompts when required and the system's per-image grant; Step 3 camera capture uses `PermissionHelper`. KYC native image picking is bounded to 1600px at quality 88, and lost-data recovery is serialized with active picker calls to reduce memory pressure and activity-resume races on EMUI/HarmonyOS and other Android devices.
 
 **Gaps / traps**
 
@@ -566,7 +609,7 @@ android/app/src/main/res/mipmap-*/     launcher icons
 - Bulk Add: Commented out across the complete project (button in PaymentsPage, dialog widget, batch submission logic, and connectivity commented out as requested).
 - Synchronized Balance Reveal: When Stealth Mode is enabled, tapping the eye icon next to Customer Score VOLUME or tapping any financial card immediately and simultaneously unmasks/masks all financial balances across the Dashboard (Customer Score VOLUME, PKR RECEIVED, TOTAL TRANSFERRED TO YOU, and AWAITING VERIFICATION) in real time.
 - Status Summary Grid Interactive Filtering & Spongy Animations: StatusMetricCards on Dashboard (TRANSACTIONS, PENDING REVIEW, AWAITING PKR, COMPLETED) are fully interactive with spongy tap physics (SpongyTap, pressScale: 0.94, haptic feedback), illuminated status borders, subtle card glow tint, glowing active indicator dots, and 'ACTIVE' chips. Tapping any card reactively filters the RECENT ACTIVITY payments list to only show matching payments with smooth AnimatedSwitcher slide-and-fade cross-transitions, renders an active filter banner ('Showing [Status] payments (N)') with one-tap Clear, contextual empty states if no items match, and toggles back to all transactions upon tapping TRANSACTIONS or tapping the active card again.
-- Full Multi-Status Mock Data & Filter Support: Complete mock data coverage across all 7 payment statuses (Submitted, Under Review / Pending Review, Verified, PKR Sent / Awaiting PKR, Completed, On Hold, Rejected). Selecting any status via the interactive status summary grid or the header Filters dropdown reactively updates the active filter banner with status-designated brand colors and dot indicators, renders matching items with dedicated status badge styles, and provides instant one-tap Reset/Clear across both Dashboard and My Payments pages.
+- Full Multi-Status Filter Support: Complete filtering and presentation coverage across all 7 payment statuses (Submitted, Under Review / Pending Review, Verified, PKR Sent / Awaiting PKR, Completed, On Hold, Rejected). Selecting any status via the interactive status summary grid or the header Filters dropdown reactively updates the active filter banner with status-designated brand colors and dot indicators, renders matching items with dedicated status badge styles, and provides instant one-tap Reset/Clear across both Dashboard and My Payments pages. Authentic empty states are displayed when no transactions exist.
 - Auto Professional Profile Picture Cropper & Confirmation Dialog: Intelligent auto-crop engine and minimalist confirmation dialog (`ProfilePictureCropDialog`). Replaces manual crop sliders/pinching with zero-friction automation: automatically analyzes photo aspect ratio ($W \times H$), centers the subject with golden-ratio vertical headroom compensation (`cropY = (H - W) * 0.20` for portraits, horizontal centering for landscapes), and renders a pristine 512×512 1:1 square output. Presents a clean, institutional confirmation modal with a crisp 160px circular avatar preview, concise guidance ('Preview before saving'), and clean `Cancel` / `Save` actions without decorative emoji badges or gimmick filters. Completely eliminates manual cropping hassle, black empty letterboxing, and squishing/pressing distortion. Regulatory KYC documents (Selfie, CNIC Front, CNIC Back) continue utilizing their separate compliance enhancement pipeline.
 - Dynamic Onboarding Navigation & Server Verification Retirement: The "Onboarding" navigation tab is only displayed when a newly registered user has completed signup and submitted their KYC documents under review (kycStatus == KycReviewStatus.pendingReview). Once the user is verified by the server (kycStatus == KycReviewStatus.verified), the Onboarding tab permanently and cleanly retires from both the mobile bottom navigation bar and desktop sidebar, streamlining navigation to 3 core destinations (Dashboard, My Payments, New Payment). If a verified user navigates to /app/onboarding, the router automatically and cleanly redirects them to /app/dashboard.
 - Institutional KYC Compliance & Document Preview: Replaced consumer AI-slop image-filter bragging in regulatory KYC flows with bank-grade compliance standards. Omitted algorithmic brag badges (✓ Auto-Aligned, ✓ Glare Suppressed, ✓ Contrast Boosted) and replaced auto_awesome sparkle glyphs with steady institutional shield icons (Icons.shield_outlined). Primary KYC action buttons cleanly read 'Continue' rather than 'Enhance & Continue'. Document preview cards and account settings status badges cleanly indicate 'Uploaded' or 'Verified' rather than 'Enhanced', with regulatory SBP KYC compliance copy.

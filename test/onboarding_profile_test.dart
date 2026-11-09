@@ -11,6 +11,7 @@ import 'package:paidix/features/profile/domain/user_profile.dart';
 import 'package:paidix/features/profile/presentation/pages/onboarding_profile_page.dart';
 import 'package:paidix/features/profile/presentation/widgets/document_viewer_dialog.dart';
 import 'package:paidix/features/profile/presentation/widgets/edit_profile_dialog.dart';
+import 'test_fixtures.dart';
 
 class MockImagePickerPlatform extends ImagePickerPlatform {
   /// Returns the test image-picker result for the requested source.
@@ -31,7 +32,7 @@ class MockImagePickerPlatform extends ImagePickerPlatform {
 void main() {
   setUp(() {
     ImagePickerPlatform.instance = MockImagePickerPlatform();
-    UserProfileRepository.instance.resetToDefault();
+    setupTestState();
   });
 
   group('UserProfile & UserProfileRepository Tests', () {

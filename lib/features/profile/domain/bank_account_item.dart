@@ -76,10 +76,9 @@ class BankAccountItem {
     return BankAccountItem(
       id: json['id'] as String? ??
           'bank_${DateTime.now().millisecondsSinceEpoch}',
-      bankName: json['bankName'] as String? ??
-          'JazzCash (Mobilink Microfinance Bank)',
-      holder: json['holder'] as String? ?? 'Abdullah Azeem',
-      accountNumber: json['accountNumber'] as String? ?? '03225352786',
+      bankName: json['bankName'] as String? ?? '',
+      holder: json['holder'] as String? ?? '',
+      accountNumber: json['accountNumber'] as String? ?? '',
       iban: json['iban'] as String? ?? '',
       isPrimary: json['isPrimary'] as bool? ?? false,
     );

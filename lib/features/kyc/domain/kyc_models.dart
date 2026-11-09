@@ -4,10 +4,14 @@ import 'dart:typed_data';
 import '../../../core/utils/bank_account_validator.dart';
 
 enum KycStep {
-  personal(1, 'Personal', 'Tell us about you.', 'Basic details we\'ll use on your profile.'),
-  identity(2, 'Identity', 'Verify your identity.', 'Upload clear photos of both sides of your CNIC.'),
-  photo(3, 'Photo', 'Upload your photo.', 'A clear photo of you holding your CNIC. We use this to confirm identity and as your profile picture.'),
-  bank(4, 'PK Bank', 'Link your Pakistani Bank Account.', 'Where you want your PKR payouts deposited upon payment verification.');
+  personal(1, 'Personal', 'Tell us about you.',
+      'Basic details we\'ll use on your profile.'),
+  identity(2, 'Identity', 'Verify your identity.',
+      'Upload clear photos of both sides of your CNIC.'),
+  photo(3, 'Photo', 'Upload your photo.',
+      'A clear photo of you holding your CNIC. We use this to confirm identity and as your profile picture.'),
+  bank(4, 'PK Bank', 'Link your Pakistani Bank Account.',
+      'Where you want your PKR payouts deposited upon payment verification.');
 
   final int stepNumber;
   final String label;
@@ -43,12 +47,14 @@ class PersonalInfo {
 
   bool get isValid {
     final cleanDigits = phoneNumber.replaceAll(RegExp(r'\D'), '');
-    final isUs = countryCode.contains('+1') || countryCode.toUpperCase().contains('US');
+    final isUs =
+        countryCode.contains('+1') || countryCode.toUpperCase().contains('US');
 
     final bool isPhoneValid;
     if (isUs) {
       isPhoneValid = cleanDigits.length == 10 &&
-          (int.tryParse(cleanDigits.isNotEmpty ? cleanDigits[0] : '0') ?? 0) >= 2;
+          (int.tryParse(cleanDigits.isNotEmpty ? cleanDigits[0] : '0') ?? 0) >=
+              2;
     } else {
       isPhoneValid = cleanDigits.length >= 7 && cleanDigits.length <= 11;
     }
@@ -275,4 +281,3 @@ class KycState {
     );
   }
 }
-

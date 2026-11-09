@@ -187,16 +187,30 @@ class DocumentViewerDialog extends StatelessWidget {
 
   /// Builds the image view section of this interface.
   Widget _buildImageView(PaidiXColorScheme colors) {
+    // errorBuilder: an undecodable/corrupt saved image falls back to the
+    // placeholder instead of a blank/grey ErrorWidget.
     if (bytes != null && bytes!.isNotEmpty) {
-      return Image.memory(bytes!, fit: BoxFit.contain);
+      return Image.memory(
+        bytes!,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+      );
     }
     if (filePath != null && filePath!.isNotEmpty && !kIsWeb) {
       final f = File(filePath!);
       if (f.existsSync()) {
-        return Image.file(f, fit: BoxFit.contain);
+        return Image.file(
+          f,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+        );
       }
     }
 
+    return _buildPlaceholder(colors);
+  }
+
+  Widget _buildPlaceholder(PaidiXColorScheme colors) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
