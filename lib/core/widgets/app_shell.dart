@@ -1,6 +1,7 @@
 /// Defines app shell in the application core utilities and reusable widgets.
 
 import 'dart:io';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,11 +9,14 @@ import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_motion.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_theme.dart';
+import '../../core/config/app_config.dart';
+import '../../features/auth/data/auth_repository.dart';
 import '../../features/profile/data/user_profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
 import '../services/session_timeout_service.dart';
 import 'brand_logo.dart';
 import 'paidi_x_bottom_nav_bar.dart';
+import 'paidix_toast.dart';
 import 'profile_menu_dialog.dart';
 
 class AppShell extends StatefulWidget {
@@ -30,14 +34,89 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
-class _AppShellState extends State<AppShell> {
+class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _isSidebarCollapsed = false;
+  Timer? _kycStatusTimer;
+  bool _isRefreshingKycStatus = false;
+  KycReviewStatus _lastObservedKycStatus =
+      UserProfileRepository.instance.profile.kycStatus;
 
   /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
     SessionTimeoutService.instance.startSession(context);
+    WidgetsBinding.instance.addObserver(this);
+    _startKycStatusPolling();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _redirectForKycStatus(
+        UserProfileRepository.instance.profile.kycStatus,
+      );
+      _refreshKycStatus();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startKycStatusPolling();
+      _refreshKycStatus();
+    } else {
+      _kycStatusTimer?.cancel();
+      _kycStatusTimer = null;
+    }
+  }
+
+  void _startKycStatusPolling() {
+    if (!AppConfig.hasCustomBackend || _kycStatusTimer != null) return;
+    _kycStatusTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshKycStatus(),
+    );
+  }
+
+  Future<void> _refreshKycStatus() async {
+    if (!AppConfig.hasCustomBackend || _isRefreshingKycStatus) return;
+    final user = UserProfileRepository.instance.profile;
+    if (user.email.isEmpty) return;
+
+    _isRefreshingKycStatus = true;
+    try {
+      final status = await AuthRepository.instance.refreshKycReviewStatus();
+      if (!mounted || status == null) return;
+      if (status == KycReviewStatus.rejected &&
+          _lastObservedKycStatus != KycReviewStatus.rejected) {
+        PaidiXToast.showWarning(
+          context,
+          'Your KYC was rejected. Review the feedback and resubmit your documents.',
+          title: 'KYC review update',
+        );
+      } else if (status == KycReviewStatus.verified &&
+          _lastObservedKycStatus != KycReviewStatus.verified) {
+        PaidiXToast.showSuccess(
+          context,
+          'Your identity verification is approved. You can now submit new payments.',
+          title: 'KYC approved',
+        );
+      }
+      _lastObservedKycStatus = status;
+      _redirectForKycStatus(status);
+    } catch (_) {
+      // A temporary status API outage must not overwrite the last known state.
+    } finally {
+      _isRefreshingKycStatus = false;
+    }
+  }
+
+  void _redirectForKycStatus(KycReviewStatus status) {
+    if (!mounted) return;
+    if (status == KycReviewStatus.rejected &&
+        widget.currentPath != '/app/onboarding') {
+      context.go('/app/onboarding');
+    } else if (status == KycReviewStatus.verified &&
+        widget.currentPath.startsWith('/app/onboarding')) {
+      context.go('/app/dashboard');
+    }
   }
 
   /// Synchronizes local state when the parent supplies updated widget properties.
@@ -52,6 +131,8 @@ class _AppShellState extends State<AppShell> {
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
+    _kycStatusTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     SessionTimeoutService.instance.stopSession();
     super.dispose();
   }
@@ -112,135 +193,138 @@ class _AppShellState extends State<AppShell> {
       behavior: HitTestBehavior.translucent,
       onPointerDown: (_) => SessionTimeoutService.instance.recordUserActivity(),
       onPointerMove: (_) => SessionTimeoutService.instance.recordUserActivity(),
-      onPointerHover: (_) => SessionTimeoutService.instance.recordUserActivity(),
+      onPointerHover: (_) =>
+          SessionTimeoutService.instance.recordUserActivity(),
       child: Focus(
         onKeyEvent: (node, event) {
           SessionTimeoutService.instance.recordUserActivity();
           return KeyEventResult.ignored;
         },
         child: ValueListenableBuilder<UserProfile>(
-      valueListenable: UserProfileRepository.instance.profileNotifier,
-      builder: (context, userProfile, _) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final isWide =
-                constraints.maxWidth >= 768 && constraints.maxHeight >= 520;
+          valueListenable: UserProfileRepository.instance.profileNotifier,
+          builder: (context, userProfile, _) {
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isWide =
+                    constraints.maxWidth >= 768 && constraints.maxHeight >= 520;
 
-            if (isWide) {
-              return Scaffold(
-                backgroundColor: colors.background,
-                body: Row(
-                  children: [
-                    _buildSidebar(userProfile),
-                    Expanded(
-                      child: widget.child,
+                if (isWide) {
+                  return Scaffold(
+                    backgroundColor: colors.background,
+                    body: Row(
+                      children: [
+                        _buildSidebar(userProfile),
+                        Expanded(
+                          child: widget.child,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            }
+                  );
+                }
 
-            // Mobile layout
-            final showOnboarding =
-                userProfile.kycStatus != KycReviewStatus.verified;
-            final selectedIndex = _calculateSelectedIndex(showOnboarding);
-            final isNarrowPhone = constraints.maxWidth < 360;
-            final isSettings = widget.currentPath.startsWith('/app/settings');
+                // Mobile layout
+                final showOnboarding =
+                    userProfile.kycStatus != KycReviewStatus.verified;
+                final selectedIndex = _calculateSelectedIndex(showOnboarding);
+                final isNarrowPhone = constraints.maxWidth < 360;
+                final isSettings =
+                    widget.currentPath.startsWith('/app/settings');
 
-            final navItems = showOnboarding
-                ? const [
-                    PaidiXBottomNavItem(
-                      icon: Icons.grid_view_outlined,
-                      activeIcon: Icons.grid_view_rounded,
-                      label: 'Dashboard',
-                    ),
-                    PaidiXBottomNavItem(
-                      icon: Icons.badge_outlined,
-                      activeIcon: Icons.badge,
-                      label: 'Onboarding',
-                    ),
-                    PaidiXBottomNavItem(
-                      icon: Icons.receipt_long_outlined,
-                      activeIcon: Icons.receipt_long_rounded,
-                      label: 'My Payments',
-                    ),
-                    PaidiXBottomNavItem(
-                      icon: Icons.add_circle_outline_rounded,
-                      activeIcon: Icons.add_circle_rounded,
-                      label: 'New Payment',
-                    ),
-                  ]
-                : const [
-                    PaidiXBottomNavItem(
-                      icon: Icons.grid_view_outlined,
-                      activeIcon: Icons.grid_view_rounded,
-                      label: 'Dashboard',
-                    ),
-                    PaidiXBottomNavItem(
-                      icon: Icons.receipt_long_outlined,
-                      activeIcon: Icons.receipt_long_rounded,
-                      label: 'My Payments',
-                    ),
-                    PaidiXBottomNavItem(
-                      icon: Icons.add_circle_outline_rounded,
-                      activeIcon: Icons.add_circle_rounded,
-                      label: 'New Payment',
-                    ),
-                  ];
+                final navItems = showOnboarding
+                    ? const [
+                        PaidiXBottomNavItem(
+                          icon: Icons.grid_view_outlined,
+                          activeIcon: Icons.grid_view_rounded,
+                          label: 'Dashboard',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.badge_outlined,
+                          activeIcon: Icons.badge,
+                          label: 'Onboarding',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.receipt_long_outlined,
+                          activeIcon: Icons.receipt_long_rounded,
+                          label: 'My Payments',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.add_circle_outline_rounded,
+                          activeIcon: Icons.add_circle_rounded,
+                          label: 'New Payment',
+                        ),
+                      ]
+                    : const [
+                        PaidiXBottomNavItem(
+                          icon: Icons.grid_view_outlined,
+                          activeIcon: Icons.grid_view_rounded,
+                          label: 'Dashboard',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.receipt_long_outlined,
+                          activeIcon: Icons.receipt_long_rounded,
+                          label: 'My Payments',
+                        ),
+                        PaidiXBottomNavItem(
+                          icon: Icons.add_circle_outline_rounded,
+                          activeIcon: Icons.add_circle_rounded,
+                          label: 'New Payment',
+                        ),
+                      ];
 
-            return Scaffold(
-              backgroundColor: colors.background,
-              appBar: isSettings
-                  ? null
-                  : AppBar(
-                      backgroundColor: colors.card,
-                      elevation: 0,
-                      titleSpacing: isNarrowPhone ? 10 : 16,
-                      title: const BrandLogo(
-                        size: 30,
-                        showPlanBadge: false,
-                        showTagline: false,
-                      ),
-                      actions: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () => ProfileMenuDialog.show(
-                            context: context,
-                            userProfile: userProfile,
-                            isMobile: true,
+                return Scaffold(
+                  backgroundColor: colors.background,
+                  appBar: isSettings
+                      ? null
+                      : AppBar(
+                          backgroundColor: colors.card,
+                          elevation: 0,
+                          titleSpacing: isNarrowPhone ? 10 : 16,
+                          title: const BrandLogo(
+                            size: 30,
+                            showPlanBadge: false,
+                            showTagline: false,
                           ),
-                          child: _buildUserAvatar(
-                            isSidebar: false,
-                            userProfile: userProfile,
+                          actions: [
+                            InkWell(
+                              borderRadius: BorderRadius.circular(16),
+                              onTap: () => ProfileMenuDialog.show(
+                                context: context,
+                                userProfile: userProfile,
+                                isMobile: true,
+                              ),
+                              child: _buildUserAvatar(
+                                isSidebar: false,
+                                userProfile: userProfile,
+                              ),
+                            ),
+                            SizedBox(width: isNarrowPhone ? 10 : 16),
+                          ],
+                          bottom: PreferredSize(
+                            preferredSize: const Size.fromHeight(1),
+                            child: Container(color: colors.border, height: 1),
                           ),
                         ),
-                        SizedBox(width: isNarrowPhone ? 10 : 16),
-                      ],
-                      bottom: PreferredSize(
-                        preferredSize: const Size.fromHeight(1),
-                        child: Container(color: colors.border, height: 1),
-                      ),
-                    ),
-              body: widget.child,
-              bottomNavigationBar: isSettings
-                  ? null
-                  : PaidiXBottomNavBar(
-                      selectedIndex: selectedIndex,
-                      onItemSelected: (idx) =>
-                          _onDestinationSelected(idx, showOnboarding),
-                      items: navItems,
-                    ),
+                  body: widget.child,
+                  bottomNavigationBar: isSettings
+                      ? null
+                      : PaidiXBottomNavBar(
+                          selectedIndex: selectedIndex,
+                          onItemSelected: (idx) =>
+                              _onDestinationSelected(idx, showOnboarding),
+                          items: navItems,
+                        ),
+                );
+              },
             );
           },
-        );
-      },
-    ),
-  ),
-);
+        ),
+      ),
+    );
   }
 
   /// Builds the theme toggle button section of this interface.
-  Widget _buildThemeToggleButton({bool isCompact = false, bool isSidebar = false}) {
+  Widget _buildThemeToggleButton(
+      {bool isCompact = false, bool isSidebar = false}) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.themeModeNotifier,
       builder: (context, mode, _) {
@@ -274,8 +358,7 @@ class _AppShellState extends State<AppShell> {
 
   /// Builds the sidebar section of this interface.
   Widget _buildSidebar(UserProfile userProfile) {
-    final showOnboarding =
-        userProfile.kycStatus != KycReviewStatus.verified;
+    final showOnboarding = userProfile.kycStatus != KycReviewStatus.verified;
     final selectedIndex = _calculateSelectedIndex(showOnboarding);
     final sidebarWidth = _isSidebarCollapsed ? 76.0 : 240.0;
 
@@ -285,7 +368,8 @@ class _AppShellState extends State<AppShell> {
       width: sidebarWidth,
       decoration: const BoxDecoration(
         color: AppColors.sidebar,
-        border: Border(right: BorderSide(color: AppColors.sidebarLine, width: 1)),
+        border:
+            Border(right: BorderSide(color: AppColors.sidebarLine, width: 1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -298,7 +382,8 @@ class _AppShellState extends State<AppShell> {
               children: [
                 if (!_isSidebarCollapsed)
                   const Expanded(
-                    child: BrandLogo(showPlanBadge: false, forceLightText: true),
+                    child:
+                        BrandLogo(showPlanBadge: false, forceLightText: true),
                   )
                 else
                   const BrandLogo(
@@ -319,8 +404,8 @@ class _AppShellState extends State<AppShell> {
                         color: AppColors.sidebarMuted,
                         size: 20,
                       ),
-                      onPressed: () =>
-                          setState(() => _isSidebarCollapsed = !_isSidebarCollapsed),
+                      onPressed: () => setState(
+                          () => _isSidebarCollapsed = !_isSidebarCollapsed),
                     ),
                   ],
                 ),
@@ -354,7 +439,8 @@ class _AppShellState extends State<AppShell> {
                 const SizedBox(height: 20),
                 if (!_isSidebarCollapsed)
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     child: Text(
                       'PAYMENTS',
                       style: TextStyle(
@@ -371,8 +457,8 @@ class _AppShellState extends State<AppShell> {
                   activeIcon: Icons.receipt_long,
                   title: 'My Payments',
                   isSelected: selectedIndex == (showOnboarding ? 2 : 1),
-                  onTap: () =>
-                      _onDestinationSelected(showOnboarding ? 2 : 1, showOnboarding),
+                  onTap: () => _onDestinationSelected(
+                      showOnboarding ? 2 : 1, showOnboarding),
                 ),
                 const SizedBox(height: 4),
                 _buildNavItem(
@@ -380,8 +466,8 @@ class _AppShellState extends State<AppShell> {
                   activeIcon: Icons.add_circle_rounded,
                   title: 'New Payment',
                   isSelected: selectedIndex == (showOnboarding ? 3 : 2),
-                  onTap: () =>
-                      _onDestinationSelected(showOnboarding ? 3 : 2, showOnboarding),
+                  onTap: () => _onDestinationSelected(
+                      showOnboarding ? 3 : 2, showOnboarding),
                 ),
               ],
             ),
@@ -435,7 +521,9 @@ class _AppShellState extends State<AppShell> {
                 dense: true,
                 leading: Icon(
                   isSelected ? activeIcon : icon,
-                  color: isSelected ? const Color(0xFF95DFDB) : AppColors.sidebarMuted,
+                  color: isSelected
+                      ? const Color(0xFF95DFDB)
+                      : AppColors.sidebarMuted,
                   size: 20,
                 ),
                 title: _isSidebarCollapsed
@@ -444,11 +532,14 @@ class _AppShellState extends State<AppShell> {
                         title,
                         style: TextStyle(
                           fontSize: 13.5,
-                          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color: isSelected ? Colors.white : AppColors.sidebarText,
+                          fontWeight:
+                              isSelected ? FontWeight.w700 : FontWeight.w500,
+                          color:
+                              isSelected ? Colors.white : AppColors.sidebarText,
                         ),
                       ),
-                shape: RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                shape:
+                    RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
                 onTap: onTap,
               ),
             ),
@@ -469,7 +560,8 @@ class _AppShellState extends State<AppShell> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: AppColors.sidebarLine, width: 1)),
+          border:
+              Border(top: BorderSide(color: AppColors.sidebarLine, width: 1)),
         ),
         child: Row(
           children: [

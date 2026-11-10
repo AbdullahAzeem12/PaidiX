@@ -7,6 +7,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/network/api_client.dart';
 
 /// Modal dialog providing detailed inspection, zoom, and encryption validation
 /// for regulatory KYC documents.
@@ -15,6 +16,7 @@ class DocumentViewerDialog extends StatelessWidget {
   final String subtitle;
   final Uint8List? bytes;
   final String? filePath;
+  final String? imageUrl;
   final bool isSelfie;
 
   const DocumentViewerDialog({
@@ -23,6 +25,7 @@ class DocumentViewerDialog extends StatelessWidget {
     required this.subtitle,
     this.bytes,
     this.filePath,
+    this.imageUrl,
     this.isSelfie = false,
   });
 
@@ -33,6 +36,7 @@ class DocumentViewerDialog extends StatelessWidget {
     required String subtitle,
     Uint8List? bytes,
     String? filePath,
+    String? imageUrl,
     bool isSelfie = false,
   }) {
     return showDialog(
@@ -43,6 +47,7 @@ class DocumentViewerDialog extends StatelessWidget {
         subtitle: subtitle,
         bytes: bytes,
         filePath: filePath,
+        imageUrl: imageUrl,
         isSelfie: isSelfie,
       ),
     );
@@ -205,6 +210,15 @@ class DocumentViewerDialog extends StatelessWidget {
           errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
         );
       }
+    }
+
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(
+        imageUrl!,
+        headers: ApiClient.instance.imageHeadersFor(imageUrl!),
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+      );
     }
 
     return _buildPlaceholder(colors);

@@ -69,7 +69,9 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
         path: '/kyc',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const KycPage(),
+          child: KycPage(
+            resubmission: state.uri.queryParameters['resubmit'] == 'true',
+          ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -84,7 +86,8 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
           return CustomTransitionPage(
             key: state.pageKey,
             child: ServerErrorPage(info: info),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
               return FadeTransition(opacity: animation, child: child);
             },
           );
@@ -102,7 +105,8 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
             path: '/app/dashboard',
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
-              child: DashboardPage(paymentsRepository: sharedPaymentsRepository),
+              child:
+                  DashboardPage(paymentsRepository: sharedPaymentsRepository),
               transitionDuration: const Duration(milliseconds: 320),
               reverseTransitionDuration: const Duration(milliseconds: 260),
               transitionsBuilder:

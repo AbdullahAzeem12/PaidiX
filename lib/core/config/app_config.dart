@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 /// Centralized environment and API configuration for PaidiX.
 ///
@@ -61,11 +62,17 @@ class AppConfig {
     }
   }
 
+  /// Optional override allowing tests to exercise live HTTP code paths
+  /// with a mock [http.Client]. Leave `null` in production.
+  @visibleForTesting
+  static bool? debugOverrideCustomBackend;
+
   /// Whether a live backend URL has been configured (either in code or via `--dart-define`).
   static bool get hasCustomBackend =>
-      !isTestEnvironment &&
-      apiBaseUrl.isNotEmpty &&
-      apiBaseUrl != 'https://api-staging.paidix.com/v1';
+      debugOverrideCustomBackend ??
+      (!isTestEnvironment &&
+          apiBaseUrl.isNotEmpty &&
+          apiBaseUrl != 'https://api-staging.paidix.com/v1');
 
   /// Default timeout duration for standard JSON REST requests.
   static const Duration timeoutDuration = Duration(seconds: 15);

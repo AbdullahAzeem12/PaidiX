@@ -33,6 +33,24 @@ class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message (code: $errorCode)';
 }
 
+/// Why the client can no longer use the current authenticated session.
+enum SessionInvalidationReason { refreshRejected, accountUnavailable }
+
+/// A user-safe event for the app layer to clear local state and route to sign-in.
+class SessionInvalidation {
+  final SessionInvalidationReason reason;
+
+  const SessionInvalidation(this.reason);
+
+  String get title => reason == SessionInvalidationReason.accountUnavailable
+      ? 'Account unavailable'
+      : 'Session expired';
+
+  String get message => reason == SessionInvalidationReason.accountUnavailable
+      ? 'This account is no longer available. Please contact support if you believe this is an error.'
+      : 'Your session expired or was revoked. Please sign in again.';
+}
+
 /// Core API client managing session tokens, request headers, timeouts, and responses.
 class ApiClient {
   ApiClient._();
@@ -46,7 +64,14 @@ class ApiClient {
 
   String? _authToken;
   String? _refreshToken;
-  bool _isRefreshing = false;
+  Future<bool>? _refreshInFlight;
+  int? _refreshFlightSessionGeneration;
+  int _sessionGeneration = 0;
+  bool _sessionInvalidationSignaled = false;
+
+  /// Emits when an authenticated session is confirmed to be unusable.
+  final ValueNotifier<SessionInvalidation?> sessionInvalidationNotifier =
+      ValueNotifier<SessionInvalidation?>(null);
 
   /// Sets a custom HTTP client (useful for unit and widget testing).
   @visibleForTesting
@@ -62,6 +87,26 @@ class ApiClient {
   /// Gets the currently active JWT refresh token.
   String? get refreshToken => _refreshToken;
 
+  /// Headers for private media owned by this API. Credentials are only sent
+  /// when the media URL shares the configured API origin.
+  Map<String, String> imageHeadersFor(String imageUrl) {
+    final uri = Uri.tryParse(imageUrl);
+    final apiOrigin = Uri.tryParse(AppConfig.apiBaseUrl);
+    if (uri == null || apiOrigin == null || uri.origin != apiOrigin.origin) {
+      return const {'Accept': 'image/*'};
+    }
+    return {
+      'Accept': 'image/*',
+      if (AppConfig.clientApiKey.isNotEmpty)
+        'X-Client-Key': AppConfig.clientApiKey,
+      if (_authToken != null && _authToken!.isNotEmpty)
+        'Authorization': 'Bearer $_authToken',
+    };
+  }
+
+  /// Resolves server media paths against the configured API base URL.
+  String resolveMediaUrl(String path) => _buildUri(path).toString();
+
   bool get _isTestEnvironment {
     try {
       return Platform.environment.containsKey('FLUTTER_TEST');
@@ -72,9 +117,26 @@ class ApiClient {
 
   /// Updates and persists the active JWT session tokens.
   Future<void> setAuthTokens({String? access, String? refresh}) async {
+    await _persistTokens(
+      access: access,
+      refresh: refresh,
+      startsNewSession: true,
+    );
+  }
+
+  Future<void> _persistTokens({
+    required String? access,
+    required String? refresh,
+    required bool startsNewSession,
+  }) async {
+    if (startsNewSession) _sessionGeneration++;
     _authToken = access;
     if (refresh != null) {
       _refreshToken = refresh;
+    }
+    if (startsNewSession && access != null && access.isNotEmpty) {
+      _sessionInvalidationSignaled = false;
+      sessionInvalidationNotifier.value = null;
     }
     if (_isTestEnvironment) return;
     try {
@@ -87,7 +149,8 @@ class ApiClient {
         if (refresh.isEmpty) {
           await _secureStorage.delete(key: _refreshTokenStorageKey);
         } else {
-          await _secureStorage.write(key: _refreshTokenStorageKey, value: refresh);
+          await _secureStorage.write(
+              key: _refreshTokenStorageKey, value: refresh);
         }
       }
     } catch (e) {
@@ -97,7 +160,8 @@ class ApiClient {
 
   /// Updates and persists the active JWT session token.
   Future<void> setAuthToken(String? token) async {
-    await setAuthTokens(access: token);
+    // A single-token session must not inherit a refresh token from a prior user.
+    await setAuthTokens(access: token, refresh: '');
   }
 
   /// Initializes the token from secure storage upon application start.
@@ -113,6 +177,13 @@ class ApiClient {
 
   /// Clears active session tokens (used during logout).
   Future<void> clearSession() async {
+    _sessionGeneration++;
+    _sessionInvalidationSignaled = false;
+    sessionInvalidationNotifier.value = null;
+    await _clearSessionTokens();
+  }
+
+  Future<void> _clearSessionTokens() async {
     _authToken = null;
     _refreshToken = null;
     if (_isTestEnvironment) return;
@@ -126,48 +197,173 @@ class ApiClient {
 
   /// Exchanges the refresh token for a new access token (POST /auth/refresh/).
   Future<bool> refreshAccessToken() async {
-    if (_isRefreshing) return false;
-    if (_refreshToken == null || _refreshToken!.isEmpty) return false;
+    final sessionGeneration = _sessionGeneration;
+    final inFlight = _refreshInFlight;
+    if (inFlight != null &&
+        _refreshFlightSessionGeneration == sessionGeneration) {
+      return inFlight;
+    }
+    final refresh = _refreshToken;
+    final refreshFuture = _performTokenRefresh(
+      refresh,
+      sessionGeneration,
+    );
+    _refreshInFlight = refreshFuture;
+    _refreshFlightSessionGeneration = sessionGeneration;
+    try {
+      return await refreshFuture;
+    } finally {
+      if (identical(_refreshInFlight, refreshFuture)) {
+        _refreshInFlight = null;
+        _refreshFlightSessionGeneration = null;
+      }
+    }
+  }
 
-    _isRefreshing = true;
+  Future<bool> _performTokenRefresh(
+    String? refresh,
+    int sessionGeneration,
+  ) async {
+    if (refresh == null || refresh.isEmpty) {
+      await _invalidateSession(
+        SessionInvalidationReason.refreshRejected,
+        expectedSessionGeneration: sessionGeneration,
+      );
+      return false;
+    }
+
     try {
       final uri = _buildUri('/auth/refresh/');
-      final response = await _httpClient.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({'refresh': _refreshToken}),
-      ).timeout(AppConfig.timeoutDuration);
+      final response = await _httpClient
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              if (AppConfig.clientApiKey.isNotEmpty)
+                'X-Client-Key': AppConfig.clientApiKey,
+            },
+            body: jsonEncode({'refresh': refresh}),
+          )
+          .timeout(AppConfig.timeoutDuration);
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final decoded =
+            response.body.isEmpty ? null : jsonDecode(response.body);
+        final data = decoded is Map<String, dynamic> ? decoded : const {};
         final newAccess = data['access'] as String? ?? data['token'] as String?;
-        if (newAccess != null && newAccess.isNotEmpty) {
-          await setAuthTokens(access: newAccess);
-          return true;
+        if (newAccess == null || newAccess.isEmpty) return false;
+        if (sessionGeneration != _sessionGeneration ||
+            refresh != _refreshToken) {
+          return false;
         }
-      } else if (response.statusCode == 401) {
-        await clearSession();
+        final rotatedRefresh = data['refresh'];
+        await _persistTokens(
+          access: newAccess,
+          refresh: rotatedRefresh is String ? rotatedRefresh : null,
+          startsNewSession: false,
+        );
+        return true;
       }
+
+      final failure = _exceptionFromResponse(response);
+      if (failure.statusCode == 401) {
+        await _invalidateSession(
+          _isUnavailableAccountError(failure)
+              ? SessionInvalidationReason.accountUnavailable
+              : SessionInvalidationReason.refreshRejected,
+          expectedSessionGeneration: sessionGeneration,
+        );
+      } else if (_isUnavailableAccountError(failure)) {
+        await _invalidateSession(
+          SessionInvalidationReason.accountUnavailable,
+          expectedSessionGeneration: sessionGeneration,
+        );
+      }
+      return false;
+    } on SocketException {
+      // Keep the session so the user can retry after a connectivity failure.
+      return false;
+    } on TimeoutException {
+      return false;
+    } on http.ClientException catch (e) {
+      debugPrint('[ApiClient] Token refresh transport failure: ${e.message}');
       return false;
     } catch (e) {
       debugPrint('[ApiClient] Token refresh failed: $e');
       return false;
-    } finally {
-      _isRefreshing = false;
     }
   }
 
+  Future<void> _invalidateSession(
+    SessionInvalidationReason reason, {
+    int? expectedSessionGeneration,
+  }) async {
+    if (expectedSessionGeneration != null &&
+        expectedSessionGeneration != _sessionGeneration) {
+      return;
+    }
+    if (_sessionInvalidationSignaled) return;
+    _sessionInvalidationSignaled = true;
+    _sessionGeneration++;
+    await _clearSessionTokens();
+    sessionInvalidationNotifier.value = SessionInvalidation(reason);
+  }
+
+  static bool _isUnavailableAccountError(ApiException error) {
+    if (error.statusCode != 401 &&
+        error.statusCode != 403 &&
+        error.statusCode != 404) {
+      return false;
+    }
+    final code = (error.errorCode ?? '')
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return const {
+      'accountnotfound',
+      'usernotfound',
+      'accountdeleted',
+      'userdeleted',
+      'accountinactive',
+      'userinactive',
+      'accountdisabled',
+      'userdisabled',
+    }.contains(code);
+  }
+
+  static bool _isInvalidAccessTokenError(ApiException error) {
+    if (error.statusCode != 401) return false;
+    final code = (error.errorCode ?? '').toLowerCase();
+    final message = error.message.toLowerCase();
+    return code == 'token_not_valid' ||
+        message.contains('token not valid') ||
+        message.contains('token is invalid');
+  }
+
+  ApiException _exceptionFromResponse(http.Response response) {
+    try {
+      _handleResponse(response);
+    } on ApiException catch (error) {
+      return error;
+    }
+    return ApiException(
+      statusCode: response.statusCode,
+      message: 'The token refresh request failed.',
+      errorCode: 'ERR_HTTP_${response.statusCode}',
+    );
+  }
+
   /// Assembles required headers including optional API key and Bearer auth token.
-  Map<String, String> _buildHeaders({bool isMultipart = false}) {
+  Map<String, String> _buildHeaders({
+    bool isMultipart = false,
+    bool includeAuth = true,
+  }) {
     return {
       if (!isMultipart) 'Content-Type': 'application/json',
       'Accept': 'application/json',
       if (AppConfig.clientApiKey.isNotEmpty)
         'X-Client-Key': AppConfig.clientApiKey,
-      if (_authToken != null && _authToken!.isNotEmpty)
+      if (includeAuth && _authToken != null && _authToken!.isNotEmpty)
         'Authorization': 'Bearer $_authToken',
     };
   }
@@ -184,30 +380,74 @@ class ApiClient {
 
   /// Wraps an HTTP request with automatic token refresh on 401 token_not_valid errors.
   Future<Map<String, dynamic>> _executeWithTokenRefresh(
-    Future<Map<String, dynamic>> Function() requestFn,
-  ) async {
+    Future<Map<String, dynamic>> Function() requestFn, {
+    bool allowTokenRefresh = true,
+  }) async {
+    final requestToken = _authToken;
+    final requestGeneration = _sessionGeneration;
     try {
       return await requestFn();
     } on ApiException catch (e) {
-      // 401 token_not_valid → silently refresh and replay once
-      if (e.statusCode == 401 &&
-          (e.errorCode == 'token_not_valid' ||
-              e.message.toLowerCase().contains('token not valid') ||
-              e.message.toLowerCase().contains('token is invalid'))) {
+      if (!allowTokenRefresh) rethrow;
+      // A response from the previous login must not operate on a newer user.
+      if (requestGeneration != _sessionGeneration) rethrow;
+
+      if (_isUnavailableAccountError(e)) {
+        await _invalidateSession(
+          SessionInvalidationReason.accountUnavailable,
+          expectedSessionGeneration: requestGeneration,
+        );
+        rethrow;
+      }
+
+      if (_isInvalidAccessTokenError(e)) {
+        // Reuse a newer access token if another request already refreshed ours.
+        if (requestToken != null && requestToken != _authToken) {
+          return _replayAuthenticatedRequest(requestFn, requestGeneration);
+        }
         final refreshed = await refreshAccessToken();
         if (refreshed) {
-          return await requestFn();
+          if (requestGeneration != _sessionGeneration) rethrow;
+          return _replayAuthenticatedRequest(requestFn, requestGeneration);
         }
       }
       rethrow;
     }
   }
 
+  Future<Map<String, dynamic>> _replayAuthenticatedRequest(
+    Future<Map<String, dynamic>> Function() requestFn,
+    int requestGeneration,
+  ) async {
+    try {
+      return await requestFn();
+    } on ApiException catch (error) {
+      if (requestGeneration != _sessionGeneration) rethrow;
+      if (_isUnavailableAccountError(error)) {
+        await _invalidateSession(
+          SessionInvalidationReason.accountUnavailable,
+          expectedSessionGeneration: requestGeneration,
+        );
+      } else if (_isInvalidAccessTokenError(error)) {
+        await _invalidateSession(
+          SessionInvalidationReason.refreshRejected,
+          expectedSessionGeneration: requestGeneration,
+        );
+      }
+      rethrow;
+    }
+  }
+
   /// Executes an HTTP POST request with JSON payload.
+  ///
+  /// Set [includeAuth] to `false` for public unauthenticated endpoints (login,
+  /// signup, OTP verify/resend, password reset) so stale/cross-user tokens in
+  /// secure storage are never sent in `Authorization` headers.
   Future<Map<String, dynamic>> post(
     String path, {
     required Map<String, dynamic> body,
     Duration? timeout,
+    bool includeAuth = true,
   }) async {
     return _executeWithTokenRefresh(() async {
       final uri = _buildUri(path);
@@ -215,7 +455,7 @@ class ApiClient {
         final response = await _httpClient
             .post(
               uri,
-              headers: _buildHeaders(),
+              headers: _buildHeaders(includeAuth: includeAuth),
               body: jsonEncode(body),
             )
             .timeout(timeout ?? AppConfig.timeoutDuration);
@@ -224,7 +464,8 @@ class ApiClient {
       } on SocketException {
         throw const ApiException(
           statusCode: 503,
-          message: 'Unable to reach the PaidiX server. Please verify your connection.',
+          message:
+              'Unable to reach the PaidiX server. Please verify your connection.',
           errorCode: 'ERR_NETWORK_DISCONNECTED',
           isRetryable: true,
         );
@@ -243,7 +484,7 @@ class ApiClient {
           isRetryable: true,
         );
       }
-    });
+    }, allowTokenRefresh: includeAuth);
   }
 
   /// Executes an HTTP PATCH request with JSON payload.
@@ -267,7 +508,8 @@ class ApiClient {
       } on SocketException {
         throw const ApiException(
           statusCode: 503,
-          message: 'Unable to reach the PaidiX server. Please verify your connection.',
+          message:
+              'Unable to reach the PaidiX server. Please verify your connection.',
           errorCode: 'ERR_NETWORK_DISCONNECTED',
           isRetryable: true,
         );
@@ -308,7 +550,8 @@ class ApiClient {
       } on SocketException {
         throw const ApiException(
           statusCode: 503,
-          message: 'Unable to reach the PaidiX server. Please verify your connection.',
+          message:
+              'Unable to reach the PaidiX server. Please verify your connection.',
           errorCode: 'ERR_NETWORK_DISCONNECTED',
           isRetryable: true,
         );
@@ -354,7 +597,8 @@ class ApiClient {
       } on SocketException {
         throw const ApiException(
           statusCode: 503,
-          message: 'Unable to reach the PaidiX server. Please verify your connection.',
+          message:
+              'Unable to reach the PaidiX server. Please verify your connection.',
           errorCode: 'ERR_NETWORK_DISCONNECTED',
           isRetryable: true,
         );
@@ -407,7 +651,8 @@ class ApiClient {
       } on TimeoutException {
         throw const ApiException(
           statusCode: 504,
-          message: 'Document upload timed out. Please ensure images are well-lit and try again.',
+          message:
+              'Document upload timed out. Please ensure images are well-lit and try again.',
           errorCode: 'ERR_UPLOAD_TIMEOUT',
           isRetryable: true,
         );
@@ -469,10 +714,24 @@ class ApiClient {
     }
 
     // ── Extract server-provided error details ────────────────────────────────
-    // Supports Django REST Framework shapes: { detail, code } and field dicts.
-    String serverDetail = parsedBody['detail'] as String? ??
-        parsedBody['message'] as String? ??
-        parsedBody['error'] as String? ??
+    // Supports Django REST Framework shapes: { detail, code }, { error, message },
+    // and field dicts.
+    final rawDetail = parsedBody['detail'];
+    final rawMessage = parsedBody['message'];
+    final rawError = parsedBody['error'];
+    final nestedError = rawError is Map
+        ? rawError.map((key, value) => MapEntry('$key', value))
+        : const <String, dynamic>{};
+
+    String serverDetail = (rawDetail is String ? rawDetail : null) ??
+        (rawMessage is String ? rawMessage : null) ??
+        (nestedError['detail'] is String
+            ? nestedError['detail'] as String
+            : null) ??
+        (nestedError['message'] is String
+            ? nestedError['message'] as String
+            : null) ??
+        (rawError is String ? rawError : null) ??
         '';
 
     if (serverDetail.isEmpty) {
@@ -487,13 +746,24 @@ class ApiClient {
       serverDetail = fieldErrors.join(' ');
     }
 
-    final serverCode = parsedBody['code'] as String? ??
-        parsedBody['errorCode'] as String? ??
+    final rawCode = parsedBody['code'] ?? nestedError['code'];
+    final rawErrorCode = parsedBody['errorCode'] ??
+        parsedBody['error_code'] ??
+        nestedError['errorCode'] ??
+        nestedError['error_code'];
+    final errorLooksLikeCode = rawError is String &&
+        rawError.isNotEmpty &&
+        ((rawDetail is String && rawDetail.isNotEmpty) ||
+            (rawMessage is String && rawMessage.isNotEmpty) ||
+            RegExp(r'^[A-Z0-9_]+$').hasMatch(rawError));
+
+    final serverCode = (rawCode is String ? rawCode : null) ??
+        (rawErrorCode is String ? rawErrorCode : null) ??
+        (errorLooksLikeCode ? rawError : null) ??
         'ERR_HTTP_$status';
 
     // ── Per-status-code precise messaging ────────────────────────────────────
     switch (status) {
-
       // 400 Bad Request — malformed syntax, missing required data, invalid fields
       case 400:
         throw ApiException(
@@ -563,9 +833,8 @@ class ApiClient {
       case 429:
         // Parse Retry-After header (seconds) if the server provides it
         final retryAfterHeader = response.headers['retry-after'];
-        final retryAfterSeconds = retryAfterHeader != null
-            ? int.tryParse(retryAfterHeader)
-            : null;
+        final retryAfterSeconds =
+            retryAfterHeader != null ? int.tryParse(retryAfterHeader) : null;
         final waitHint = retryAfterSeconds != null
             ? ' Please wait $retryAfterSeconds second${retryAfterSeconds == 1 ? '' : 's'} before trying again.'
             : ' Please wait a moment before trying again.';
@@ -640,4 +909,3 @@ class ApiClient {
     }
   }
 }
-

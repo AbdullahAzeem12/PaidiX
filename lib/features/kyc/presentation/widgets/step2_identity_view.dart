@@ -52,8 +52,6 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
   CnicStatus _cnicStatus = CnicStatus.empty;
   Timer? _debounceTimer;
 
-  static String? _pendingPickSide;
-
   /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
@@ -85,12 +83,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
       }
       final file = response.file;
       if (file != null) {
-        final pending =
-            UserProfileRepository.instance.pendingPickSide ?? _pendingPickSide;
-        final isFront = pending != 'back';
+        final pending = UserProfileRepository.instance.pendingPickSide;
+        final isFront = pending != 'cnic_back';
         await _applyPickedImage(file, isFront);
-        UserProfileRepository.instance.pendingPickSide = null;
-        _pendingPickSide = null;
+        await UserProfileRepository.instance.setPendingPickSide(null);
       }
     } catch (e) {
       debugPrint('retrieveLostData error: $e');
@@ -175,20 +171,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
   /// Stores a selected CNIC-side image and refreshes its document preview.
   Future<void> _applyPickedImage(XFile xFile, bool isFront) async {
     try {
-      final bytes = await xFile.readAsBytes();
-
-      // Reject files the engine cannot decode (e.g. HEIC/HEIF on some
-      // devices) up-front, instead of letting them blow up later inside
-      // Image.memory and blank the screen.
-      if (!await KycMediaAccess.isDecodable(bytes)) {
-        if (mounted) {
-          PaidiXToast.showError(
-            context,
-            'This image format is not supported. Please choose a JPEG or PNG photo of your CNIC.',
-          );
-        }
-        return;
-      }
+      final sourceBytes = await xFile.readAsBytes();
+      final bytes = await KycMediaAccess.validateImage(sourceBytes);
       // The view can be disposed while the gallery / file read was in flight
       // (Android recreating the activity). Don't push state into a dead tree.
       if (!mounted) return;
@@ -204,6 +188,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
             frontFilePath: xFile.path,
             frontBytes: bytes,
             isEnhanced: false,
+            clearEnhancedFrontBytes: true,
           ),
         );
       } else {
@@ -213,6 +198,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
             backFilePath: xFile.path,
             backBytes: bytes,
             isEnhanced: false,
+            clearEnhancedBackBytes: true,
           ),
         );
       }
@@ -231,15 +217,15 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
     if (_isPickingImage) return;
     _isPickingImage = true;
     HapticFeedback.lightImpact();
-    _pendingPickSide = isFront ? 'front' : 'back';
-    UserProfileRepository.instance.pendingPickSide = _pendingPickSide;
-
     // Permission request is handled by the OS; scoped picker access still
     // works if the user declines broad photo-library access.
     try {
       final canOpenPicker = await KycMediaAccess.ensureGalleryAccess(context);
       if (!canOpenPicker || !mounted) return;
 
+      await UserProfileRepository.instance.setPendingPickSide(
+        isFront ? 'cnic_front' : 'cnic_back',
+      );
       XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: KycMediaAccess.maxDimension,
@@ -260,8 +246,6 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
 
       if (xFile != null) {
         await _applyPickedImage(xFile, isFront);
-        UserProfileRepository.instance.pendingPickSide = null;
-        _pendingPickSide = null;
       }
     } catch (e) {
       debugPrint('pickImage error: $e');
@@ -273,6 +257,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
       }
     } finally {
       _isPickingImage = false;
+      await UserProfileRepository.instance.setPendingPickSide(null);
     }
   }
 
@@ -462,8 +447,6 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
     );
   }
 
-
-
   /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
@@ -606,8 +589,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
               decoration: BoxDecoration(
                 color: colors.brand800.withValues(alpha: 0.12),
                 borderRadius: AppSpacing.radiusMd,
-                border: Border.all(
-                    color: colors.border.withValues(alpha: 0.5)),
+                border: Border.all(color: colors.border.withValues(alpha: 0.5)),
               ),
               child: Text(
                 'Boundary Detection • Lighting Balance • Format Verification',
@@ -1097,8 +1079,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         decoration: BoxDecoration(
           color: colors.inputBackground,
           borderRadius: AppSpacing.radiusLg,
-          border:
-              Border.all(color: colors.border.withValues(alpha: 0.8), width: 1.2),
+          border: Border.all(
+              color: colors.border.withValues(alpha: 0.8), width: 1.2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1177,7 +1159,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                       bottomLeft: Radius.circular(10),
                       bottomRight: Radius.circular(10),
                     ),
-                    child: _buildDocumentGraphic(bytes, filePath, isBack, colors),
+                    child:
+                        _buildDocumentGraphic(bytes, filePath, isBack, colors),
                   ),
                 ),
                 Padding(

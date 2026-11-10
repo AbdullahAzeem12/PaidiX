@@ -38,10 +38,13 @@ class UserProfile {
   // Real uploaded or captured document assets
   final Uint8List? selfieBytes;
   final String? selfieFilePath;
+  final String? selfieUrl;
   final Uint8List? cnicFrontBytes;
   final String? cnicFrontFilePath;
+  final String? cnicFrontUrl;
   final Uint8List? cnicBackBytes;
   final String? cnicBackFilePath;
+  final String? cnicBackUrl;
 
   // Custom profile avatar
   final Uint8List? avatarBytes;
@@ -56,6 +59,7 @@ class UserProfile {
   // Realtime backend KYC rejection metadata
   final String? kycRejectionReason;
   final List<String> kycObjections;
+  final DateTime? kycReviewedAt;
 
   const UserProfile({
     required this.fullName,
@@ -72,10 +76,13 @@ class UserProfile {
     this.smsConsent = true,
     this.selfieBytes,
     this.selfieFilePath,
+    this.selfieUrl,
     this.cnicFrontBytes,
     this.cnicFrontFilePath,
+    this.cnicFrontUrl,
     this.cnicBackBytes,
     this.cnicBackFilePath,
+    this.cnicBackUrl,
     this.avatarBytes,
     this.avatarFilePath,
     this.bankName,
@@ -84,6 +91,7 @@ class UserProfile {
     this.bankBeneficiary,
     this.kycRejectionReason,
     this.kycObjections = const [],
+    this.kycReviewedAt,
   });
 
   /// Initial unauthenticated clean profile for the application.
@@ -145,6 +153,9 @@ class UserProfile {
 
   /// Formatted update timestamp: e.g. "Oct 29, 2026, 09:33 PM"
   String get formattedUpdatedAt => AppFormatters.formatDateTime(updatedAt);
+  String? get formattedKycReviewedAt => kycReviewedAt == null
+      ? null
+      : AppFormatters.formatDateTime(kycReviewedAt!);
 
   String get displayPhone => phoneNumber.isNotEmpty ? phoneNumber : '—';
   String get displayCnic => cnicNumber.isNotEmpty ? cnicNumber : '—';
@@ -167,10 +178,13 @@ class UserProfile {
     bool? smsConsent,
     Uint8List? selfieBytes,
     String? selfieFilePath,
+    String? selfieUrl,
     Uint8List? cnicFrontBytes,
     String? cnicFrontFilePath,
+    String? cnicFrontUrl,
     Uint8List? cnicBackBytes,
     String? cnicBackFilePath,
+    String? cnicBackUrl,
     Uint8List? avatarBytes,
     String? avatarFilePath,
     bool clearAvatar = false,
@@ -180,6 +194,8 @@ class UserProfile {
     String? bankBeneficiary,
     String? kycRejectionReason,
     List<String>? kycObjections,
+    DateTime? kycReviewedAt,
+    bool clearKycReviewedAt = false,
     bool clearRejection = false,
   }) {
     return UserProfile(
@@ -197,10 +213,13 @@ class UserProfile {
       smsConsent: smsConsent ?? this.smsConsent,
       selfieBytes: selfieBytes ?? this.selfieBytes,
       selfieFilePath: selfieFilePath ?? this.selfieFilePath,
+      selfieUrl: selfieUrl ?? this.selfieUrl,
       cnicFrontBytes: cnicFrontBytes ?? this.cnicFrontBytes,
       cnicFrontFilePath: cnicFrontFilePath ?? this.cnicFrontFilePath,
+      cnicFrontUrl: cnicFrontUrl ?? this.cnicFrontUrl,
       cnicBackBytes: cnicBackBytes ?? this.cnicBackBytes,
       cnicBackFilePath: cnicBackFilePath ?? this.cnicBackFilePath,
+      cnicBackUrl: cnicBackUrl ?? this.cnicBackUrl,
       avatarBytes: clearAvatar ? null : (avatarBytes ?? this.avatarBytes),
       avatarFilePath:
           clearAvatar ? null : (avatarFilePath ?? this.avatarFilePath),
@@ -213,6 +232,8 @@ class UserProfile {
           : (kycRejectionReason ?? this.kycRejectionReason),
       kycObjections:
           clearRejection ? const [] : (kycObjections ?? this.kycObjections),
+      kycReviewedAt:
+          clearKycReviewedAt ? null : (kycReviewedAt ?? this.kycReviewedAt),
     );
   }
 
@@ -232,8 +253,11 @@ class UserProfile {
       'hasCompletedKyc': hasCompletedKyc,
       'smsConsent': smsConsent,
       'selfieFilePath': selfieFilePath,
+      'selfieUrl': selfieUrl,
       'cnicFrontFilePath': cnicFrontFilePath,
+      'cnicFrontUrl': cnicFrontUrl,
       'cnicBackFilePath': cnicBackFilePath,
+      'cnicBackUrl': cnicBackUrl,
       'avatarFilePath': avatarFilePath,
       'bankName': bankName,
       'bankAccountNumber': bankAccountNumber,
@@ -241,6 +265,7 @@ class UserProfile {
       'bankBeneficiary': bankBeneficiary,
       'kycRejectionReason': kycRejectionReason,
       'kycObjections': kycObjections,
+      'kycReviewedAt': kycReviewedAt?.toIso8601String(),
     };
   }
 
@@ -267,8 +292,11 @@ class UserProfile {
       hasCompletedKyc: json['hasCompletedKyc'] as bool? ?? false,
       smsConsent: json['smsConsent'] as bool? ?? true,
       selfieFilePath: json['selfieFilePath'] as String?,
+      selfieUrl: json['selfieUrl'] as String?,
       cnicFrontFilePath: json['cnicFrontFilePath'] as String?,
+      cnicFrontUrl: json['cnicFrontUrl'] as String?,
       cnicBackFilePath: json['cnicBackFilePath'] as String?,
+      cnicBackUrl: json['cnicBackUrl'] as String?,
       avatarFilePath: json['avatarFilePath'] as String?,
       bankName: json['bankName'] as String?,
       bankAccountNumber: json['bankAccountNumber'] as String?,
@@ -279,6 +307,9 @@ class UserProfile {
               ?.map((e) => e.toString())
               .toList() ??
           const [],
+      kycReviewedAt: json['kycReviewedAt'] is String
+          ? DateTime.tryParse(json['kycReviewedAt'] as String)
+          : null,
     );
   }
 }

@@ -1,8 +1,10 @@
 /// Defines onboarding profile page in the profile feature's presentation layer.
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
+import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../data/user_profile_repository.dart';
@@ -44,6 +46,10 @@ class OnboardingProfilePage extends StatelessWidget {
                     children: [
                       // Header Section: Eyebrow + Title + Subtitle + Edit Profile Action
                       _buildHeader(context, profile, isNarrow, colors),
+                      if (profile.kycStatus == KycReviewStatus.rejected) ...[
+                        const SizedBox(height: 18),
+                        _buildRejectionBanner(profile, colors),
+                      ],
                       const SizedBox(height: 24),
 
                       // Main Cards: Two-column grid on wide displays, vertical on mobile
@@ -156,13 +162,47 @@ class OnboardingProfilePage extends StatelessWidget {
       ),
     );
 
+    final headerActions = Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        if (profile.kycStatus == KycReviewStatus.rejected)
+          SpongyTap(
+            onTap: () => context.go('/kyc?resubmit=true'),
+            pressScale: 0.94,
+            borderRadius: AppSpacing.radiusMd,
+            backgroundColor: const Color(0xFF022F32),
+            activeBackgroundColor: colors.cardDark,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.edit_note_rounded,
+                    size: 17, color: Colors.white),
+                const SizedBox(width: 8),
+                Text(
+                  'Fix & resubmit',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: AppTheme.activeFontFamily,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        editButton,
+      ],
+    );
+
     if (isNarrow) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           titleBlock,
           const SizedBox(height: 16),
-          editButton,
+          headerActions,
         ],
       );
     }
@@ -173,8 +213,65 @@ class OnboardingProfilePage extends StatelessWidget {
       children: [
         Expanded(child: titleBlock),
         const SizedBox(width: 16),
-        editButton,
+        headerActions,
       ],
+    );
+  }
+
+  Widget _buildRejectionBanner(
+    UserProfile profile,
+    PaidiXColorScheme colors,
+  ) {
+    const rejection = Color(0xFFBE123C);
+    final message = profile.effectiveKycMessage;
+    final hasSpecificReason = message != KycReviewStatus.rejected.label &&
+        message != 'Verification Rejected';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: rejection.withValues(alpha: 0.08),
+        border: Border.all(color: rejection.withValues(alpha: 0.30)),
+        borderRadius: AppSpacing.radiusLg,
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child:
+                Icon(Icons.warning_amber_rounded, size: 19, color: rejection),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your KYC submission was rejected.',
+                  style: TextStyle(
+                    color: colors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  hasSpecificReason
+                      ? message
+                      : 'Update the requested information and resubmit your documents.',
+                  style: TextStyle(
+                    color: colors.textSecondary,
+                    fontSize: 12.5,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

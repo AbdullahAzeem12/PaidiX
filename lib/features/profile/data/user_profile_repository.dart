@@ -21,11 +21,13 @@ class UserProfileRepository {
 
   static final UserProfileRepository instance =
       UserProfileRepository._internal();
+
   /// Returns the shared repository instance used throughout the app process.
   factory UserProfileRepository() => instance;
 
   final Map<String, UserProfile> _registeredUsers = {};
   Directory? _storageDir;
+  Future<void>? _initialization;
 
   /// Sets active profile and bank accounts strictly for automated test suites.
   @visibleForTesting
@@ -43,12 +45,13 @@ class UserProfileRepository {
   /// Initializes user profile state with clean unauthenticated profile.
   void _initDefaultUsers() {
     // Attempt to restore previously saved profile details & documents from disk
-    _loadPersistedDefaultUsers();
+    _initialization ??= _loadPersistedDefaultUsers();
   }
 
   /// Explicitly awaits restoration of persisted active user from disk.
   Future<void> init() async {
-    await _loadPersistedDefaultUsers();
+    final initialization = _initialization ??= _loadPersistedDefaultUsers();
+    await initialization;
   }
 
   final ValueNotifier<UserProfile> profileNotifier =
@@ -61,6 +64,56 @@ class UserProfileRepository {
 
   /// Remembers whether the user was picking CNIC front or back across process reclamation
   String? pendingPickSide;
+
+  /// Persists the active picker target before launching an external gallery.
+  /// Android may destroy MainActivity while another picker app is foregrounded.
+  Future<void> setPendingPickSide(String? side) async {
+    pendingPickSide = side;
+    try {
+      final baseDir = await _getStorageDir();
+      if (baseDir == null) return;
+      final marker = File('${baseDir.path}/pending_kyc_pick_side.txt');
+      if (side == null || side.isEmpty) {
+        if (marker.existsSync()) await marker.delete();
+      } else {
+        await marker.writeAsString(side, flush: true);
+        await File('${baseDir.path}/last_active_kyc_step.txt')
+            .writeAsString(activeKycStep.index.toString(), flush: true);
+      }
+    } catch (e) {
+      debugPrint('Could not persist pending KYC picker target: $e');
+    }
+  }
+
+  /// Saves a picker result recovered after Android restarted the application.
+  Future<void> restoreKycPickerResult({
+    required String side,
+    required Uint8List bytes,
+    required String sourcePath,
+  }) async {
+    final current = profileNotifier.value;
+    final updated = switch (side) {
+      'cnic_front' => current.copyWith(
+          cnicFrontBytes: bytes,
+          cnicFrontFilePath: sourcePath,
+        ),
+      'cnic_back' => current.copyWith(
+          cnicBackBytes: bytes,
+          cnicBackFilePath: sourcePath,
+        ),
+      'selfie' => current.copyWith(
+          selfieBytes: bytes,
+          selfieFilePath: sourcePath,
+        ),
+      _ => current,
+    };
+    if (identical(updated, current)) return;
+
+    activeKycStep = side == 'selfie' ? KycStep.photo : KycStep.identity;
+    profileNotifier.value = updated;
+    _saveRegisteredUser(updated, persist: false);
+    await _persistUser(updated);
+  }
 
   /// Normalizes an email into a filesystem-safe key for the user's storage folder.
   String _normalizeEmailKey(String email) {
@@ -265,6 +318,18 @@ class UserProfileRepository {
     try {
       final dir = await _getStorageDir();
       if (dir != null && dir.existsSync()) {
+        final pendingPickFile = File('${dir.path}/pending_kyc_pick_side.txt');
+        if (pendingPickFile.existsSync()) {
+          final pendingSide = (await pendingPickFile.readAsString()).trim();
+          pendingPickSide = const {
+            'cnic_front',
+            'cnic_back',
+            'selfie',
+          }.contains(pendingSide)
+              ? pendingSide
+              : null;
+        }
+
         final lastStepFile = File('${dir.path}/last_active_kyc_step.txt');
         if (lastStepFile.existsSync()) {
           final stepStr = (await lastStepFile.readAsString()).trim();
@@ -332,6 +397,20 @@ class UserProfileRepository {
       hasCompletedKyc: true,
       kycStatus: KycReviewStatus.pendingReview,
       updatedAt: DateTime.now(),
+    );
+    profileNotifier.value = updated;
+    _saveRegisteredUser(updated);
+  }
+
+  /// Clears stale reviewer feedback after a successful resubmission.
+  void markKycResubmitted() {
+    final current = profileNotifier.value;
+    final updated = current.copyWith(
+      hasCompletedKyc: true,
+      kycStatus: KycReviewStatus.pendingReview,
+      updatedAt: DateTime.now(),
+      clearRejection: true,
+      clearKycReviewedAt: true,
     );
     profileNotifier.value = updated;
     _saveRegisteredUser(updated);
@@ -483,9 +562,8 @@ class UserProfileRepository {
         final key = _normalizeEmailKey(updated.email);
         final newAccount = BankAccountItem(
           id: 'kyc_bank_${DateTime.now().millisecondsSinceEpoch}',
-          bankName: bank.bankName.isNotEmpty
-              ? bank.bankName
-              : 'Meezan Bank Limited',
+          bankName:
+              bank.bankName.isNotEmpty ? bank.bankName : 'Meezan Bank Limited',
           holder: bank.beneficiaryTitle.isNotEmpty
               ? bank.beneficiaryTitle
               : updated.fullName,
@@ -638,7 +716,8 @@ class UserProfileRepository {
       final updated = current.copyWith(
         bankName: primary.bankName,
         bankBeneficiary: primary.holder,
-        bankIban: primary.iban.isNotEmpty ? primary.iban : primary.accountNumber,
+        bankIban:
+            primary.iban.isNotEmpty ? primary.iban : primary.accountNumber,
         updatedAt: DateTime.now(),
       );
       profileNotifier.value = updated;
@@ -653,8 +732,7 @@ class UserProfileRepository {
           userDir.createSync(recursive: true);
         }
         final bankFile = File('${userDir.path}/bank_accounts.json');
-        final jsonStr =
-            jsonEncode(accounts.map((a) => a.toJson()).toList());
+        final jsonStr = jsonEncode(accounts.map((a) => a.toJson()).toList());
         await bankFile.writeAsString(jsonStr, flush: true);
       }
     } catch (e) {

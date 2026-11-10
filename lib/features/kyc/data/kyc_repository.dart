@@ -6,7 +6,9 @@ import 'package:http/http.dart' as http;
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../profile/data/user_profile_repository.dart';
+import '../../profile/domain/user_profile.dart';
 import '../domain/kyc_models.dart';
+import 'kyc_image_validation.dart';
 
 class KycRepository {
   KycRepository._();
@@ -15,7 +17,16 @@ class KycRepository {
   final ApiClient _client = ApiClient.instance;
 
   /// Submits regulatory KYC verification package (documents, biometric, and bank details).
-  Future<bool> submitKyc(KycState state) async {
+  ///
+  /// Reports real-time stage progress `[0.0 .. 1.0]` via optional [onProgress]
+  /// callback so the submission button can render smooth live feedback.
+  Future<bool> submitKyc(
+    KycState state, {
+    void Function(double progress, String statusLabel)? onProgress,
+  }) async {
+    final isResubmission = UserProfileRepository.instance.profile.kycStatus ==
+        KycReviewStatus.rejected;
+    onProgress?.call(0.10, 'Preparing verification package...');
     if (AppConfig.hasCustomBackend) {
       final fields = <String, String>{
         'fullName': state.personal.fullName,
@@ -41,59 +52,68 @@ class KycRepository {
         'iban': state.bank.iban,
       };
 
-      final files = <http.MultipartFile>[];
-
       final frontBytes =
           state.identity.enhancedFrontBytes ?? state.identity.frontBytes;
-      if (frontBytes != null) {
-        files.add(http.MultipartFile.fromBytes(
-          'cnic_front',
-          frontBytes,
-          filename: 'cnic_front.jpg',
-        ));
-        files.add(http.MultipartFile.fromBytes(
-          'cnicFront',
-          frontBytes,
-          filename: 'cnic_front.jpg',
-        ));
+      if (frontBytes == null || frontBytes.isEmpty) {
+        throw const ApiException(
+          statusCode: 422,
+          message: 'Select a clear CNIC front image before submitting KYC.',
+          errorCode: 'KYC_FRONT_IMAGE_REQUIRED',
+        );
       }
-
       final backBytes =
           state.identity.enhancedBackBytes ?? state.identity.backBytes;
-      if (backBytes != null) {
-        files.add(http.MultipartFile.fromBytes(
-          'cnic_back',
-          backBytes,
-          filename: 'cnic_back.jpg',
-        ));
-        files.add(http.MultipartFile.fromBytes(
-          'cnicBack',
-          backBytes,
-          filename: 'cnic_back.jpg',
-        ));
+      if (backBytes == null || backBytes.isEmpty) {
+        throw const ApiException(
+          statusCode: 422,
+          message: 'Select a clear CNIC back image before submitting KYC.',
+          errorCode: 'KYC_BACK_IMAGE_REQUIRED',
+        );
       }
-
       final selfieBytes = state.photo.enhancedBytes ?? state.photo.bytes;
-      if (selfieBytes != null) {
-        files.add(http.MultipartFile.fromBytes(
-          'selfie',
-          selfieBytes,
-          filename: 'selfie.jpg',
-        ));
+      if (selfieBytes == null || selfieBytes.isEmpty) {
+        throw const ApiException(
+          statusCode: 422,
+          message: 'Select a selfie before submitting KYC.',
+          errorCode: 'KYC_SELFIE_REQUIRED',
+        );
       }
+      final frontExtension = KycImageValidation.extensionFor(frontBytes);
+      final backExtension = KycImageValidation.extensionFor(backBytes);
+      final selfieExtension = KycImageValidation.extensionFor(selfieBytes);
+      // Rebuild every MultipartFile for each attempt because the HTTP package
+      // consumes each file stream when a request is finalized.
+      List<http.MultipartFile> buildFiles() => [
+            http.MultipartFile.fromBytes(
+              'cnic_front',
+              frontBytes,
+              filename: 'cnic_front.$frontExtension',
+            ),
+            http.MultipartFile.fromBytes(
+              'cnic_back',
+              backBytes,
+              filename: 'cnic_back.$backExtension',
+            ),
+            http.MultipartFile.fromBytes(
+              'selfie',
+              selfieBytes,
+              filename: 'selfie.$selfieExtension',
+            ),
+          ];
 
+      onProgress?.call(0.24, 'Uploading identity documents...');
       try {
         await _client.postMultipart(
           '/accounts/profile/',
           fields: fields,
-          files: files,
+          files: buildFiles(),
         );
       } on ApiException catch (e) {
         if (e.statusCode == 404) {
           await _client.postMultipart(
             '/kyc/submit',
             fields: fields,
-            files: files,
+            files: buildFiles(),
           );
         } else {
           rethrow;
@@ -101,6 +121,7 @@ class KycRepository {
       }
 
       // Record bank account on server
+      onProgress?.call(0.72, 'Linking bank account...');
       try {
         await _client.post(
           '/banking/bank-accounts/',
@@ -116,6 +137,7 @@ class KycRepository {
       }
 
       // Record onboarding progress step on server
+      onProgress?.call(0.90, 'Finalizing setup...');
       try {
         await _client.patch(
           '/auth/onboarding-step/',
@@ -128,13 +150,23 @@ class KycRepository {
         // Non-blocking step update
       }
     } else {
-      // Local simulated processing delay
-      await Future.delayed(const Duration(milliseconds: 400));
+      // Local simulated processing stages
+      onProgress?.call(0.35, 'Uploading identity documents...');
+      await Future.delayed(const Duration(milliseconds: 140));
+      onProgress?.call(0.72, 'Linking bank account...');
+      await Future.delayed(const Duration(milliseconds: 140));
+      onProgress?.call(0.92, 'Finalizing setup...');
+      await Future.delayed(const Duration(milliseconds: 120));
     }
 
-    // Persist to local repository and mark verified
+    // Persist uploaded changes and optimistically return the review state to pending.
     UserProfileRepository.instance.syncFromKyc(state);
-    UserProfileRepository.instance.markKycCompleted();
+    if (isResubmission) {
+      UserProfileRepository.instance.markKycResubmitted();
+    } else {
+      UserProfileRepository.instance.markKycCompleted();
+    }
+    onProgress?.call(1.0, 'Verification submitted!');
     return true;
   }
 

@@ -21,7 +21,9 @@ void main() {
     setupTestState();
   });
 
-  group('AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite', () {
+  group(
+      'AccountSettingsPage Comprehensive Responsiveness & Zero Overflow Suite',
+      () {
     final screenWidths = [320.0, 360.0, 375.0, 414.0, 768.0, 1024.0, 1200.0];
 
     for (final width in screenWidths) {
@@ -48,7 +50,8 @@ void main() {
           final target = find.widgetWithText(GestureDetector, tabName).first;
           if (width < 640) {
             final scrollable = find.byType(Scrollable).first;
-            await tester.scrollUntilVisible(target, 50.0, scrollable: scrollable);
+            await tester.scrollUntilVisible(target, 50.0,
+                scrollable: scrollable);
           }
           await tester.tap(target);
           await tester.pumpAndSettle();
@@ -64,7 +67,8 @@ void main() {
         expect(find.text('Bank accounts.'), findsOneWidget);
         expect(find.text('PKR RECEIVING (PAKISTAN)'), findsOneWidget);
         expect(find.text('Add account'), findsOneWidget);
-        expect(find.text('JAZZCASH (MOBILINK MICROFINANCE BANK)'), findsOneWidget);
+        expect(
+            find.text('JAZZCASH (MOBILINK MICROFINANCE BANK)'), findsOneWidget);
         expect(find.text('Primary'), findsOneWidget);
 
         // 4. Payments PIN Tab
@@ -81,7 +85,8 @@ void main() {
       });
     }
 
-    testWidgets('Payments PIN full lifecycle: Set -> Update (with wrong current PIN error) -> Forgot PIN -> Remove PIN',
+    testWidgets(
+        'Payments PIN full lifecycle: Set -> Update (with wrong current PIN error) -> Forgot PIN -> Remove PIN',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -103,7 +108,10 @@ void main() {
       await tester.pumpAndSettle();
 
       // If a PIN is not set, set it first to test the full lifecycle
-      if (find.text('No PIN set — your payments page is open.').evaluate().isNotEmpty) {
+      if (find
+          .text('No PIN set — your payments page is open.')
+          .evaluate()
+          .isNotEmpty) {
         expect(find.text('Set PIN'), findsOneWidget);
 
         // Enter initial PIN and confirm PIN
@@ -132,7 +140,8 @@ void main() {
 
       // Test 1: Enter WRONG current PIN and try to update
       final updateTextFields = find.byType(TextField);
-      await tester.enterText(updateTextFields.at(0), '9999'); // wrong current PIN
+      await tester.enterText(
+          updateTextFields.at(0), '9999'); // wrong current PIN
       await tester.enterText(updateTextFields.at(1), '5678'); // new PIN
       await tester.enterText(updateTextFields.at(2), '5678'); // confirm PIN
 
@@ -144,7 +153,8 @@ void main() {
 
       // Expect smart error message as requested
       expect(
-        find.text('Incorrect current PIN. Please enter your correct previous PIN.'),
+        find.text(
+            'Incorrect current PIN. Please enter your correct previous PIN.'),
         findsOneWidget,
       );
 
@@ -154,7 +164,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Test 2: Enter CORRECT current PIN and update
-      await tester.enterText(updateTextFields.at(0), '1234'); // correct current PIN
+      await tester.enterText(
+          updateTextFields.at(0), '1234'); // correct current PIN
       await tester.enterText(updateTextFields.at(1), '5678');
       await tester.enterText(updateTextFields.at(2), '5678');
 
@@ -183,7 +194,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Temporary PIN (1234) sent to kherool66@gmail.com. Enter it in CURRENT PIN.'),
+        find.text(
+            'Temporary PIN (1234) sent to kherool66@gmail.com. Enter it in CURRENT PIN.'),
         findsOneWidget,
       );
 
@@ -193,14 +205,16 @@ void main() {
 
       // Test 4: Remove PIN with WRONG PIN
       final removeTextFields = find.byType(TextField);
-      await tester.enterText(removeTextFields.at(3), '0000'); // wrong PIN in remove card
+      await tester.enterText(
+          removeTextFields.at(3), '0000'); // wrong PIN in remove card
       final removeBtn = find.text('Remove PIN').last;
       await tester.ensureVisible(removeBtn);
       await tester.tap(removeBtn);
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Incorrect current PIN. Please enter your correct previous PIN to remove.'),
+        find.text(
+            'Incorrect current PIN. Please enter your correct previous PIN to remove.'),
         findsOneWidget,
       );
 
@@ -221,11 +235,13 @@ void main() {
       );
 
       // Verify page updated back to initial "No PIN set" state
-      expect(find.text('No PIN set — your payments page is open.'), findsOneWidget);
+      expect(find.text('No PIN set — your payments page is open.'),
+          findsOneWidget);
       expect(find.text('Set PIN'), findsOneWidget);
     });
 
-    testWidgets('Bank accounts modal sheet opens, renders and dismisses cleanly on 360px',
+    testWidgets(
+        'Bank accounts modal sheet opens, renders and dismisses cleanly on 360px',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 800.0);
       tester.view.devicePixelRatio = 1.0;
@@ -239,7 +255,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final bankTab = find.widgetWithText(GestureDetector, 'Bank Accounts').first;
+      final bankTab =
+          find.widgetWithText(GestureDetector, 'Bank Accounts').first;
       final scrollable = find.byType(Scrollable).first;
       await tester.scrollUntilVisible(bankTab, 50.0, scrollable: scrollable);
       await tester.tap(bankTab);
@@ -262,7 +279,8 @@ void main() {
       expect(find.text('Add Pakistani bank account'), findsNothing);
     });
 
-    testWidgets('Bank accounts full interactive lifecycle: Add -> Set as Primary -> Edit -> Delete with confirmation',
+    testWidgets(
+        'Bank accounts full interactive lifecycle: Add -> Set as Primary -> Edit -> Delete with confirmation',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(414.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -356,12 +374,12 @@ void main() {
       expect(find.text('Bank account removed.'), findsOneWidget);
       await tester.pumpAndSettle();
 
-      expect(
-          find.text('JAZZCASH (MOBILINK MICROFINANCE BANK)'), findsNothing);
+      expect(find.text('JAZZCASH (MOBILINK MICROFINANCE BANK)'), findsNothing);
       expect(find.text('MEEZAN BANK LIMITED'), findsOneWidget);
     });
 
-    testWidgets('Profile section: Phone has single +92 prefix, documents render with Replace, and Avatar options work',
+    testWidgets(
+        'Profile section: Phone has single +92 prefix, documents render with Replace, and Avatar options work',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(375.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -386,7 +404,8 @@ void main() {
       // Verify Saved Identity Documents section (Selfie, CNIC Front, CNIC Back)
       final scrollable = find.byType(Scrollable).first;
       final selfieText = find.text('SELFIE');
-      await tester.scrollUntilVisible(selfieText, 100.0, scrollable: scrollable);
+      await tester.scrollUntilVisible(selfieText, 100.0,
+          scrollable: scrollable);
       expect(selfieText, findsOneWidget);
       expect(find.text('CNIC — FRONT'), findsOneWidget);
       expect(find.text('CNIC — BACK'), findsOneWidget);
@@ -435,7 +454,8 @@ void main() {
       );
     });
 
-    testWidgets('Profile Picture dialog renders refined light theme styling without dark background artifacts',
+    testWidgets(
+        'Profile Picture dialog renders refined light theme styling without dark background artifacts',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(375.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -463,17 +483,23 @@ void main() {
       expect(find.text('Update Profile Picture'), findsOneWidget);
       expect(find.text('Remove Profile Picture'), findsOneWidget);
 
-      final removeTitle = tester.widget<Text>(find.text('Remove Profile Picture'));
+      final removeTitle =
+          tester.widget<Text>(find.text('Remove Profile Picture'));
       expect(removeTitle.style?.color, const Color(0xFFBE123C));
 
-      final updateTitle = tester.widget<Text>(find.text('Update Profile Picture'));
+      final updateTitle =
+          tester.widget<Text>(find.text('Update Profile Picture'));
       expect(
         updateTitle.style?.color,
-        AppTheme.lightTheme.extension<PaidiXColorsExtension>()?.colors.textPrimary,
+        AppTheme.lightTheme
+            .extension<PaidiXColorsExtension>()
+            ?.colors
+            .textPrimary,
       );
     });
 
-    testWidgets('Selfie document preview renders portrait biometric frame without background ring',
+    testWidgets(
+        'Selfie document preview renders portrait biometric frame without background ring',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -495,7 +521,8 @@ void main() {
 
       final scrollable = find.byType(Scrollable).first;
       final selfieText = find.text('SELFIE');
-      await tester.scrollUntilVisible(selfieText, 100.0, scrollable: scrollable);
+      await tester.scrollUntilVisible(selfieText, 100.0,
+          scrollable: scrollable);
       expect(selfieText, findsOneWidget);
 
       // Verify the portrait frame (width: 118, height: 144) is present
@@ -525,7 +552,8 @@ void main() {
       expect(circularRingFinder, findsNothing);
     });
 
-    testWidgets('Appearance Tab: Financial Display & Privacy with Stealth Mode & Compact Notation',
+    testWidgets(
+        'Appearance Tab: Financial Display & Privacy with Stealth Mode & Compact Notation',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 900.0);
       tester.view.devicePixelRatio = 1.0;
@@ -542,9 +570,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // Navigate to Appearance tab (scroll horizontally if needed)
-      final appearanceTab = find.widgetWithText(GestureDetector, 'Appearance').first;
+      final appearanceTab =
+          find.widgetWithText(GestureDetector, 'Appearance').first;
       final tabScrollable = find.byType(Scrollable).first;
-      await tester.scrollUntilVisible(appearanceTab, 50.0, scrollable: tabScrollable);
+      await tester.scrollUntilVisible(appearanceTab, 50.0,
+          scrollable: tabScrollable);
       await tester.tap(appearanceTab);
       await tester.pumpAndSettle();
 
@@ -565,7 +595,8 @@ void main() {
       expect(find.text('Stealth Active'), findsOneWidget);
       expect(find.text('Rs. ••••••••••'), findsOneWidget);
       expect(
-        find.text('Tap any masked balance on the dashboard to reveal temporarily.'),
+        find.text(
+            'Tap any masked balance on the dashboard to reveal temporarily.'),
         findsOneWidget,
       );
       expect(find.textContaining('💡'), findsNothing);
@@ -592,7 +623,8 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('Tilted phone orientation (landscape 740x360, 800x360, 850x390, 896x414) renders with zero overflow inside AppShell and across tabs',
+    testWidgets(
+        'Tilted phone orientation (landscape 740x360, 800x360, 850x390, 896x414) renders with zero overflow inside AppShell and across tabs',
         (WidgetTester tester) async {
       final tiltSizes = [
         const Size(740.0, 360.0),
@@ -621,7 +653,8 @@ void main() {
         expect(find.text('Account settings.'), findsOneWidget);
 
         // Switch to Bank accounts tab in tilt view
-        final bankTab = find.widgetWithText(GestureDetector, 'Bank Accounts').first;
+        final bankTab =
+            find.widgetWithText(GestureDetector, 'Bank Accounts').first;
         final scrollable = find.byType(Scrollable).first;
         await tester.scrollUntilVisible(bankTab, 50.0, scrollable: scrollable);
         await tester.tap(bankTab);
@@ -635,7 +668,8 @@ void main() {
       tester.view.resetPhysicalSize();
     });
 
-    testWidgets('Account Settings back button navigates to Dashboard with smooth transition',
+    testWidgets(
+        'Account Settings back button navigates to Dashboard with smooth transition',
         (WidgetTester tester) async {
       tester.view.physicalSize = const Size(360.0, 800.0);
       tester.view.devicePixelRatio = 1.0;

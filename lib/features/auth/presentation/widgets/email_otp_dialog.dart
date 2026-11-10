@@ -14,12 +14,18 @@ class EmailOtpDialog extends StatefulWidget {
   final String email;
   final String? password;
   final VoidCallback onVerified;
+  final bool otpSentInitially;
+  final String? initialErrorMessage;
+  final bool performSignInOnVerified;
 
   const EmailOtpDialog({
     super.key,
     required this.email,
     this.password,
     required this.onVerified,
+    this.otpSentInitially = true,
+    this.initialErrorMessage,
+    this.performSignInOnVerified = true,
   });
 
   /// Opens the OTP verification dialog.
@@ -28,6 +34,9 @@ class EmailOtpDialog extends StatefulWidget {
     required String email,
     String? password,
     required VoidCallback onVerified,
+    bool otpSentInitially = true,
+    String? initialErrorMessage,
+    bool performSignInOnVerified = true,
   }) {
     return showDialog<void>(
       context: context,
@@ -36,6 +45,9 @@ class EmailOtpDialog extends StatefulWidget {
         email: email,
         password: password,
         onVerified: onVerified,
+        otpSentInitially: otpSentInitially,
+        initialErrorMessage: initialErrorMessage,
+        performSignInOnVerified: performSignInOnVerified,
       ),
     );
   }
@@ -52,12 +64,15 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
   int _secondsRemaining = 60;
   bool _isVerifying = false;
   bool _isResending = false;
+  late bool _codeWasSent;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _startTimer();
+    _codeWasSent = widget.otpSentInitially;
+    _errorMessage = widget.initialErrorMessage;
+    _beginCountdown();
   }
 
   @override
@@ -68,12 +83,8 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
     super.dispose();
   }
 
-  void _startTimer() {
+  void _beginCountdown() {
     _countdownTimer?.cancel();
-    setState(() {
-      _secondsRemaining = 60;
-      _errorMessage = null;
-    });
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_secondsRemaining > 0) {
         if (mounted) {
@@ -91,6 +102,56 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
     });
   }
 
+  void _startTimer({String? initialError}) {
+    setState(() {
+      _secondsRemaining = 60;
+      _errorMessage = initialError;
+    });
+    _beginCountdown();
+  }
+
+  /// Completes optional post-OTP sign-in (e.g. from SignUp) while loading,
+  /// closes the dialog, and notifies [widget.onVerified].
+  Future<void> _completeVerificationAndSignIn() async {
+    if (widget.performSignInOnVerified &&
+        widget.password != null &&
+        widget.password!.isNotEmpty) {
+      await AuthRepository.instance.signIn(
+        SignInRequest(email: widget.email, password: widget.password!),
+      );
+    }
+
+    if (!mounted) return;
+    _countdownTimer?.cancel();
+    Navigator.of(context).pop();
+    widget.onVerified();
+  }
+
+  /// Shared recovery when backend reports the email is already verified.
+  Future<void> _handleAlreadyVerifiedRecovery() async {
+    if (!mounted) return;
+    setState(() {
+      _isResending = false;
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+    try {
+      await _completeVerificationAndSignIn();
+    } on ApiException catch (signInErr) {
+      if (!mounted) return;
+      setState(() {
+        _isVerifying = false;
+        _errorMessage = signInErr.message;
+      });
+    } catch (signInErr) {
+      if (!mounted) return;
+      setState(() {
+        _isVerifying = false;
+        _errorMessage = 'Sign-in failed: $signInErr';
+      });
+    }
+  }
+
   /// Sanitizes input, removing any spaces or non-digit characters.
   void _onCodeChanged(String value) {
     final digitsOnly = value.replaceAll(RegExp(r'\D'), '');
@@ -105,12 +166,12 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
     }
     // Auto-verify as soon as 6 digits are entered
     if (digitsOnly.length == 6 && !_isVerifying) {
-      _handleVerify();
+      _handleVerify(overrideCode: digitsOnly);
     }
   }
 
-  Future<void> _handleVerify() async {
-    final code = _otpController.text.replaceAll(RegExp(r'\D'), '');
+  Future<void> _handleVerify({String? overrideCode}) async {
+    final code = (overrideCode ?? _otpController.text).replaceAll(RegExp(r'\D'), '');
     if (code.length != 6) {
       setState(() {
         _errorMessage = 'Please enter a valid 6-digit verification code.';
@@ -137,38 +198,11 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
         code: code,
       );
 
-      if (!mounted) return;
-      _countdownTimer?.cancel();
-      Navigator.of(context).pop();
-
-      // If password was provided, attempt silent sign-in to populate session tokens
-      if (widget.password != null && widget.password!.isNotEmpty) {
-        try {
-          await AuthRepository.instance.signIn(
-            SignInRequest(email: widget.email, password: widget.password!),
-          );
-        } catch (_) {
-          // Silent fallback if credentials need manual entry
-        }
-      }
-
-      widget.onVerified();
+      await _completeVerificationAndSignIn();
     } on ApiException catch (e) {
       if (!mounted) return;
-      final msg = e.message.toLowerCase();
-      // "already verified" at this layer means the repository did not catch it —
-      // treat it as success and proceed.
-      if (msg.contains('already verified') || msg.contains('already_verified')) {
-        _countdownTimer?.cancel();
-        Navigator.of(context).pop();
-        if (widget.password != null && widget.password!.isNotEmpty) {
-          try {
-            await AuthRepository.instance.signIn(
-              SignInRequest(email: widget.email, password: widget.password!),
-            );
-          } catch (_) {}
-        }
-        widget.onVerified();
+      if (AuthRepository.isAlreadyVerifiedMessage(e.message)) {
+        await _handleAlreadyVerifiedRecovery();
         return;
       }
       setState(() {
@@ -193,6 +227,15 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
   }
 
   Future<void> _handleResend() async {
+    final password = widget.password ?? '';
+    if (password.isEmpty) {
+      setState(() {
+        _errorMessage =
+            'Please close this dialog and re-enter your password to resend a verification code.';
+      });
+      return;
+    }
+
     setState(() {
       _isResending = true;
       _errorMessage = null;
@@ -201,12 +244,13 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
     try {
       await AuthRepository.instance.resendEmailOtp(
         email: widget.email,
-        password: widget.password ?? '',
+        password: password,
       );
 
       if (!mounted) return;
       setState(() {
         _isResending = false;
+        _codeWasSent = true;
         _otpController.clear();
       });
       _startTimer();
@@ -215,8 +259,14 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
         context,
         'Fresh 6-digit code sent to ${widget.email}. Valid for 60 seconds.',
       );
+    } on EmailAlreadyVerifiedException {
+      await _handleAlreadyVerifiedRecovery();
     } on ApiException catch (e) {
       if (!mounted) return;
+      if (AuthRepository.isAlreadyVerifiedMessage(e.message)) {
+        await _handleAlreadyVerifiedRecovery();
+        return;
+      }
       setState(() {
         _isResending = false;
         _errorMessage = e.message;
@@ -281,7 +331,9 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'A 6-digit verification code was sent to:',
+              _codeWasSent
+                  ? 'A 6-digit verification code was sent to:'
+                  : 'Enter the 6-digit verification code for:',
               style: TextStyle(color: colors.textSecondary, fontSize: 13),
             ),
             const SizedBox(height: 4),

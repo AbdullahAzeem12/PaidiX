@@ -17,6 +17,7 @@ import '../widgets/email_otp_dialog.dart';
 import '../../data/auth_repository.dart';
 import '../../domain/auth_models.dart';
 import '../../domain/auth_validators.dart';
+import '../widgets/admin_web_login_dialog.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -42,9 +43,10 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   /// Validates the form, authenticates via AuthRepository, and routes by KYC status.
-  Future<void> _handleSignIn() async {
+  Future<void> _handleSignIn({bool allowOtpDialog = true}) async {
     if (!(_formKey.currentState?.validate() ?? false)) {
-      PaidiXToast.showWarning(context, 'Please enter a valid email and password.');
+      PaidiXToast.showWarning(
+          context, 'Please enter a valid email and password.');
       return;
     }
 
@@ -74,10 +76,22 @@ class _SignInPageState extends State<SignInPage> {
         );
         context.go('/kyc');
       }
+    } on MobileAdminAccessException catch (e) {
+      if (!mounted) return;
+      await AdminWebLoginDialog.show(context, backendMessage: e.message);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.errorCode == 'EMAIL_UNVERIFIED') {
-        _showOtpVerificationDialog(_emailController.text.trim().toLowerCase());
+      if (allowOtpDialog &&
+          (e is EmailUnverifiedException ||
+              AuthRepository.isEmailUnverifiedError(e))) {
+        final otpSent = e is EmailUnverifiedException ? e.otpSent : true;
+        final resendNotice =
+            e is EmailUnverifiedException ? e.resendNotice : null;
+        _showOtpVerificationDialog(
+          _emailController.text.trim().toLowerCase(),
+          otpSentInitially: otpSent,
+          initialErrorMessage: resendNotice,
+        );
       } else if (e.isRetryable) {
         // 500, 502, 503, 504 — transient server errors → full ServerErrorDialog
         ServerErrorDialog.show(
@@ -113,24 +127,36 @@ class _SignInPageState extends State<SignInPage> {
   /// Returns a human-readable title for server error dialogs based on status code.
   String _serverErrorTitle(int statusCode) {
     switch (statusCode) {
-      case 500: return 'Server Error';
-      case 502: return 'Gateway Error';
-      case 503: return 'Service Unavailable';
-      case 504: return 'Gateway Timeout';
-      default:  return 'Connection Error';
+      case 500:
+        return 'Server Error';
+      case 502:
+        return 'Gateway Error';
+      case 503:
+        return 'Service Unavailable';
+      case 504:
+        return 'Gateway Timeout';
+      default:
+        return 'Connection Error';
     }
   }
 
   /// Displays the OTP email verification modal.
-  void _showOtpVerificationDialog(String email) {
+  void _showOtpVerificationDialog(
+    String email, {
+    bool otpSentInitially = true,
+    String? initialErrorMessage,
+  }) {
     EmailOtpDialog.show(
       context,
       email: email,
       password: _passwordController.text,
+      otpSentInitially: otpSentInitially,
+      initialErrorMessage: initialErrorMessage,
+      performSignInOnVerified: false,
       onVerified: () {
         if (!mounted) return;
         PaidiXToast.showSuccess(context, 'Email verified! Signing you in...');
-        _handleSignIn();
+        _handleSignIn(allowOtpDialog: false);
       },
     );
   }
@@ -239,7 +265,8 @@ class _SignInPageState extends State<SignInPage> {
           actions: [
             TextButton(
               onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
-              child: Text('Cancel', style: TextStyle(color: colors.textSecondary)),
+              child:
+                  Text('Cancel', style: TextStyle(color: colors.textSecondary)),
             ),
             ElevatedButton(
               onPressed: isSubmitting
@@ -247,7 +274,8 @@ class _SignInPageState extends State<SignInPage> {
                   : () async {
                       final email = emailController.text.trim().toLowerCase();
                       if (email.isEmpty) {
-                        PaidiXToast.showWarning(context, 'Please enter your email.');
+                        PaidiXToast.showWarning(
+                            context, 'Please enter your email.');
                         return;
                       }
 
@@ -255,24 +283,28 @@ class _SignInPageState extends State<SignInPage> {
                       try {
                         if (currentStep == 1) {
                           if (AppConfig.hasCustomBackend) {
-                            await AuthRepository.instance.requestPasswordResetOtp(email: email);
+                            await AuthRepository.instance
+                                .requestPasswordResetOtp(email: email);
                           }
                           setDialogState(() {
                             currentStep = 2;
                             isSubmitting = false;
                           });
                           if (!mounted) return;
-                          PaidiXToast.showSuccess(context, 'Reset code sent to $email');
+                          PaidiXToast.showSuccess(
+                              context, 'Reset code sent to $email');
                         } else {
                           final code = codeController.text.trim();
                           final newPassword = newPasswordController.text;
                           if (code.length != 6) {
-                            PaidiXToast.showWarning(context, 'Please enter the 6-digit code.');
+                            PaidiXToast.showWarning(
+                                context, 'Please enter the 6-digit code.');
                             setDialogState(() => isSubmitting = false);
                             return;
                           }
                           if (newPassword.length < 8) {
-                            PaidiXToast.showWarning(context, 'Password must be at least 8 characters.');
+                            PaidiXToast.showWarning(context,
+                                'Password must be at least 8 characters.');
                             setDialogState(() => isSubmitting = false);
                             return;
                           }
@@ -299,19 +331,22 @@ class _SignInPageState extends State<SignInPage> {
                       } catch (e) {
                         setDialogState(() => isSubmitting = false);
                         if (!mounted) return;
-                        PaidiXToast.showError(context, 'Reset request failed: $e');
+                        PaidiXToast.showError(
+                            context, 'Reset request failed: $e');
                       }
                     },
               style: ElevatedButton.styleFrom(
                 backgroundColor: colors.aqua,
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                shape:
+                    RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
               ),
               child: isSubmitting
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
                     )
                   : Text(currentStep == 1 ? 'Send Code' : 'Update Password'),
             ),
@@ -403,7 +438,7 @@ class _SignInPageState extends State<SignInPage> {
                       AuthPrimaryButton(
                         text: 'Sign in',
                         isLoading: _isLoading,
-                        onPressed: _handleSignIn,
+                        onPressed: () => _handleSignIn(),
                       ),
                       const SizedBox(height: 32),
 

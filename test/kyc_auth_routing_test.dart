@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:paidix/app/theme/app_theme.dart';
+import 'package:paidix/core/widgets/app_shell.dart';
 import 'package:paidix/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:paidix/features/kyc/domain/kyc_models.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
@@ -18,6 +19,38 @@ void main() {
   });
 
   group('One-Time KYC Verification Routing & Persistence Suite', () {
+    testWidgets(
+        'Onboarding navigation stays visible until the profile is verified',
+        (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const AppShell(
+            currentPath: '/app/dashboard',
+            child: Scaffold(body: Text('Dashboard')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Onboarding'), findsOneWidget);
+
+      UserProfileRepository.instance.setActiveUser(
+        UserProfileRepository.instance.profile.copyWith(
+          hasCompletedKyc: true,
+          kycStatus: KycReviewStatus.verified,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Onboarding'), findsNothing);
+    });
+
     test('Default user has completed KYC and is registered in memory', () {
       final repo = UserProfileRepository.instance;
       expect(repo.profile.hasCompletedKyc, isTrue);
@@ -32,7 +65,9 @@ void main() {
       expect(alias!.hasCompletedKyc, isTrue);
     });
 
-    test('New user registration sets hasCompletedKyc = false and stores in registry', () {
+    test(
+        'New user registration sets hasCompletedKyc = false and stores in registry',
+        () {
       final repo = UserProfileRepository.instance;
       repo.syncFromSignUp(
         fullName: 'Zainab Tariq',
@@ -51,7 +86,9 @@ void main() {
       expect(savedUser!.hasCompletedKyc, isFalse);
     });
 
-    test('syncFromKyc with submission marks hasCompletedKyc = true and saves all details permanently', () {
+    test(
+        'syncFromKyc with submission marks hasCompletedKyc = true and saves all details permanently',
+        () {
       final repo = UserProfileRepository.instance;
       repo.syncFromSignUp(
         fullName: 'Zainab Tariq',
@@ -102,7 +139,9 @@ void main() {
       expect(saved.city, equals('Karachi'));
     });
 
-    testWidgets('SignIn routes already verified user directly to /app/dashboard', (tester) async {
+    testWidgets(
+        'SignIn routes already verified user directly to /app/dashboard',
+        (tester) async {
       String navigatedLocation = '';
       final testRouter = GoRouter(
         initialLocation: '/signin',
@@ -137,7 +176,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter Abdullah Azeem's email (already completed KYC)
-      await tester.enterText(find.byType(TextFormField).at(0), 'kherool66@gmail.com');
+      await tester.enterText(
+          find.byType(TextFormField).at(0), 'kherool66@gmail.com');
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 
@@ -149,7 +189,8 @@ void main() {
       expect(navigatedLocation, equals('/app/dashboard'));
     });
 
-    testWidgets('SignIn routes newly registered unverified user to /kyc', (tester) async {
+    testWidgets('SignIn routes newly registered unverified user to /kyc',
+        (tester) async {
       // Register new user first
       UserProfileRepository.instance.syncFromSignUp(
         fullName: 'New Customer',
@@ -190,7 +231,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(0), 'newbie@gmail.com');
+      await tester.enterText(
+          find.byType(TextFormField).at(0), 'newbie@gmail.com');
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 
@@ -202,7 +244,9 @@ void main() {
       expect(navigatedLocation, equals('/kyc'));
     });
 
-    testWidgets('After completing KYC, user login routes straight to /app/dashboard without re-applying', (tester) async {
+    testWidgets(
+        'After completing KYC, user login routes straight to /app/dashboard without re-applying',
+        (tester) async {
       final repo = UserProfileRepository.instance;
       repo.syncFromSignUp(
         fullName: 'Bilal Ahmad',
@@ -246,7 +290,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextFormField).at(0), 'bilal@gmail.com');
+      await tester.enterText(
+          find.byType(TextFormField).at(0), 'bilal@gmail.com');
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 
@@ -258,7 +303,9 @@ void main() {
       expect(navigatedLocation, equals('/app/dashboard'));
     });
 
-    test('Updating profile details, documents, and avatar persists in registry and syncs across aliases', () {
+    test(
+        'Updating profile details, documents, and avatar persists in registry and syncs across aliases',
+        () {
       final repo = UserProfileRepository.instance;
       final dummyAvatar = Uint8List.fromList([10, 20, 30]);
       final dummySelfie = Uint8List.fromList([40, 50, 60]);
@@ -294,7 +341,9 @@ void main() {
       expect(userOol.avatarBytes, equals(dummyAvatar));
     });
 
-    testWidgets('Re-login with kherool66@gmail.com restores all updated details, documents and routes to /app/dashboard', (tester) async {
+    testWidgets(
+        'Re-login with kherool66@gmail.com restores all updated details, documents and routes to /app/dashboard',
+        (tester) async {
       final repo = UserProfileRepository.instance;
       final dummyAvatar = Uint8List.fromList([1, 2, 3]);
       final dummySelfie = Uint8List.fromList([4, 5, 6]);
@@ -346,7 +395,8 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter kherool66@gmail.com and sign in
-      await tester.enterText(find.byType(TextFormField).at(0), 'kherool66@gmail.com');
+      await tester.enterText(
+          find.byType(TextFormField).at(0), 'kherool66@gmail.com');
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 
@@ -366,7 +416,9 @@ void main() {
       expect(repo.profile.hasCompletedKyc, isTrue);
     });
 
-    test('UserProfile toJson and fromJson serialization roundtrip preserves all fields', () {
+    test(
+        'UserProfile toJson and fromJson serialization roundtrip preserves all fields',
+        () {
       final now = DateTime.now();
       final original = UserProfile(
         fullName: 'Abdullah Azeem',
@@ -381,10 +433,14 @@ void main() {
         kycStatus: KycReviewStatus.verified,
         hasCompletedKyc: true,
         smsConsent: true,
-        selfieFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/selfie.jpg',
-        cnicFrontFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_front.jpg',
-        cnicBackFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_back.jpg',
-        avatarFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/avatar.jpg',
+        selfieFilePath:
+            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/selfie.jpg',
+        cnicFrontFilePath:
+            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_front.jpg',
+        cnicBackFilePath:
+            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_back.jpg',
+        avatarFilePath:
+            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/avatar.jpg',
         bankName: 'Meezan Bank Limited',
         bankIban: 'PK00MEZN0000000000000000',
         bankBeneficiary: 'Abdullah Azeem',
@@ -412,4 +468,3 @@ void main() {
     });
   });
 }
-

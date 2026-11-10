@@ -659,5 +659,38 @@ void main() {
       );
       expect(find.text('Dashboard Page'), findsOneWidget);
     });
+
+    testWidgets('Step 4 Submit Verification shows real-time progress bar until Account Setup Complete dialog appears', (tester) async {
+      UserProfileRepository.instance.updateProfile(
+        fullName: 'Ali Hamza',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const KycPage(initialStep: KycStep.bank),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Default bank on Step 4 is Meezan Bank Limited (14 digits)
+      await tester.enterText(find.byType(TextField).at(0), 'Ali Hamza');
+      await tester.enterText(find.byType(TextField).at(1), '01020304050607');
+      await tester.pumpAndSettle();
+
+      final submitBtn = find.text('Complete Setup & Submit Verification');
+      await tester.ensureVisible(submitBtn);
+      await tester.tap(submitBtn);
+      await tester.pump(const Duration(milliseconds: 80));
+
+      // Real-time progress bar & percentage visible inside the button during submission
+      expect(find.textContaining('%'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 600));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Account Setup Complete!'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 4));
+    });
   });
 }

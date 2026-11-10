@@ -19,11 +19,449 @@ class AuthResult {
   });
 }
 
+/// Thrown when sign-in is blocked because the user's email is unverified.
+///
+/// Tracks whether a fresh verification OTP was actually dispatched by
+/// `POST /auth/email/resend/` (`otpSent`) and any notice/rate-limit detail
+/// returned by the server (`resendNotice`).
+class EmailUnverifiedException extends ApiException {
+  final bool otpSent;
+  final String? resendNotice;
+
+  const EmailUnverifiedException({
+    required super.message,
+    this.otpSent = true,
+    this.resendNotice,
+    super.statusCode = 401,
+    super.errorCode = 'EMAIL_UNVERIFIED',
+  });
+}
+
+/// Thrown when `POST /auth/email/resend/` reports the email is already verified
+/// so callers can complete sign-in directly instead of pretending an OTP was sent.
+class EmailAlreadyVerifiedException extends ApiException {
+  const EmailAlreadyVerifiedException({
+    required super.message,
+    super.statusCode = 400,
+    super.errorCode = 'EMAIL_ALREADY_VERIFIED',
+  });
+}
+
+/// Login succeeded at the transport level, but this privileged account must
+/// use the PaidiX web application instead of the mobile client.
+class MobileAdminAccessException extends ApiException {
+  const MobileAdminAccessException({
+    required super.message,
+    super.statusCode = 403,
+    super.errorCode = 'ADMIN_WEB_ONLY',
+  });
+}
+
 class AuthRepository {
   AuthRepository._();
   static final AuthRepository instance = AuthRepository._();
 
   final ApiClient _client = ApiClient.instance;
+
+  /// Returns true when a backend error message indicates the email is already verified.
+  static bool isAlreadyVerifiedMessage(String message) {
+    final msg = message.toLowerCase();
+    return msg.contains('already verified') || msg.contains('already_verified');
+  }
+
+  /// Returns true when an [ApiException] indicates unverified email during login.
+  static bool isEmailUnverifiedError(ApiException e) {
+    final code = (e.errorCode ?? '').toUpperCase();
+    final msg = e.message.toLowerCase();
+    return code == 'EMAIL_UNVERIFIED' ||
+        msg.contains('verify your email') ||
+        msg.contains('email is not verified') ||
+        msg.contains('email not verified');
+  }
+
+  /// Detects an explicit backend denial directing admins to the web login.
+  static bool isMobileAdminAccessError(ApiException error) {
+    final code = (error.errorCode ?? '').toLowerCase().replaceAll(
+          RegExp(r'[^a-z0-9]'),
+          '',
+        );
+    const knownCodes = {
+      'adminwebonly',
+      'adminloginwebonly',
+      'adminmobileloginblocked',
+      'mobileadminlogindenied',
+      'adminmobileaccessdenied',
+      'adminmobileblocked',
+    };
+    final adminLoginDenied = code.contains('admin') &&
+        code.contains('login') &&
+        (code.contains('denied') ||
+            code.contains('forbidden') ||
+            code.contains('blocked') ||
+            code.contains('notallowed'));
+    if (knownCodes.contains(code) ||
+        (code.contains('admin') &&
+            (code.contains('mobile') || code.contains('web'))) ||
+        adminLoginDenied) {
+      return true;
+    }
+
+    final message = error.message.toLowerCase();
+    final identifiesAdmin =
+        message.contains('admin') || message.contains('administrator');
+    final identifiesMobile =
+        message.contains('mobile') || message.contains('app');
+    final identifiesWebLogin = message.contains('web') ||
+        message.contains('browser') ||
+        message.contains('paidix.com/login');
+    final identifiesLogin = message.contains('login') ||
+        message.contains('sign in') ||
+        message.contains('sign-in');
+    return identifiesAdmin &&
+        ((identifiesMobile && identifiesWebLogin) ||
+            (identifiesLogin && identifiesWebLogin) ||
+            message.contains('admin only'));
+  }
+
+  static const String _adminWebLoginMessage =
+      'Admin accounts cannot sign in to the PaidiX mobile app. Use the PaidiX '
+      'web admin login to continue.';
+
+  static MobileAdminAccessException _adminAccessException({
+    int statusCode = 403,
+    String? message,
+    String? errorCode,
+  }) =>
+      MobileAdminAccessException(
+        statusCode: statusCode,
+        message: message == null || message.trim().isEmpty
+            ? _adminWebLoginMessage
+            : message,
+        errorCode: errorCode ?? 'ADMIN_WEB_ONLY',
+      );
+
+  static Map<String, dynamic>? _asStringMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) return value.map((key, value) => MapEntry('$key', value));
+    return null;
+  }
+
+  static String? _stringValue(Map<String, dynamic> values, List<String> keys) {
+    for (final key in keys) {
+      final value = values[key];
+      if (value is String && value.trim().isNotEmpty) return value.trim();
+    }
+    return null;
+  }
+
+  static bool _isAdminValue(dynamic value) {
+    if (value is List) return value.any(_isAdminValue);
+    if (value is Map) {
+      return value.entries.any((entry) {
+        final key = '${entry.key}';
+        final isRoleName =
+            const {'name', 'slug', 'code', 'value'}.contains(key.toLowerCase());
+        return (_isAdminRoleKey(key) || isRoleName) &&
+            _isAdminValue(entry.value);
+      });
+    }
+    if (value is! String) return false;
+    final normalized = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    return normalized == 'admin' ||
+        normalized == 'administrator' ||
+        normalized.startsWith('admin') ||
+        normalized.startsWith('superadmin') ||
+        normalized.endsWith('admin') ||
+        normalized.endsWith('administrator');
+  }
+
+  static bool _isAdminRoleKey(String key) => const {
+        'role',
+        'roles',
+        'userrole',
+        'accountrole',
+        'usertype',
+        'accounttype'
+      }.contains(key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), ''));
+
+  static bool _hasAdminIdentity(Map<String, dynamic> response) {
+    final data = _asStringMap(response['data']) ?? const <String, dynamic>{};
+    final user = _asStringMap(response['user']) ??
+        _asStringMap(response['profile']) ??
+        _asStringMap(data['user']) ??
+        const <String, dynamic>{};
+    final sources = [response, data, user];
+    for (final source in sources) {
+      for (final key in const [
+        'role',
+        'roles',
+        'user_role',
+        'userRole',
+        'account_role',
+        'accountRole',
+        'user_type',
+        'userType',
+        'account_type',
+        'accountType',
+        'groups',
+      ]) {
+        if (_isAdminValue(source[key])) return true;
+      }
+      for (final key in const [
+        'is_admin',
+        'isAdmin',
+        'is_staff',
+        'isStaff',
+        'is_superuser',
+        'isSuperuser'
+      ]) {
+        final value = source[key];
+        if (value == true ||
+            value == 1 ||
+            (value is String &&
+                (value.toLowerCase() == 'true' || value == '1'))) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static bool _isAdminDeniedPayload(Map<String, dynamic> response) {
+    final code =
+        _stringValue(response, const ['errorCode', 'error_code', 'code']) ??
+            _stringValue(_asStringMap(response['error']) ?? const {},
+                const ['errorCode', 'error_code', 'code']);
+    final message = _stringValue(response, const ['message', 'detail']) ??
+        _stringValue(_asStringMap(response['error']) ?? const {},
+            const ['message', 'detail']);
+    final error = response['error'];
+    return isMobileAdminAccessError(ApiException(
+      statusCode: 403,
+      errorCode: code ?? (error is String ? error : null),
+      message: message ?? (error is String ? error : ''),
+    ));
+  }
+
+  static String? _adminDeniedMessage(Map<String, dynamic> response) {
+    final errorObject = _asStringMap(response['error']);
+    final message = _stringValue(response, const ['message', 'detail']) ??
+        _stringValue(errorObject ?? const {}, const ['message', 'detail']);
+    if (message != null &&
+        isMobileAdminAccessError(
+          ApiException(statusCode: 403, message: message),
+        )) {
+      return message;
+    }
+    final errorText = response['error'];
+    if (errorText is String &&
+        isMobileAdminAccessError(
+            ApiException(statusCode: 403, message: errorText))) {
+      return errorText;
+    }
+    return null;
+  }
+
+  static List<Map<String, dynamic>> _responseMaps(
+    Map<String, dynamic> response,
+  ) {
+    final maps = <Map<String, dynamic>>[response];
+    for (final key in const [
+      'data',
+      'user',
+      'profile',
+      'kyc',
+      'verification',
+    ]) {
+      final nested = _asStringMap(response[key]);
+      if (nested != null) maps.add(nested);
+    }
+    final data = _asStringMap(response['data']);
+    if (data != null) {
+      for (final key in const ['user', 'profile', 'kyc', 'verification']) {
+        final nested = _asStringMap(data[key]);
+        if (nested != null) maps.add(nested);
+      }
+    }
+    return maps;
+  }
+
+  /// Reads only KYC-specific approval fields. `is_profile_complete` describes
+  /// profile/onboarding completion and is never accepted as KYC approval.
+  static KycReviewStatus? _parseKycStatus(
+    Map<String, dynamic> response, {
+    bool allowGenericStatus = false,
+  }) {
+    final statusKeys = <String>[
+      'kyc_status',
+      'kycStatus',
+      'verification_status',
+      'verificationStatus',
+      'identity_status',
+      'identityStatus',
+      'review_status',
+      'reviewStatus',
+      'kyc_review_status',
+      'kycReviewStatus',
+      if (allowGenericStatus) 'status',
+    ];
+    for (final source in _responseMaps(response)) {
+      for (final key in statusKeys) {
+        final value = source[key];
+        if (value is! String || value.trim().isEmpty) continue;
+        final status = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        switch (status) {
+          case 'approved':
+          case 'verified':
+          case 'accepted':
+            return KycReviewStatus.verified;
+          case 'pending':
+          case 'pendingreview':
+          case 'underreview':
+          case 'inreview':
+          case 'submitted':
+          case 'resubmitted':
+            return KycReviewStatus.pendingReview;
+          case 'rejected':
+          case 'declined':
+          case 'verificationrejected':
+          case 'needsresubmission':
+          case 'resubmissionrequired':
+            return KycReviewStatus.rejected;
+          case 'inprogress':
+          case 'processing':
+            return KycReviewStatus.inProgress;
+          case 'draft':
+          case 'notstarted':
+          case 'incomplete':
+            return KycReviewStatus.notStarted;
+        }
+      }
+    }
+
+    final verifiedKeys = <String>[
+      'kyc_verified',
+      'kycVerified',
+      'is_kyc_verified',
+      'isKycVerified',
+      'identity_verified',
+      'identityVerified',
+      'is_identity_verified',
+      'isIdentityVerified',
+      if (allowGenericStatus) 'is_verified',
+      if (allowGenericStatus) 'isVerified',
+      if (allowGenericStatus) 'verified',
+    ];
+    for (final source in _responseMaps(response)) {
+      for (final key in verifiedKeys) {
+        final value = source[key];
+        if (value == true ||
+            (value is String && value.toLowerCase() == 'true')) {
+          return KycReviewStatus.verified;
+        }
+        if (value == false ||
+            (value is String && value.toLowerCase() == 'false')) {
+          return KycReviewStatus.inProgress;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  static bool? _readBoolean(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final source in sources) {
+      for (final key in keys) {
+        final value = source[key];
+        if (value is bool) return value;
+        if (value is String) {
+          if (value.toLowerCase() == 'true' || value == '1') return true;
+          if (value.toLowerCase() == 'false' || value == '0') return false;
+        }
+      }
+    }
+    return null;
+  }
+
+  static String? _firstNonEmptyString(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final source in sources) {
+      for (final key in keys) {
+        final value = source[key];
+        if (value is String && value.trim().isNotEmpty) return value.trim();
+      }
+    }
+    return null;
+  }
+
+  /// Posts to a public (unauthenticated) auth endpoint without Bearer header.
+  Future<Map<String, dynamic>> _postPublic(
+    String path, {
+    required Map<String, dynamic> body,
+  }) {
+    return _client.post(path, body: body, includeAuth: false);
+  }
+
+  /// Executes `POST /auth/login/` with 404 fallback to `/auth/signin`.
+  Future<Map<String, dynamic>> _postLogin(SignInRequest request) async {
+    try {
+      return await _postPublic('/auth/login/', body: request.toJson());
+    } on ApiException catch (e) {
+      if (e.statusCode == 404) {
+        return await _postPublic('/auth/signin', body: request.toJson());
+      }
+      rethrow;
+    }
+  }
+
+  /// Handles a 401 EMAIL_UNVERIFIED login response by dispatching a fresh OTP
+  /// or retrying login directly if the backend reports email already verified.
+  Future<Map<String, dynamic>> _dispatchOtpOrRecoverVerifiedLogin(
+    SignInRequest request,
+    ApiException loginError,
+  ) async {
+    try {
+      await _postPublic(
+        '/auth/email/resend/',
+        body: {
+          'email': request.email.trim().toLowerCase(),
+          'password': request.password,
+        },
+      );
+    } on ApiException catch (resendErr) {
+      if (isAlreadyVerifiedMessage(resendErr.message)) {
+        try {
+          return await _postLogin(request);
+        } on ApiException catch (retryErr) {
+          if (isEmailUnverifiedError(retryErr)) {
+            throw ApiException(
+              statusCode: retryErr.statusCode,
+              message: '${resendErr.message} ${retryErr.message}'.trim(),
+              errorCode: 'EMAIL_VERIFICATION_CONFLICT',
+            );
+          }
+          rethrow;
+        }
+      }
+      throw EmailUnverifiedException(
+        message: loginError.message,
+        otpSent: false,
+        resendNotice: resendErr.message,
+        statusCode: loginError.statusCode,
+      );
+    }
+
+    throw EmailUnverifiedException(
+      message: loginError.message,
+      otpSent: true,
+      statusCode: loginError.statusCode,
+    );
+  }
 
   /// Registers a new user account with the backend server.
   Future<AuthResult> signUp(SignUpRequest request) async {
@@ -31,13 +469,13 @@ class AuthRepository {
     if (AppConfig.hasCustomBackend) {
       Map<String, dynamic> data;
       try {
-        data = await _client.post(
+        data = await _postPublic(
           '/auth/signup/request-otp/',
           body: request.toJson(),
         );
       } on ApiException catch (e) {
         if (e.statusCode == 404) {
-          data = await _client.post(
+          data = await _postPublic(
             '/auth/signup',
             body: request.toJson(),
           );
@@ -50,6 +488,9 @@ class AuthRepository {
       final refresh = data['refresh'] as String? ?? '';
       if (access.isNotEmpty) {
         await _client.setAuthTokens(access: access, refresh: refresh);
+      } else {
+        // Clear any leftover token from an earlier account while awaiting OTP.
+        await _client.clearSession();
       }
 
       final userData = data['user'] as Map<String, dynamic>? ?? {};
@@ -92,6 +533,17 @@ class AuthRepository {
   }
 
   /// Authenticates an existing user account with the backend server.
+  ///
+  /// Flow (matching the API spec):
+  ///  - 200 OK → email is already verified; stores JWT tokens directly and returns
+  ///    [AuthResult] so caller routes straight to Dashboard/KYC with no OTP modal.
+  ///  - 401 EMAIL_UNVERIFIED → attempts to dispatch a fresh 6-digit OTP via
+  ///    `POST /auth/email/resend/`.
+  ///    - If resend succeeds → throws [EmailUnverifiedException] with `otpSent: true`.
+  ///    - If resend reports email is already verified → retries login once; if
+  ///      login succeeds, signs the user in directly without showing any OTP modal.
+  ///    - If resend fails (e.g. 429 rate limit) → throws [EmailUnverifiedException]
+  ///      with `otpSent: false` and the exact server `resendNotice`.
   Future<AuthResult> signIn(SignInRequest request) async {
     final inputEmail = request.email.trim().toLowerCase();
     final now = DateTime.now();
@@ -109,99 +561,23 @@ class AuthRepository {
     if (AppConfig.hasCustomBackend) {
       Map<String, dynamic> data;
       try {
-        data = await _client.post(
-          '/auth/login/',
-          body: request.toJson(),
-        );
+        data = await _postLogin(request);
       } on ApiException catch (e) {
-        if (e.statusCode == 404) {
-          data = await _client.post(
-            '/auth/signin',
-            body: request.toJson(),
+        if (isMobileAdminAccessError(e)) {
+          await _client.clearSession();
+          throw _adminAccessException(
+            statusCode: e.statusCode,
+            message: e.message,
+            errorCode: e.errorCode,
           );
+        } else if (e.statusCode == 401 && isEmailUnverifiedError(e)) {
+          data = await _dispatchOtpOrRecoverVerifiedLogin(request, e);
         } else {
           rethrow;
         }
       }
 
-      final access = (data['access'] ?? data['token']) as String? ?? '';
-      final refresh = data['refresh'] as String? ?? '';
-      if (access.isNotEmpty) {
-        await _client.setAuthTokens(access: access, refresh: refresh);
-      }
-
-      final userData = data['user'] as Map<String, dynamic>? ?? {};
-      final kycStatusStr =
-          (userData['kyc_status'] as String? ?? '').toLowerCase();
-      final isProfileComplete = userData['is_profile_complete'] as bool? ??
-          userData['hasCompletedKyc'] as bool? ??
-          false;
-      final isKycCompleted = isProfileComplete || kycStatusStr == 'approved';
-
-      KycReviewStatus kycStatus;
-      if (isKycCompleted) {
-        kycStatus = KycReviewStatus.verified;
-      } else if (kycStatusStr == 'pending' || kycStatusStr == 'resubmitted') {
-        kycStatus = KycReviewStatus.pendingReview;
-      } else if (kycStatusStr == 'rejected') {
-        kycStatus = KycReviewStatus.rejected;
-      } else {
-        kycStatus = KycReviewStatus.notStarted;
-      }
-
-      final existingProfile = UserProfileRepository.instance.profile;
-      final serverName = (userData['full_name'] ?? userData['fullName']) as String?;
-      final fullName = (serverName != null && serverName.isNotEmpty)
-          ? serverName
-          : (existingProfile.fullName.isNotEmpty
-              ? existingProfile.fullName
-              : inputEmail.split('@').first);
-
-      final serverPhone =
-          (userData['phone'] ?? userData['phoneNumber']) as String? ?? '';
-      final effectivePhone = serverPhone.isNotEmpty
-          ? serverPhone
-          : (existingProfile.email.toLowerCase() == inputEmail
-              ? existingProfile.phoneNumber
-              : '');
-
-      UserProfile profile = UserProfile(
-        fullName: fullName,
-        email: userData['email'] as String? ?? inputEmail,
-        countryCode: '+92',
-        phoneNumber: effectivePhone,
-        cnicNumber: userData['cnic_number'] as String? ??
-            userData['cnicNumber'] as String? ??
-            '',
-        city: userData['city'] as String? ?? '',
-        address: userData['address'] as String? ?? '',
-        createdAt: now,
-        updatedAt: now,
-        hasCompletedKyc: isKycCompleted,
-        kycStatus: kycStatus,
-      );
-
-      // Fetch /auth/me/ to enrich with verified phone and full profile details
-      try {
-        final me = await _client.get('/auth/me/');
-        if (me.isNotEmpty) {
-          final mePhone =
-              (me['phone'] ?? me['phoneNumber']) as String? ?? '';
-          final meFullName =
-              (me['full_name'] ?? me['fullName']) as String? ?? '';
-          if (mePhone.isNotEmpty || meFullName.isNotEmpty) {
-            profile = profile.copyWith(
-              phoneNumber:
-                  mePhone.isNotEmpty ? mePhone : profile.phoneNumber,
-              fullName:
-                  meFullName.isNotEmpty ? meFullName : profile.fullName,
-            );
-          }
-        }
-      } catch (_) {}
-
-      UserProfileRepository.instance.setActiveUser(profile);
-      return AuthResult(profile: profile, token: access);
+      return _buildAuthResultFromLogin(data, inputEmail, now);
     }
 
     // Local / Offline fallback logic preserving persistent profiles
@@ -236,11 +612,258 @@ class AuthRepository {
     return AuthResult(profile: newUser, token: token);
   }
 
+  Future<AuthResult> _buildAuthResultFromLogin(
+    Map<String, dynamic> data,
+    String inputEmail,
+    DateTime now,
+  ) async {
+    // The server is the source of truth for account roles. Enforce the mobile
+    // restriction before storing any token or requesting the authenticated
+    // profile endpoint.
+    if (_hasAdminIdentity(data) || _isAdminDeniedPayload(data)) {
+      await _client.clearSession();
+      final error = _asStringMap(data['error']);
+      throw _adminAccessException(
+        message: _adminDeniedMessage(data),
+        errorCode: _stringValue(
+                data, const ['errorCode', 'error_code', 'code']) ??
+            _stringValue(
+                error ?? const {}, const ['errorCode', 'error_code', 'code']),
+      );
+    }
+
+    final access = (data['access'] ?? data['token']) as String? ?? '';
+    final refresh = data['refresh'] as String? ?? '';
+    if (access.isNotEmpty) {
+      await _client.setAuthTokens(access: access, refresh: refresh);
+    }
+
+    final userData = _asStringMap(data['user']) ?? {};
+    final userRepository = UserProfileRepository.instance;
+    final activeProfile = userRepository.profile;
+    final savedProfile = activeProfile.email.trim().toLowerCase() == inputEmail
+        ? activeProfile
+        : await userRepository.findOrLoadUser(inputEmail);
+
+    Map<String, dynamic> currentUserData = {};
+    try {
+      currentUserData = await _client.get('/auth/me/');
+    } catch (_) {
+      // The login response and same-user local record remain usable if profile
+      // enrichment is temporarily unavailable.
+    }
+
+    Map<String, dynamic> kycProfileData = {};
+    try {
+      // This endpoint reports KYC review state. It is intentionally queried on
+      // every live sign-in so a stale local profile cannot hide onboarding.
+      kycProfileData = await _client.get('/accounts/profile/');
+    } catch (_) {
+      // Missing/unavailable status is treated as unverified below.
+    }
+
+    final loginKycStatus = _parseKycStatus({'user': userData, ...data});
+    final currentUserKycStatus = _parseKycStatus(currentUserData);
+    final profileKycStatus = _parseKycStatus(
+      kycProfileData,
+      allowGenericStatus: true,
+    );
+    final remoteSources = [
+      ..._responseMaps(kycProfileData),
+      ..._responseMaps(currentUserData),
+      ..._responseMaps(data),
+    ];
+    const submittedKeys = [
+      'has_completed_kyc',
+      'hasCompletedKyc',
+      'kyc_submitted',
+      'kycSubmitted',
+      'documents_submitted',
+      'documentsSubmitted',
+    ];
+    final serverSubmissionFlag = _readBoolean(remoteSources, submittedKeys);
+    final nonApprovalServerStatus = [
+      currentUserKycStatus,
+      loginKycStatus,
+    ].whereType<KycReviewStatus>().firstWhere(
+          (status) => status != KycReviewStatus.verified,
+          orElse: () => KycReviewStatus.notStarted,
+        );
+    final hasNonApprovalServerStatus = currentUserKycStatus != null &&
+            currentUserKycStatus != KycReviewStatus.verified ||
+        loginKycStatus != null && loginKycStatus != KycReviewStatus.verified;
+    final serverKycStatus = profileKycStatus ??
+        (hasNonApprovalServerStatus
+            ? nonApprovalServerStatus
+            : serverSubmissionFlag == true
+                ? KycReviewStatus.pendingReview
+                : null);
+    final savedKycStatus = savedProfile?.kycStatus;
+
+    // Cached verification is never sufficient to retire onboarding. If the
+    // server has no status, a previously verified local record falls back to
+    // Pending Review until a backend approval is confirmed again.
+    final kycStatus = serverKycStatus ??
+        (savedKycStatus == KycReviewStatus.verified
+            ? KycReviewStatus.pendingReview
+            : savedKycStatus ?? KycReviewStatus.notStarted);
+
+    final hasCompletedKyc = serverKycStatus == null
+        ? savedProfile?.hasCompletedKyc ?? false
+        : (kycStatus == KycReviewStatus.verified ||
+            kycStatus == KycReviewStatus.pendingReview ||
+            kycStatus == KycReviewStatus.rejected ||
+            (serverSubmissionFlag ?? false));
+
+    final serverName = _firstNonEmptyString(
+      remoteSources,
+      const ['full_name', 'fullName', 'name'],
+    );
+    final serverEmail =
+        _firstNonEmptyString(remoteSources, const ['email']) ?? inputEmail;
+    final serverPhone = _firstNonEmptyString(
+      remoteSources,
+      const ['phone', 'phone_number', 'phoneNumber'],
+    );
+    final serverCnic = _firstNonEmptyString(
+      remoteSources,
+      const ['cnic_number', 'cnicNumber', 'national_id'],
+    );
+    final serverCity = _firstNonEmptyString(remoteSources, const ['city']);
+    final serverAddress =
+        _firstNonEmptyString(remoteSources, const ['address']);
+    String? serverImageUrl(List<String> keys) {
+      for (final source in remoteSources) {
+        for (final key in keys) {
+          final raw = source[key];
+          final value = raw is String
+              ? raw.trim()
+              : raw is Map
+                  ? _firstNonEmptyString([
+                      raw.map((key, value) => MapEntry('$key', value)),
+                    ], const [
+                      'url',
+                      'uri',
+                      'path',
+                      'file'
+                    ])
+                  : null;
+          if (value != null && value.isNotEmpty) {
+            return _client.resolveMediaUrl(value);
+          }
+        }
+      }
+      return null;
+    }
+
+    final selfieUrl = serverImageUrl(const [
+      'selfie_url',
+      'selfieUrl',
+      'selfie_image',
+      'selfie_image_url',
+      'selfie',
+    ]);
+    final cnicFrontUrl = serverImageUrl(const [
+      'cnic_front_url',
+      'cnicFrontUrl',
+      'cnic_front_image',
+      'cnic_front_image_url',
+      'cnic_front',
+    ]);
+    final cnicBackUrl = serverImageUrl(const [
+      'cnic_back_url',
+      'cnicBackUrl',
+      'cnic_back_image',
+      'cnic_back_image_url',
+      'cnic_back',
+    ]);
+    final rejectionReason = _firstNonEmptyString(
+          remoteSources,
+          const [
+            'kyc_rejection_reason',
+            'rejection_reason',
+            'rejectionReason',
+            'objection_reason',
+            'review_notes',
+            'rejection_notes',
+            'admin_comment',
+          ],
+        ) ??
+        savedProfile?.kycRejectionReason;
+    List? rawObjections;
+    for (final source in remoteSources) {
+      final value = source['kyc_objections'] ?? source['objections'];
+      if (value is List) {
+        rawObjections = value;
+        break;
+      }
+    }
+    final kycObjections = rawObjections == null
+        ? savedProfile?.kycObjections ?? const <String>[]
+        : rawObjections.map((value) => '$value').toList();
+    final reviewedAtValue = _firstNonEmptyString(remoteSources, const [
+      'kyc_reviewed_at',
+      'reviewed_at',
+      'reviewedAt',
+      'last_reviewed_at',
+      'rejected_at',
+      'rejection_date',
+      'reviewed_on',
+    ]);
+    final reviewedAt = reviewedAtValue == null
+        ? savedProfile?.kycReviewedAt
+        : DateTime.tryParse(reviewedAtValue) ?? savedProfile?.kycReviewedAt;
+
+    final profile = UserProfile(
+      fullName: serverName ??
+          (savedProfile?.fullName.isNotEmpty == true
+              ? savedProfile!.fullName
+              : inputEmail.split('@').first),
+      email: serverEmail,
+      countryCode: _firstNonEmptyString(
+            remoteSources,
+            const ['country_code', 'countryCode'],
+          ) ??
+          savedProfile?.countryCode ??
+          '+92',
+      phoneNumber: serverPhone ?? savedProfile?.phoneNumber ?? '',
+      cnicNumber: serverCnic ?? savedProfile?.cnicNumber ?? '',
+      city: serverCity ?? savedProfile?.city ?? '',
+      address: serverAddress ?? savedProfile?.address ?? '',
+      createdAt: savedProfile?.createdAt ?? now,
+      updatedAt: now,
+      hasCompletedKyc: hasCompletedKyc,
+      kycStatus: kycStatus,
+      smsConsent: savedProfile?.smsConsent ?? true,
+      selfieBytes: savedProfile?.selfieBytes,
+      selfieFilePath: savedProfile?.selfieFilePath,
+      selfieUrl: selfieUrl ?? savedProfile?.selfieUrl,
+      cnicFrontBytes: savedProfile?.cnicFrontBytes,
+      cnicFrontFilePath: savedProfile?.cnicFrontFilePath,
+      cnicFrontUrl: cnicFrontUrl ?? savedProfile?.cnicFrontUrl,
+      cnicBackBytes: savedProfile?.cnicBackBytes,
+      cnicBackFilePath: savedProfile?.cnicBackFilePath,
+      cnicBackUrl: cnicBackUrl ?? savedProfile?.cnicBackUrl,
+      avatarBytes: savedProfile?.avatarBytes,
+      avatarFilePath: savedProfile?.avatarFilePath,
+      bankName: savedProfile?.bankName,
+      bankAccountNumber: savedProfile?.bankAccountNumber,
+      bankIban: savedProfile?.bankIban,
+      bankBeneficiary: savedProfile?.bankBeneficiary,
+      kycRejectionReason: rejectionReason,
+      kycObjections: kycObjections,
+      kycReviewedAt: reviewedAt,
+    );
+
+    userRepository.setActiveUser(profile);
+    return AuthResult(profile: profile, token: access);
+  }
+
   /// Verifies an OTP code for email verification (POST /auth/email/verify/)
   ///
   /// Returns true on success. Also returns true when the backend reports
-  /// "Email is already verified" — this means the user signed up previously,
-  /// their email is confirmed, and we should proceed straight to sign-in.
+  /// "Email is already verified" — this means the user's email is confirmed,
+  /// and we should proceed straight to sign-in.
   Future<bool> verifyEmailOtp({
     required String email,
     required String code,
@@ -248,7 +871,7 @@ class AuthRepository {
     final cleanCode = code.replaceAll(RegExp(r'\D'), '');
     if (AppConfig.hasCustomBackend) {
       try {
-        await _client.post(
+        await _postPublic(
           '/auth/email/verify/',
           body: {
             'email': email.trim().toLowerCase(),
@@ -256,11 +879,7 @@ class AuthRepository {
           },
         );
       } on ApiException catch (e) {
-        // Backend returns 400 "Email is already verified" when the account's
-        // email was already confirmed (e.g. verified during sign-up). Treat
-        // this as a successful verification so the sign-in flow can continue.
-        final msg = e.message.toLowerCase();
-        if (msg.contains('already verified') || msg.contains('already_verified')) {
+        if (isAlreadyVerifiedMessage(e.message)) {
           return true;
         }
         rethrow;
@@ -272,15 +891,17 @@ class AuthRepository {
 
   /// Resends a 6-digit email verification OTP (POST /auth/email/resend/)
   ///
-  /// Returns true on success. If the backend reports "already verified",
-  /// we return true so the dialog can proceed to complete sign-in directly.
+  /// Returns true only when the server actually sent a new OTP code.
+  /// Throws [EmailAlreadyVerifiedException] when the server reports the email
+  /// is already verified so the caller proceeds directly to sign-in instead of
+  /// pretending an email was dispatched.
   Future<bool> resendEmailOtp({
     required String email,
     required String password,
   }) async {
     if (AppConfig.hasCustomBackend) {
       try {
-        await _client.post(
+        await _postPublic(
           '/auth/email/resend/',
           body: {
             'email': email.trim().toLowerCase(),
@@ -288,11 +909,11 @@ class AuthRepository {
           },
         );
       } on ApiException catch (e) {
-        // If email is already verified, resend is unnecessary but not an error.
-        // Return true so the caller can proceed to complete the sign-in.
-        final msg = e.message.toLowerCase();
-        if (msg.contains('already verified') || msg.contains('already_verified')) {
-          return true;
+        if (isAlreadyVerifiedMessage(e.message)) {
+          throw EmailAlreadyVerifiedException(
+            statusCode: e.statusCode,
+            message: e.message,
+          );
         }
         rethrow;
       }
@@ -308,6 +929,85 @@ class AuthRepository {
       return data;
     }
     return {};
+  }
+
+  /// Polls the authenticated KYC profile and applies server review changes.
+  /// Returns null when the server did not provide a recognizable KYC status.
+  Future<KycReviewStatus?> refreshKycReviewStatus() async {
+    if (!AppConfig.hasCustomBackend) return null;
+
+    final response = await _client.get('/accounts/profile/');
+    final status = _parseKycStatus(response, allowGenericStatus: true);
+    if (status == null) return null;
+
+    final sources = _responseMaps(response);
+    final current = UserProfileRepository.instance.profile;
+    final reason = _firstNonEmptyString(sources, const [
+      'kyc_rejection_reason',
+      'rejection_reason',
+      'rejectionReason',
+      'objection_reason',
+      'review_notes',
+      'rejection_notes',
+      'admin_comment',
+      'admin_note',
+      'rejection_note',
+      'kyc_rejection_message',
+      'rejection_message',
+    ]);
+    List? rawObjections;
+    for (final source in sources) {
+      final value = source['kyc_objections'] ?? source['objections'];
+      if (value is List) {
+        rawObjections = value;
+        break;
+      }
+    }
+    final objections = rawObjections?.map((value) => '$value').toList();
+    final reviewedAtValue = _firstNonEmptyString(sources, const [
+      'kyc_reviewed_at',
+      'reviewed_at',
+      'reviewedAt',
+      'last_reviewed_at',
+      'rejected_at',
+      'rejection_date',
+      'reviewed_on',
+    ]);
+    final reviewedAt = reviewedAtValue == null
+        ? current.kycReviewedAt
+        : DateTime.tryParse(reviewedAtValue) ?? current.kycReviewedAt;
+    final nextReason = status == KycReviewStatus.rejected
+        ? reason ?? current.kycRejectionReason
+        : null;
+    final nextObjections = status == KycReviewStatus.rejected
+        ? objections ?? current.kycObjections
+        : const <String>[];
+
+    final changed = status != current.kycStatus ||
+        nextReason != current.kycRejectionReason ||
+        !_sameStrings(nextObjections, current.kycObjections) ||
+        reviewedAt != current.kycReviewedAt;
+    if (!changed) return status;
+
+    final updated = current.copyWith(
+      kycStatus: status,
+      hasCompletedKyc: status != KycReviewStatus.notStarted,
+      updatedAt: DateTime.now(),
+      kycRejectionReason: nextReason,
+      kycObjections: nextObjections,
+      kycReviewedAt: reviewedAt,
+      clearRejection: status != KycReviewStatus.rejected,
+    );
+    UserProfileRepository.instance.setActiveUser(updated);
+    return status;
+  }
+
+  static bool _sameStrings(List<String> left, List<String> right) {
+    if (left.length != right.length) return false;
+    for (var i = 0; i < left.length; i++) {
+      if (left[i] != right[i]) return false;
+    }
+    return true;
   }
 
   /// Updates personal profile details or avatar (PATCH /auth/me/)
@@ -330,7 +1030,8 @@ class AuthRepository {
             filename: fileName ?? 'avatar.jpg',
           ),
         ];
-        return await _client.postMultipart('/auth/me/', fields: fields, files: files);
+        return await _client.postMultipart('/auth/me/',
+            fields: fields, files: files);
       } else {
         final body = <String, dynamic>{
           if (fullName != null) 'full_name': fullName,
@@ -345,7 +1046,7 @@ class AuthRepository {
   /// Requests a password reset OTP code (POST /auth/forgot-password/request-otp/)
   Future<bool> requestPasswordResetOtp({required String email}) async {
     if (AppConfig.hasCustomBackend) {
-      await _client.post(
+      await _postPublic(
         '/auth/forgot-password/request-otp/',
         body: {'email': email.trim().toLowerCase()},
       );
@@ -361,7 +1062,7 @@ class AuthRepository {
     required String newPassword,
   }) async {
     if (AppConfig.hasCustomBackend) {
-      await _client.post(
+      await _postPublic(
         '/auth/forgot-password/reset/',
         body: {
           'email': email.trim().toLowerCase(),

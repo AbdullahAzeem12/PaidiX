@@ -11,6 +11,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../core/utils/permission_helper.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
@@ -101,19 +102,8 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
   /// Reads the selected selfie, records its source, and updates the KYC preview.
   Future<void> _applyPickedPhoto(XFile xFile, {required bool isCamera}) async {
     try {
-      final bytes = await xFile.readAsBytes();
-
-      // Reject undecodable files (e.g. HEIC/HEIF on some devices) up-front
-      // instead of letting them blank the screen later in Image.memory.
-      if (!await KycMediaAccess.isDecodable(bytes)) {
-        if (mounted) {
-          PaidiXToast.showError(
-            context,
-            'This image format is not supported. Please choose a JPEG or PNG photo.',
-          );
-        }
-        return;
-      }
+      final sourceBytes = await xFile.readAsBytes();
+      final bytes = await KycMediaAccess.validateImage(sourceBytes);
       if (!mounted) return;
 
       final fileName = xFile.name.isNotEmpty
@@ -127,6 +117,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
           bytes: bytes,
           isCameraCapture: isCamera,
           isEnhanced: false,
+          clearEnhancedBytes: true,
         ),
       );
     } catch (e) {
@@ -149,6 +140,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
       final hasPerm = await PermissionHelper.requestCameraPermission(context);
       if (!hasPerm || !mounted) return;
 
+      await UserProfileRepository.instance.setPendingPickSide('selfie');
       final xFile = await _picker.pickImage(
         source: ImageSource.camera,
         preferredCameraDevice: CameraDevice.front,
@@ -170,6 +162,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
       }
     } finally {
       _isPickingImage = false;
+      await UserProfileRepository.instance.setPendingPickSide(null);
     }
   }
 
@@ -186,6 +179,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
       final canOpenPicker = await KycMediaAccess.ensureGalleryAccess(context);
       if (!canOpenPicker || !mounted) return;
 
+      await UserProfileRepository.instance.setPendingPickSide('selfie');
       XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: KycMediaAccess.maxDimension,
@@ -217,6 +211,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
       }
     } finally {
       _isPickingImage = false;
+      await UserProfileRepository.instance.setPendingPickSide(null);
     }
   }
 
@@ -398,8 +393,6 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
       ),
     );
   }
-
-
 
   /// Builds the widget subtree from its current properties and inherited context.
   @override

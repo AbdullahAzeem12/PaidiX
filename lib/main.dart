@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'app/app.dart';
 import 'core/network/api_client.dart';
+import 'features/kyc/data/kyc_media_recovery.dart';
 import 'features/profile/data/user_profile_repository.dart';
 
 /// Configures and launches the application or test suite.
@@ -19,6 +20,7 @@ void main() async {
   // Restore persisted auth session and user profile
   await ApiClient.instance.initSession();
   await UserProfileRepository.instance.init();
+  await KycMediaRecovery.recoverAfterAndroidRestart();
 
   runApp(const PaidiXApp());
 }

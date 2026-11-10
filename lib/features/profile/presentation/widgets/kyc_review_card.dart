@@ -80,6 +80,21 @@ class KycReviewCard extends StatelessWidget {
                 ],
               ),
 
+              if (profile.kycStatus == KycReviewStatus.rejected &&
+                  profile.formattedKycReviewedAt != null) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 26),
+                  child: Text(
+                    'Last reviewed ${profile.formattedKycReviewedAt}',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
+
               const SizedBox(height: 20),
 
               // Document Previews:
@@ -92,6 +107,7 @@ class KycReviewCard extends StatelessWidget {
                       isSelfie: true,
                       bytes: profile.selfieBytes,
                       filePath: profile.selfieFilePath,
+                      imageUrl: profile.selfieUrl,
                       onTap: () => DocumentViewerDialog.show(
                         context,
                         title: 'Selfie Biometric Photo',
@@ -99,6 +115,7 @@ class KycReviewCard extends StatelessWidget {
                             'Biometric portrait on file with State Bank compliance',
                         bytes: profile.selfieBytes,
                         filePath: profile.selfieFilePath,
+                        imageUrl: profile.selfieUrl,
                         isSelfie: true,
                       ),
                     ),
@@ -109,12 +126,15 @@ class KycReviewCard extends StatelessWidget {
                       label: 'CNIC — FRONT',
                       bytes: profile.cnicFrontBytes,
                       filePath: profile.cnicFrontFilePath,
+                      imageUrl: profile.cnicFrontUrl,
                       onTap: () => DocumentViewerDialog.show(
                         context,
                         title: 'CNIC Front Document',
-                        subtitle: 'National Identity Card Front • NADRA verified',
+                        subtitle:
+                            'National Identity Card Front • NADRA verified',
                         bytes: profile.cnicFrontBytes,
                         filePath: profile.cnicFrontFilePath,
+                        imageUrl: profile.cnicFrontUrl,
                       ),
                     ),
                   ),
@@ -131,12 +151,15 @@ class KycReviewCard extends StatelessWidget {
                       label: 'CNIC — BACK',
                       bytes: profile.cnicBackBytes,
                       filePath: profile.cnicBackFilePath,
+                      imageUrl: profile.cnicBackUrl,
                       onTap: () => DocumentViewerDialog.show(
                         context,
                         title: 'CNIC Back Document',
-                        subtitle: 'National Identity Card Back • Security barcode',
+                        subtitle:
+                            'National Identity Card Back • Security barcode',
                         bytes: profile.cnicBackBytes,
                         filePath: profile.cnicBackFilePath,
+                        imageUrl: profile.cnicBackUrl,
                       ),
                     ),
                   ),
@@ -154,14 +177,24 @@ class KycReviewCard extends StatelessWidget {
   /// Builds the status pill section of this interface.
   Widget _buildStatusPill(PaidiXColorScheme colors) {
     final isVerified = profile.kycStatus.isVerified;
+    final isRejected = profile.kycStatus.isRejected;
+    const rejectedColor = Color(0xFFBE123C);
     final pillBg = isVerified
         ? colors.emerald.withValues(alpha: 0.12)
-        : colors.gold.withValues(alpha: 0.12);
+        : isRejected
+            ? rejectedColor.withValues(alpha: 0.08)
+            : colors.gold.withValues(alpha: 0.12);
     final pillBorder = isVerified
         ? colors.emerald.withValues(alpha: 0.40)
-        : colors.gold.withValues(alpha: 0.40);
-    final dotColor = isVerified ? colors.emerald : colors.gold;
-    final textColor = isVerified ? colors.emerald : colors.gold;
+        : isRejected
+            ? rejectedColor.withValues(alpha: 0.30)
+            : colors.gold.withValues(alpha: 0.40);
+    final dotColor = isVerified
+        ? colors.emerald
+        : isRejected
+            ? rejectedColor
+            : colors.gold;
+    final textColor = dotColor;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -183,7 +216,7 @@ class KycReviewCard extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            profile.kycStatus.label,
+            isRejected ? 'Rejected' : profile.kycStatus.label,
             style: TextStyle(
               color: textColor,
               fontSize: 11,
@@ -196,4 +229,3 @@ class KycReviewCard extends StatelessWidget {
     );
   }
 }
-

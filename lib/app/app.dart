@@ -1,6 +1,10 @@
 /// Builds the root Material application and listens for global theme changes.
 
 import 'package:flutter/material.dart';
+import '../core/network/api_client.dart';
+import '../core/services/session_timeout_service.dart';
+import '../core/widgets/paidix_toast.dart';
+import '../features/profile/data/user_profile_repository.dart';
 import 'router.dart';
 import 'theme/app_theme.dart';
 
@@ -18,6 +22,39 @@ class _PaidiXAppState extends State<PaidiXApp> {
   void initState() {
     super.initState();
     AppTheme.init();
+    ApiClient.instance.sessionInvalidationNotifier
+        .addListener(_handleSessionInvalidation);
+  }
+
+  void _handleSessionInvalidation() {
+    final event = ApiClient.instance.sessionInvalidationNotifier.value;
+    if (event == null) return;
+
+    SessionTimeoutService.instance.stopSession();
+    UserProfileRepository.instance.resetToDefault();
+    sharedPaymentsRepository.clearPayments();
+
+    final currentPath = appRouter.routeInformationProvider.value.uri.path;
+    if (currentPath != '/signin') {
+      appRouter.go('/signin');
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final toastContext = rootNavigatorKey.currentContext;
+      if (toastContext == null || !toastContext.mounted) return;
+      PaidiXToast.showWarning(
+        toastContext,
+        event.message,
+        title: event.title,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    ApiClient.instance.sessionInvalidationNotifier
+        .removeListener(_handleSessionInvalidation);
+    super.dispose();
   }
 
   /// Builds the widget subtree from its current properties and inherited context.

@@ -1,8 +1,8 @@
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../../data/kyc_image_validation.dart';
 
 /// Shared helpers for every KYC gallery / camera pick (CNIC front, CNIC back,
 /// selfie). Keeps the permission flow and the image safety checks in one place
@@ -17,7 +17,7 @@ class KycMediaAccess {
   static const double maxDimension = 1600;
 
   /// JPEG quality used by the native picker when it re-encodes.
-  static const int jpegQuality = 88;
+  static const int jpegQuality = KycImageValidation.jpegQuality;
 
   /// Requests native photo access when the platform exposes that permission,
   /// then opens the platform picker. Android's picker can grant access to one
@@ -58,27 +58,8 @@ class KycMediaAccess {
     return false;
   }
 
-  /// Quick, memory-cheap check that [bytes] is an image Flutter can decode.
-  ///
-  /// Decodes at a 64px width (sub-sampled), so it is fast even for large
-  /// files. Catches formats the engine cannot decode on a given device
-  /// (e.g. some HEIC/HEIF photos from Huawei cameras) *before* they reach
-  /// `Image.memory`, where an undecodable image would otherwise replace the
-  /// screen with an error widget.
-  static Future<bool> isDecodable(Uint8List bytes) async {
-    if (bytes.isEmpty) return false;
-    ui.Codec? codec;
-    try {
-      codec = await ui.instantiateImageCodec(bytes, targetWidth: 64);
-      final frame = await codec.getNextFrame();
-      frame.image.dispose();
-      return true;
-    } catch (e) {
-      debugPrint('Picked image is not decodable: $e');
-      return false;
-    } finally {
-      codec?.dispose();
-    }
-  }
+  /// Validates selected image bytes before they enter KYC state. The native
+  /// picker applies the requested dimensions and quality where supported.
+  static Future<Uint8List> validateImage(Uint8List bytes) =>
+      KycImageValidation.validate(bytes);
 }
-

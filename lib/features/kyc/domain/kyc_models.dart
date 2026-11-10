@@ -128,6 +128,8 @@ class IdentityDocInfo {
     bool? isEnhanced,
     Uint8List? enhancedFrontBytes,
     Uint8List? enhancedBackBytes,
+    bool clearEnhancedFrontBytes = false,
+    bool clearEnhancedBackBytes = false,
   }) {
     return IdentityDocInfo(
       cnicNumber: cnicNumber ?? this.cnicNumber,
@@ -139,8 +141,12 @@ class IdentityDocInfo {
       backFilePath: backFilePath ?? this.backFilePath,
       backBytes: backBytes ?? this.backBytes,
       isEnhanced: isEnhanced ?? this.isEnhanced,
-      enhancedFrontBytes: enhancedFrontBytes ?? this.enhancedFrontBytes,
-      enhancedBackBytes: enhancedBackBytes ?? this.enhancedBackBytes,
+      enhancedFrontBytes: clearEnhancedFrontBytes
+          ? null
+          : (enhancedFrontBytes ?? this.enhancedFrontBytes),
+      enhancedBackBytes: clearEnhancedBackBytes
+          ? null
+          : (enhancedBackBytes ?? this.enhancedBackBytes),
     );
   }
 }
@@ -172,6 +178,7 @@ class PhotoDocInfo {
     bool? isCameraCapture,
     bool? isEnhanced,
     Uint8List? enhancedBytes,
+    bool clearEnhancedBytes = false,
   }) {
     return PhotoDocInfo(
       fileName: fileName ?? this.fileName,
@@ -179,7 +186,8 @@ class PhotoDocInfo {
       bytes: bytes ?? this.bytes,
       isCameraCapture: isCameraCapture ?? this.isCameraCapture,
       isEnhanced: isEnhanced ?? this.isEnhanced,
-      enhancedBytes: enhancedBytes ?? this.enhancedBytes,
+      enhancedBytes:
+          clearEnhancedBytes ? null : (enhancedBytes ?? this.enhancedBytes),
     );
   }
 }

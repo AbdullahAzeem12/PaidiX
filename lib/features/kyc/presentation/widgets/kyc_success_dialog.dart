@@ -9,10 +9,15 @@ import '../../../../core/widgets/spongy_tap.dart';
 import '../../../profile/data/user_profile_repository.dart';
 
 class KycSuccessDialog extends StatefulWidget {
-  const KycSuccessDialog({super.key});
+  final bool resubmission;
+
+  const KycSuccessDialog({super.key, this.resubmission = false});
 
   /// Displays the dialog with a springy scale + fade entrance transition
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(
+    BuildContext context, {
+    bool resubmission = false,
+  }) {
     return showGeneralDialog(
       context: context,
       barrierDismissible: false,
@@ -32,7 +37,8 @@ class KycSuccessDialog extends StatefulWidget {
           ),
         );
       },
-      pageBuilder: (ctx, anim1, anim2) => const KycSuccessDialog(),
+      pageBuilder: (ctx, anim1, anim2) =>
+          KycSuccessDialog(resubmission: resubmission),
     );
   }
 
@@ -80,11 +86,11 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
   ///
   /// Local submission is never treated as admin approval. Onboarding stays
   /// visible until the server marks the account verified.
-  void _onProceedToDashboard() {
+  void _onContinue() {
     HapticFeedback.mediumImpact();
     UserProfileRepository.instance.markKycPendingReview();
     Navigator.of(context).pop();
-    context.go('/app/dashboard');
+    context.go(widget.resubmission ? '/app/onboarding' : '/app/dashboard');
   }
 
   /// Builds the widget subtree from its current properties and inherited context.
@@ -153,7 +159,9 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
 
               // ─── Concise Title ──────────────────────────────────────
               Text(
-                'Account Setup Complete!',
+                widget.resubmission
+                    ? 'Documents Resubmitted'
+                    : 'Account Setup Complete!',
                 style: TextStyle(
                   fontFamily: AppTheme.activeFontFamily,
                   color: colors.textPrimary,
@@ -167,7 +175,9 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
 
               // ─── Important Information Only ─────────────────────────
               Text(
-                'Your identity & bank details have been securely submitted.',
+                widget.resubmission
+                    ? 'Your updated identity documents have been submitted for review.'
+                    : 'Your identity & bank details have been securely submitted.',
                 style: TextStyle(
                   color: colors.textSecondary,
                   fontSize: 12.5,
@@ -216,7 +226,7 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
 
               // ─── Spongy Action Button with Feedback ─────────────────
               SpongyTap(
-                onTap: _onProceedToDashboard,
+                onTap: _onContinue,
                 pressScale: 0.95,
                 borderRadius: BorderRadius.circular(14),
                 child: Container(
@@ -242,14 +252,18 @@ class _KycSuccessDialogState extends State<KycSuccessDialog>
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.dashboard_rounded,
+                            widget.resubmission
+                                ? Icons.assignment_turned_in_rounded
+                                : Icons.dashboard_rounded,
                             size: 16,
                             color:
                                 isDark ? const Color(0xFF021B19) : Colors.white,
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            'Go to Dashboard',
+                            widget.resubmission
+                                ? 'Return to Onboarding'
+                                : 'Go to Dashboard',
                             style: TextStyle(
                               color: isDark
                                   ? const Color(0xFF021B19)

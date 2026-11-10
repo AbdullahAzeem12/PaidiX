@@ -7,6 +7,7 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
+import '../../../../core/network/api_client.dart';
 
 /// Interactive Document Thumbnail Tile displaying real KYC document uploads
 /// or high-fidelity regulatory ID previews with zoom inspection trigger.
@@ -14,6 +15,7 @@ class DocumentPreviewTile extends StatelessWidget {
   final String label;
   final Uint8List? bytes;
   final String? filePath;
+  final String? imageUrl;
   final VoidCallback onTap;
   final bool isSelfie;
 
@@ -23,6 +25,7 @@ class DocumentPreviewTile extends StatelessWidget {
     required this.onTap,
     this.bytes,
     this.filePath,
+    this.imageUrl,
     this.isSelfie = false,
   });
 
@@ -145,6 +148,16 @@ class DocumentPreviewTile extends StatelessWidget {
           errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
         );
       }
+    }
+
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      return Image.network(
+        imageUrl!,
+        headers: ApiClient.instance.imageHeadersFor(imageUrl!),
+        fit: BoxFit.cover,
+        alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
+        errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
+      );
     }
 
     // 3. Fallback High-Fidelity Document Graphic matching screenshot

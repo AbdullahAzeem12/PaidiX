@@ -1,5 +1,8 @@
 <!-- Codex purpose: Declares platform permissions, application identity, and launch configuration. -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Release APKs need internet access for backend requests. This is a
+         normal install-time permission and does not require a runtime prompt. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />

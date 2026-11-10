@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
+import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/bank_account_validator.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/bank_selector_sheet.dart';
@@ -16,6 +17,9 @@ class Step4BankView extends StatefulWidget {
   final ValueChanged<BankInfo> onChanged;
   final VoidCallback onSubmit;
   final VoidCallback onBack;
+  final bool isSubmitting;
+  final double submitProgress;
+  final String? submitStatusLabel;
 
   const Step4BankView({
     super.key,
@@ -23,6 +27,9 @@ class Step4BankView extends StatefulWidget {
     required this.onChanged,
     required this.onSubmit,
     required this.onBack,
+    this.isSubmitting = false,
+    this.submitProgress = 0.0,
+    this.submitStatusLabel,
   });
 
   /// Creates the mutable state object that backs this stateful widget.
@@ -519,22 +526,28 @@ class _Step4BankViewState extends State<Step4BankView> {
               const SizedBox(height: 24),
 
               // Complete Setup & Submit Verification Button
-              Align(
-                alignment: Alignment.centerRight,
-                child: AppButton(
-                  text: MediaQuery.of(context).size.width < 400
-                      ? 'Submit Verification'
-                      : 'Complete Setup & Submit Verification',
-                  icon: const Icon(Icons.check_circle_rounded, size: 16),
-                  variant: AppButtonVariant.primary,
-                  onPressed: isFormValid
-                      ? () {
-                          _notifyChange();
-                          widget.onSubmit();
-                        }
-                      : null,
+              if (widget.isSubmitting)
+                _SubmitProgressButton(
+                  progress: widget.submitProgress,
+                  statusLabel: widget.submitStatusLabel ?? 'Submitting Verification...',
+                )
+              else
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: AppButton(
+                    text: MediaQuery.of(context).size.width < 400
+                        ? 'Submit Verification'
+                        : 'Complete Setup & Submit Verification',
+                    icon: const Icon(Icons.check_circle_rounded, size: 16),
+                    variant: AppButtonVariant.primary,
+                    onPressed: isFormValid
+                        ? () {
+                            _notifyChange();
+                            widget.onSubmit();
+                          }
+                        : null,
+                  ),
                 ),
-              ),
             ],
           ),
         ),
@@ -544,7 +557,7 @@ class _Step4BankViewState extends State<Step4BankView> {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: widget.onBack,
+            onTap: widget.isSubmitting ? null : widget.onBack,
             borderRadius: AppSpacing.radiusSm,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -861,5 +874,119 @@ class _Step4BankViewState extends State<Step4BankView> {
           ),
         );
     }
+  }
+}
+
+/// Renders the Step 4 submit button as a smooth real-time progress bar
+/// (`0%` -> `100%`) while regulatory KYC upload and bank linking execute.
+class _SubmitProgressButton extends StatelessWidget {
+  final double progress;
+  final String statusLabel;
+
+  const _SubmitProgressButton({
+    required this.progress,
+    required this.statusLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final clampedTarget = progress.clamp(0.0, 1.0);
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(end: clampedTarget),
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeOutCubic,
+      builder: (context, animatedProgress, _) {
+        final pct = (animatedProgress * 100).round().clamp(0, 100);
+        return Container(
+          width: double.infinity,
+          height: 46.0,
+          decoration: BoxDecoration(
+            color: colors.primaryButton,
+            borderRadius: AppSpacing.radiusMd,
+            border: Border.all(
+              color: colors.aqua.withValues(alpha: 0.55),
+              width: 1.1,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: AppSpacing.radiusMd,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Smooth horizontal fill sweep across the button body
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: animatedProgress,
+                    heightFactor: 1.0,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            colors.aqua.withValues(alpha: 0.28),
+                            colors.emerald.withValues(alpha: 0.34),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                // Crisp 3px bottom progress indicator rail
+                Align(
+                  alignment: Alignment.bottomLeft,
+                  child: FractionallySizedBox(
+                    widthFactor: animatedProgress,
+                    child: Container(
+                      height: 3.0,
+                      color: colors.aquaLight,
+                    ),
+                  ),
+                ),
+                // Centered status indicator + stage label + live percentage
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 15,
+                        height: 15,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.0,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colors.primaryButtonText,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          statusLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.buttonText.copyWith(
+                            color: colors.primaryButtonText,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        '$pct%',
+                        style: AppTypography.buttonText.copyWith(
+                          color: colors.aquaLight,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
   }
 }
