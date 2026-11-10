@@ -237,37 +237,65 @@ class AuthRepository {
   }
 
   /// Verifies an OTP code for email verification (POST /auth/email/verify/)
+  ///
+  /// Returns true on success. Also returns true when the backend reports
+  /// "Email is already verified" — this means the user signed up previously,
+  /// their email is confirmed, and we should proceed straight to sign-in.
   Future<bool> verifyEmailOtp({
     required String email,
     required String code,
   }) async {
     final cleanCode = code.replaceAll(RegExp(r'\D'), '');
     if (AppConfig.hasCustomBackend) {
-      await _client.post(
-        '/auth/email/verify/',
-        body: {
-          'email': email.trim().toLowerCase(),
-          'code': cleanCode.isNotEmpty ? cleanCode : code.trim(),
-        },
-      );
+      try {
+        await _client.post(
+          '/auth/email/verify/',
+          body: {
+            'email': email.trim().toLowerCase(),
+            'code': cleanCode.isNotEmpty ? cleanCode : code.trim(),
+          },
+        );
+      } on ApiException catch (e) {
+        // Backend returns 400 "Email is already verified" when the account's
+        // email was already confirmed (e.g. verified during sign-up). Treat
+        // this as a successful verification so the sign-in flow can continue.
+        final msg = e.message.toLowerCase();
+        if (msg.contains('already verified') || msg.contains('already_verified')) {
+          return true;
+        }
+        rethrow;
+      }
       return true;
     }
     return true;
   }
 
   /// Resends a 6-digit email verification OTP (POST /auth/email/resend/)
+  ///
+  /// Returns true on success. If the backend reports "already verified",
+  /// we return true so the dialog can proceed to complete sign-in directly.
   Future<bool> resendEmailOtp({
     required String email,
     required String password,
   }) async {
     if (AppConfig.hasCustomBackend) {
-      await _client.post(
-        '/auth/email/resend/',
-        body: {
-          'email': email.trim().toLowerCase(),
-          'password': password,
-        },
-      );
+      try {
+        await _client.post(
+          '/auth/email/resend/',
+          body: {
+            'email': email.trim().toLowerCase(),
+            'password': password,
+          },
+        );
+      } on ApiException catch (e) {
+        // If email is already verified, resend is unnecessary but not an error.
+        // Return true so the caller can proceed to complete the sign-in.
+        final msg = e.message.toLowerCase();
+        if (msg.contains('already verified') || msg.contains('already_verified')) {
+          return true;
+        }
+        rethrow;
+      }
       return true;
     }
     return true;

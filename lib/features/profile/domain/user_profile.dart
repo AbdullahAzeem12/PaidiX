@@ -9,13 +9,14 @@ enum KycReviewStatus {
   inProgress('In Progress'),
   pendingReview('Pending Review'),
   verified('Verified'),
-  rejected('Rejected');
+  rejected('Verification Rejected');
 
   final String label;
   const KycReviewStatus(this.label);
 
   bool get isPending => this == KycReviewStatus.pendingReview;
   bool get isVerified => this == KycReviewStatus.verified;
+  bool get isRejected => this == KycReviewStatus.rejected;
 }
 
 /// Domain entity representing the active user's synchronized profile
@@ -52,6 +53,10 @@ class UserProfile {
   final String? bankIban;
   final String? bankBeneficiary;
 
+  // Realtime backend KYC rejection metadata
+  final String? kycRejectionReason;
+  final List<String> kycObjections;
+
   const UserProfile({
     required this.fullName,
     required this.email,
@@ -77,6 +82,8 @@ class UserProfile {
     this.bankAccountNumber,
     this.bankIban,
     this.bankBeneficiary,
+    this.kycRejectionReason,
+    this.kycObjections = const [],
   });
 
   /// Initial unauthenticated clean profile for the application.
@@ -95,7 +102,23 @@ class UserProfile {
       kycStatus: KycReviewStatus.notStarted,
       hasCompletedKyc: false,
       smsConsent: false,
+      kycRejectionReason: null,
+      kycObjections: const [],
     );
+  }
+
+  /// Returns the dynamic message from the server side or default status label.
+  String get effectiveKycMessage {
+    if (kycStatus == KycReviewStatus.rejected) {
+      if (kycRejectionReason != null && kycRejectionReason!.trim().isNotEmpty) {
+        return kycRejectionReason!.trim();
+      }
+      if (kycObjections.isNotEmpty) {
+        return kycObjections.join('\n');
+      }
+      return 'Verification Rejected';
+    }
+    return kycStatus.label;
   }
 
   /// First name for greetings.
@@ -155,6 +178,9 @@ class UserProfile {
     String? bankAccountNumber,
     String? bankIban,
     String? bankBeneficiary,
+    String? kycRejectionReason,
+    List<String>? kycObjections,
+    bool clearRejection = false,
   }) {
     return UserProfile(
       fullName: fullName ?? this.fullName,
@@ -182,6 +208,11 @@ class UserProfile {
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankIban: bankIban ?? this.bankIban,
       bankBeneficiary: bankBeneficiary ?? this.bankBeneficiary,
+      kycRejectionReason: clearRejection
+          ? null
+          : (kycRejectionReason ?? this.kycRejectionReason),
+      kycObjections:
+          clearRejection ? const [] : (kycObjections ?? this.kycObjections),
     );
   }
 
@@ -208,6 +239,8 @@ class UserProfile {
       'bankAccountNumber': bankAccountNumber,
       'bankIban': bankIban,
       'bankBeneficiary': bankBeneficiary,
+      'kycRejectionReason': kycRejectionReason,
+      'kycObjections': kycObjections,
     };
   }
 
@@ -241,6 +274,11 @@ class UserProfile {
       bankAccountNumber: json['bankAccountNumber'] as String?,
       bankIban: json['bankIban'] as String?,
       bankBeneficiary: json['bankBeneficiary'] as String?,
+      kycRejectionReason: json['kycRejectionReason'] as String?,
+      kycObjections: (json['kycObjections'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
     );
   }
 }

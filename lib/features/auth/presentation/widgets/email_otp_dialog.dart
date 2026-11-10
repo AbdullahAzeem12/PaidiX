@@ -155,6 +155,22 @@ class _EmailOtpDialogState extends State<EmailOtpDialog> {
       widget.onVerified();
     } on ApiException catch (e) {
       if (!mounted) return;
+      final msg = e.message.toLowerCase();
+      // "already verified" at this layer means the repository did not catch it —
+      // treat it as success and proceed.
+      if (msg.contains('already verified') || msg.contains('already_verified')) {
+        _countdownTimer?.cancel();
+        Navigator.of(context).pop();
+        if (widget.password != null && widget.password!.isNotEmpty) {
+          try {
+            await AuthRepository.instance.signIn(
+              SignInRequest(email: widget.email, password: widget.password!),
+            );
+          } catch (_) {}
+        }
+        widget.onVerified();
+        return;
+      }
       setState(() {
         _isVerifying = false;
         if (e.message.toLowerCase().contains('expired')) {

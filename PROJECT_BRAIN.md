@@ -76,7 +76,7 @@ All paths relative to `PaidiX/android/`.
 
 - Resolves Flutter SDK from `local.properties` → `flutter.sdk` (required).
 - `includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")`
-- Plugins: `dev.flutter.flutter-plugin-loader` **1.0.0**, `com.android.application` **9.1.0** (apply false), `org.jetbrains.kotlin.android` **2.4.0** (apply false)
+- Plugins: `dev.flutter.flutter-plugin-loader` **1.0.0**, `com.android.application` **9.5.1** (apply false), `org.jetbrains.kotlin.android` **2.4.0** (apply false)
 - Single module: `:app`
 
 ### 3.2 Root `build.gradle.kts`
@@ -117,7 +117,7 @@ kotlin.incremental.jvm=false
 
 ### 3.5 Wrapper
 
-`gradle-wrapper.properties` → **Gradle 9.3.1-all**. `DEFAULT_JVM_OPTS` in `gradlew.bat` and `gradlew` sets `--enable-native-access=ALL-UNNAMED` to eliminate Java 25+ JEP 472 restricted method (`System.load`) warnings from `net.rubygrapefruit.platform`.
+`gradle-wrapper.properties` → **Gradle 9.6.0-bin**. `DEFAULT_JVM_OPTS` in `gradlew.bat` and `gradlew` sets `--enable-native-access=ALL-UNNAMED` to eliminate Java 25+ JEP 472 restricted method (`System.load`) warnings from `net.rubygrapefruit.platform`.
 
 ### 3.6 Manifests & host
 
