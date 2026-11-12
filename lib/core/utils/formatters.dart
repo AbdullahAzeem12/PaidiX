@@ -27,28 +27,53 @@ class AppFormatters {
   /// Formats a DateTime into readable MMM d, yyyy: e.g. "Aug 28, 2026"
   static String formatDate(DateTime? date) {
     if (date == null) return '—';
+    // API timestamps carry an explicit offset (often +05:00). DateTime.parse
+    // stores those instants in UTC; render them in the device's local zone so
+    // their calendar date matches the customer website.
+    final localDate = date.toLocal();
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    final m = months[date.month - 1];
-    return '$m ${date.day}, ${date.year}';
+    final m = months[localDate.month - 1];
+    return '$m ${localDate.day}, ${localDate.year}';
   }
 
   /// Formats a DateTime into readable MMM d, yyyy, hh:mm a: e.g. "Oct 29, 2026, 01:09 AM"
   static String formatDateTime(DateTime? date) {
     if (date == null) return '—';
+    final localDate = date.toLocal();
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
-    final m = months[date.month - 1];
-    final d = date.day.toString().padLeft(2, '0');
-    final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
+    final m = months[localDate.month - 1];
+    final d = localDate.day.toString().padLeft(2, '0');
+    final hour = localDate.hour % 12 == 0 ? 12 : localDate.hour % 12;
     final hourStr = hour.toString().padLeft(2, '0');
-    final minuteStr = date.minute.toString().padLeft(2, '0');
-    final amPm = date.hour >= 12 ? 'PM' : 'AM';
-    return '$m $d, ${date.year}, $hourStr:$minuteStr $amPm';
+    final minuteStr = localDate.minute.toString().padLeft(2, '0');
+    final amPm = localDate.hour >= 12 ? 'PM' : 'AM';
+    return '$m $d, ${localDate.year}, $hourStr:$minuteStr $amPm';
   }
 
   /// Formats a DateTime into mm / dd / yyyy for input fields
@@ -82,4 +107,3 @@ class AppFormatters {
     return isNegative ? '-${buffer.toString()}' : buffer.toString();
   }
 }
-

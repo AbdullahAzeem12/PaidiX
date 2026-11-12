@@ -1,6 +1,7 @@
 /// Defines payment models in the payments feature's domain layer.
 
 import 'dart:typed_data';
+
 import '../../../core/widgets/status_badge.dart';
 
 enum DateRangeFilter {
@@ -46,7 +47,8 @@ enum StatusFilterOption {
   const StatusFilterOption(this.label);
 
   // Backward-compatible aliases
-  static const StatusFilterOption pendingReview = StatusFilterOption.underReview;
+  static const StatusFilterOption pendingReview =
+      StatusFilterOption.underReview;
   static const StatusFilterOption awaitingPkr = StatusFilterOption.pkrSent;
 }
 
@@ -62,9 +64,41 @@ class PaymentItem {
   final PaymentStatusType status;
   final DateTime transactionDate;
   final DateTime submittedDate;
+  final String currencyCode;
   final String? proofFileName;
   final String? proofFilePath;
   final Uint8List? proofBytes;
+  final double? feePercentage;
+  final double? netAmountForeign;
+  final double? grossPkr;
+  final String? paymentMethodCode;
+  final String? paymentMethodLabel;
+  final String? externalTransactionId;
+  final String? screenshotTransactionUrl;
+  final String? screenshotEmailUrl;
+  final bool autoVerified;
+  final bool hasPkrTransfer;
+  final List<PaymentStatusHistoryItem> statusHistory;
+  final String? verifiedDocumentUrl;
+  final String? accountantDocumentUrl;
+  final String? verifiedByName;
+  final String? verifiedByEmail;
+  final DateTime? verifiedAt;
+  final String? verifiedNote;
+  final String? handledByEmail;
+  final String? accountantNotes;
+  final double? transferAmountPkr;
+  final double? transferDeductionPkr;
+  final double? transferOriginalAmountPkr;
+  final String? transferBankTransactionId;
+  final DateTime? transferDate;
+  final DateTime? transferRecordedAt;
+  final String? transferNotes;
+  final List<String> transferReceiptUrls;
+  final String? transferReceiptUrl;
+  final String? forceCompletedBy;
+  final DateTime? customerConfirmedAt;
+  final DateTime? completedAt;
 
   const PaymentItem({
     required this.id,
@@ -78,27 +112,97 @@ class PaymentItem {
     required this.status,
     required this.transactionDate,
     required this.submittedDate,
+    this.currencyCode = 'USD',
     this.proofFileName,
     this.proofFilePath,
     this.proofBytes,
+    this.feePercentage,
+    this.netAmountForeign,
+    this.grossPkr,
+    this.paymentMethodCode,
+    this.paymentMethodLabel,
+    this.externalTransactionId,
+    this.screenshotTransactionUrl,
+    this.screenshotEmailUrl,
+    this.autoVerified = false,
+    this.hasPkrTransfer = false,
+    this.statusHistory = const [],
+    this.verifiedDocumentUrl,
+    this.accountantDocumentUrl,
+    this.verifiedByName,
+    this.verifiedByEmail,
+    this.verifiedAt,
+    this.verifiedNote,
+    this.handledByEmail,
+    this.accountantNotes,
+    this.transferAmountPkr,
+    this.transferDeductionPkr,
+    this.transferOriginalAmountPkr,
+    this.transferBankTransactionId,
+    this.transferDate,
+    this.transferRecordedAt,
+    this.transferNotes,
+    this.transferReceiptUrls = const [],
+    this.transferReceiptUrl,
+    this.forceCompletedBy,
+    this.customerConfirmedAt,
+    this.completedAt,
   });
 
   /// Serializes this value into the JSON shape used by local storage.
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'reference': reference,
-        'sender': sender,
-        'senderCompany': senderCompany,
-        'amount': amount,
-        'exchangeRate': exchangeRate,
-        'feeAmount': feeAmount,
-        'netPkr': netPkr,
-        'status': status.name,
-        'transactionDate': transactionDate.toIso8601String(),
-        'submittedDate': submittedDate.toIso8601String(),
-        'proofFileName': proofFileName,
-        'proofFilePath': proofFilePath,
-      };
+    'id': id,
+    'reference': reference,
+    'sender': sender,
+    'senderCompany': senderCompany,
+    'amount': amount,
+    'exchangeRate': exchangeRate,
+    'feeAmount': feeAmount,
+    'netPkr': netPkr,
+    'status': status.name,
+    'transactionDate': transactionDate.toIso8601String(),
+    'submittedDate': submittedDate.toIso8601String(),
+    'currencyCode': currencyCode,
+    'proofFileName': proofFileName,
+    'proofFilePath': proofFilePath,
+  };
+}
+
+/// A server-recorded payment status transition used by the detail timeline.
+class PaymentStatusHistoryItem {
+  final String? fromStatus;
+  final String toStatus;
+  final String? note;
+  final DateTime? createdAt;
+
+  const PaymentStatusHistoryItem({
+    this.fromStatus,
+    required this.toStatus,
+    this.note,
+    this.createdAt,
+  });
+}
+
+/// Server-calculated totals returned by GET /transactions/payments/summary/.
+/// Nullable fields keep an omitted server value distinct from a real zero.
+class PaymentsServerSummary {
+  final int? totalCount;
+  final double? submittedTotal;
+  final double? grossPkrReceived;
+  final double? transferred;
+  final int? pendingCount;
+  final int? completedCount;
+  final int? rejectedCount;
+
+  const PaymentsServerSummary({
+    this.totalCount,
+    this.submittedTotal,
+    this.grossPkrReceived,
+    this.transferred,
+    this.pendingCount,
+    this.completedCount,
+    this.rejectedCount,
+  });
 }
 
 class PaymentSubmission {
@@ -107,7 +211,8 @@ class PaymentSubmission {
   final String senderCompany;
   final String confirmationCode;
   final double amount;
-  final DateTime transactionDate;
+  final DateTime? transactionDate;
+  final String currencyCode;
   final String? proofFileName;
   final String? proofFilePath;
   final Uint8List? proofBytes;
@@ -118,7 +223,8 @@ class PaymentSubmission {
     required this.senderCompany,
     required this.confirmationCode,
     required this.amount,
-    required this.transactionDate,
+    this.transactionDate,
+    this.currencyCode = 'USD',
     this.proofFileName,
     this.proofFilePath,
     this.proofBytes,

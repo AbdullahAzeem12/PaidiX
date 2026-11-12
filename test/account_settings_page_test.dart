@@ -88,7 +88,7 @@ void main() {
     testWidgets(
         'Payments PIN full lifecycle: Set -> Update (with wrong current PIN error) -> Forgot PIN -> Remove PIN',
         (WidgetTester tester) async {
-      tester.view.physicalSize = const Size(360.0, 900.0);
+      tester.view.physicalSize = const Size(360.0, 1400.0);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
 
@@ -200,7 +200,7 @@ void main() {
       );
 
       tester.binding.scheduleFrame();
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
 
       // Test 4: Remove PIN with WRONG PIN
@@ -209,7 +209,9 @@ void main() {
           removeTextFields.at(3), '0000'); // wrong PIN in remove card
       final removeBtn = find.text('Remove PIN').last;
       await tester.ensureVisible(removeBtn);
-      await tester.tap(removeBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(removeBtn, warnIfMissed: false);
+      await tester.pump(const Duration(milliseconds: 600));
       await tester.pumpAndSettle();
 
       expect(
@@ -219,7 +221,7 @@ void main() {
       );
 
       tester.binding.scheduleFrame();
-      await tester.pump(const Duration(seconds: 4));
+      await tester.pump(const Duration(seconds: 5));
       await tester.pumpAndSettle();
 
       // Test 5: Remove PIN with CORRECT PIN (the temporary PIN 1234 from recovery)

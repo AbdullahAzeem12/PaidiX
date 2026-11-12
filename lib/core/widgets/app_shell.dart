@@ -2,9 +2,11 @@
 
 import 'dart:io';
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_motion.dart';
 import '../../app/theme/app_spacing.dart';
@@ -27,11 +29,7 @@ class AppShell extends StatefulWidget {
   final Widget child;
   final String currentPath;
 
-  const AppShell({
-    super.key,
-    required this.child,
-    required this.currentPath,
-  });
+  const AppShell({super.key, required this.child, required this.currentPath});
 
   /// Creates the mutable state object that backs this stateful widget.
   @override
@@ -59,9 +57,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _startKycStatusPolling();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _redirectForKycStatus(
-        UserProfileRepository.instance.profile.kycStatus,
-      );
+      _redirectForKycStatus(UserProfileRepository.instance.profile.kycStatus);
       _refreshKycStatus();
       _refreshPaymentsPinStatus();
     });
@@ -210,14 +206,16 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   Widget _buildPaymentsPinProtectedBody(BuildContext context) {
     Widget scopedChild() => PaymentsPinLockScope(
-          isConfigured: _serverPaymentsPinIsSet,
-          onLockDashboard: _lockDashboard,
-          onLockPayments: _lockPaymentsPage,
-          child: widget.child,
-        );
+      isConfigured: _serverPaymentsPinIsSet,
+      onLockDashboard: _lockDashboard,
+      onLockPayments: _lockPaymentsPage,
+      child: widget.child,
+    );
 
     final isDashboard = widget.currentPath == '/app/dashboard';
-    final isPaymentsPage = widget.currentPath == '/app/payments';
+    final isPaymentsPage =
+        widget.currentPath == '/app/payments' ||
+        widget.currentPath.startsWith('/app/payments/');
     if (!AppConfig.hasCustomBackend || (!isDashboard && !isPaymentsPage)) {
       return scopedChild();
     }
@@ -235,9 +233,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.cloud_off_outlined,
-                            size: 42,
-                            color: AppColors.of(context).statusErrorText),
+                        Icon(
+                          Icons.cloud_off_outlined,
+                          size: 42,
+                          color: AppColors.of(context).statusErrorText,
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           _paymentsPinStatusError!,
@@ -381,8 +381,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                     userProfile.kycStatus != KycReviewStatus.verified;
                 final selectedIndex = _calculateSelectedIndex(showOnboarding);
                 final isNarrowPhone = constraints.maxWidth < 360;
-                final isSettings =
-                    widget.currentPath.startsWith('/app/settings');
+                final isSettings = widget.currentPath.startsWith(
+                  '/app/settings',
+                );
 
                 final navItems = showOnboarding
                     ? const [
@@ -477,8 +478,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   }
 
   /// Builds the theme toggle button section of this interface.
-  Widget _buildThemeToggleButton(
-      {bool isCompact = false, bool isSidebar = false}) {
+  Widget _buildThemeToggleButton({
+    bool isCompact = false,
+    bool isSidebar = false,
+  }) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: AppTheme.themeModeNotifier,
       builder: (context, mode, _) {
@@ -522,8 +525,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       width: sidebarWidth,
       decoration: const BoxDecoration(
         color: AppColors.sidebar,
-        border:
-            Border(right: BorderSide(color: AppColors.sidebarLine, width: 1)),
+        border: Border(
+          right: BorderSide(color: AppColors.sidebarLine, width: 1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -536,8 +540,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               children: [
                 if (!_isSidebarCollapsed)
                   const Expanded(
-                    child:
-                        BrandLogo(showPlanBadge: false, forceLightText: true),
+                    child: BrandLogo(
+                      showPlanBadge: false,
+                      forceLightText: true,
+                    ),
                   )
                 else
                   const BrandLogo(
@@ -559,7 +565,8 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         size: 20,
                       ),
                       onPressed: () => setState(
-                          () => _isSidebarCollapsed = !_isSidebarCollapsed),
+                        () => _isSidebarCollapsed = !_isSidebarCollapsed,
+                      ),
                     ),
                   ],
                 ),
@@ -593,8 +600,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                 const SizedBox(height: 20),
                 if (!_isSidebarCollapsed)
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     child: Text(
                       'PAYMENTS',
                       style: TextStyle(
@@ -612,7 +621,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   title: 'My Payments',
                   isSelected: selectedIndex == (showOnboarding ? 2 : 1),
                   onTap: () => _onDestinationSelected(
-                      showOnboarding ? 2 : 1, showOnboarding),
+                    showOnboarding ? 2 : 1,
+                    showOnboarding,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 _buildNavItem(
@@ -621,7 +632,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                   title: 'New Payment',
                   isSelected: selectedIndex == (showOnboarding ? 3 : 2),
                   onTap: () => _onDestinationSelected(
-                      showOnboarding ? 3 : 2, showOnboarding),
+                    showOnboarding ? 3 : 2,
+                    showOnboarding,
+                  ),
                 ),
               ],
             ),
@@ -686,14 +699,17 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                         title,
                         style: TextStyle(
                           fontSize: 13.5,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                          color:
-                              isSelected ? Colors.white : AppColors.sidebarText,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w500,
+                          color: isSelected
+                              ? Colors.white
+                              : AppColors.sidebarText,
                         ),
                       ),
-                shape:
-                    RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                shape: RoundedRectangleBorder(
+                  borderRadius: AppSpacing.radiusMd,
+                ),
                 onTap: onTap,
               ),
             ),
@@ -714,15 +730,13 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: const BoxDecoration(
-          border:
-              Border(top: BorderSide(color: AppColors.sidebarLine, width: 1)),
+          border: Border(
+            top: BorderSide(color: AppColors.sidebarLine, width: 1),
+          ),
         ),
         child: Row(
           children: [
-            _buildUserAvatar(
-              isSidebar: true,
-              userProfile: userProfile,
-            ),
+            _buildUserAvatar(isSidebar: true, userProfile: userProfile),
             if (!_isSidebarCollapsed) ...[
               const SizedBox(width: 10),
               Expanded(
@@ -860,10 +874,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     return Container(
       width: 32,
       height: 32,
-      decoration: BoxDecoration(
-        color: bg,
-        shape: BoxShape.circle,
-      ),
+      decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
       alignment: Alignment.center,
       child: Text(
         initial,

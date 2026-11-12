@@ -2,12 +2,14 @@
 
 import 'dart:io';
 import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -49,6 +51,8 @@ class AccountSettingsPage extends StatefulWidget {
 class _AccountSettingsPageState extends State<AccountSettingsPage>
     with TickerProviderStateMixin {
   _SettingsTab _activeTab = _SettingsTab.profile;
+  final _bankAccountsSectionKey = GlobalKey<_BankAccountsSectionState>();
+  final _paymentsPinSectionKey = GlobalKey<_PaymentsPinSectionState>();
   late final AnimationController _contentController;
   late Animation<double> _contentFade;
   late Animation<Offset> _contentSlide;
@@ -70,13 +74,16 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
       parent: _contentController,
       curve: Curves.easeOutCubic,
     );
-    _contentSlide = Tween<Offset>(
-      begin: const Offset(0.0, 0.025),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _contentController,
-      curve: Curves.easeOutCubic,
-    ));
+    _contentSlide =
+        Tween<Offset>(
+          begin: const Offset(0.0, 0.025),
+          end: Offset.zero,
+        ).animate(
+          CurvedAnimation(
+            parent: _contentController,
+            curve: Curves.easeOutCubic,
+          ),
+        );
     if (_activeTab == _SettingsTab.paymentsPin) {
       _contentController.value = 1;
     } else {
@@ -143,15 +150,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Left sidebar nav
-        SizedBox(
-          width: 240,
-          child: _buildSideNav(colors, isMobile: false),
-        ),
+        SizedBox(width: 240, child: _buildSideNav(colors, isMobile: false)),
         Container(width: 1, color: colors.border),
         // Main content area
-        Expanded(
-          child: _buildMainContent(colors, profile, isMobile: false),
-        ),
+        Expanded(child: _buildMainContent(colors, profile, isMobile: false)),
       ],
     );
   }
@@ -162,9 +164,7 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
       children: [
         _buildMobileTopBar(colors),
         _buildMobileTabBar(colors),
-        Expanded(
-          child: _buildMainContent(colors, profile, isMobile: true),
-        ),
+        Expanded(child: _buildMainContent(colors, profile, isMobile: true)),
       ],
     );
   }
@@ -258,8 +258,10 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeOutCubic,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: isActive
                         ? colors.aqua.withValues(alpha: 0.15)
@@ -466,13 +468,53 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     UserProfile profile, {
     required bool isMobile,
   }) {
-    return FadeTransition(
+    final content = FadeTransition(
       opacity: _contentFade,
       child: SlideTransition(
         position: _contentSlide,
         child: _buildTabBody(colors, profile, isMobile: isMobile),
       ),
     );
+    if (_activeTab != _SettingsTab.profile &&
+        _activeTab != _SettingsTab.bankAccounts &&
+        _activeTab != _SettingsTab.paymentsPin) {
+      return content;
+    }
+    return RefreshIndicator(
+      color: colors.aqua,
+      backgroundColor: colors.card,
+      onRefresh: _refreshActiveSettingsTab,
+      child: content,
+    );
+  }
+
+  Future<void> _refreshActiveSettingsTab() async {
+    try {
+      switch (_activeTab) {
+        case _SettingsTab.profile:
+          await Future.wait<Object?>([
+            AuthRepository.instance.fetchCurrentUserProfile(),
+            AuthRepository.instance.refreshKycReviewStatus(),
+          ]);
+          return;
+        case _SettingsTab.bankAccounts:
+          await _bankAccountsSectionKey.currentState?._loadAccounts();
+          return;
+        case _SettingsTab.paymentsPin:
+          await _paymentsPinSectionKey.currentState?._checkPinStatus();
+          return;
+        case _SettingsTab.security:
+        case _SettingsTab.appearance:
+          return;
+      }
+    } catch (_) {
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not refresh account settings. Please try again.',
+        );
+      }
+    }
   }
 
   /// Builds the tab body section of this interface.
@@ -484,17 +526,31 @@ class _AccountSettingsPageState extends State<AccountSettingsPage>
     switch (_activeTab) {
       case _SettingsTab.profile:
         return _ProfileSection(
-            colors: colors, profile: profile, isMobile: isMobile);
+          colors: colors,
+          profile: profile,
+          isMobile: isMobile,
+        );
       case _SettingsTab.security:
         return _SecuritySection(colors: colors, isMobile: isMobile);
       case _SettingsTab.bankAccounts:
         return _BankAccountsSection(
-            colors: colors, profile: profile, isMobile: isMobile);
+          key: _bankAccountsSectionKey,
+          colors: colors,
+          profile: profile,
+          isMobile: isMobile,
+        );
       case _SettingsTab.paymentsPin:
-        return _PaymentsPinSection(colors: colors, isMobile: isMobile);
+        return _PaymentsPinSection(
+          key: _paymentsPinSectionKey,
+          colors: colors,
+          isMobile: isMobile,
+        );
       case _SettingsTab.appearance:
         return _AppearanceSection(
-            colors: colors, profile: profile, isMobile: isMobile);
+          colors: colors,
+          profile: profile,
+          isMobile: isMobile,
+        );
     }
   }
 
@@ -572,9 +628,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
     _checkAndRetrieveLostImage();
     if (AppConfig.hasCustomBackend &&
         (ApiClient.instance.authToken?.isNotEmpty ?? false)) {
-      AuthRepository.instance
-          .fetchCurrentUserProfile()
-          .then<void>((_) {}, onError: (_) {});
+      AuthRepository.instance.fetchCurrentUserProfile().then<void>(
+        (_) {},
+        onError: (_) {},
+      );
     }
   }
 
@@ -636,8 +693,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
     final fullName = _nameCtrl.text.trim();
     final cleanPhone = _stripPkCode(_phoneCtrl.text);
     if (fullName.isEmpty || cleanPhone.isEmpty) {
-      _showToast(widget.colors, 'Enter your name and phone number.',
-          isError: true);
+      _showToast(
+        widget.colors,
+        'Enter your name and phone number.',
+        isError: true,
+      );
       return;
     }
     HapticFeedback.mediumImpact();
@@ -831,10 +891,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: borderColor,
-            width: 1.2,
-          ),
+          border: Border.all(color: borderColor, width: 1.2),
           boxShadow: shadows,
         ),
         child: Row(
@@ -845,17 +902,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
               decoration: BoxDecoration(
                 color: iconHaloBg,
                 shape: BoxShape.circle,
-                border: Border.all(
-                  color: iconHaloBorder,
-                  width: 1.2,
-                ),
+                border: Border.all(color: iconHaloBorder, width: 1.2),
               ),
               alignment: Alignment.center,
-              child: Icon(
-                icon,
-                size: 22,
-                color: iconColor,
-              ),
+              child: Icon(icon, size: 22, color: iconColor),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -875,10 +925,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: subtitleColor,
-                    ),
+                    style: TextStyle(fontSize: 12, color: subtitleColor),
                   ),
                 ],
               ),
@@ -1045,10 +1092,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
   }
 
   /// Lets the user choose the camera or photo library as the avatar source.
-  void _showImageSourceSheet({
-    required bool isAvatar,
-    String? documentType,
-  }) {
+  void _showImageSourceSheet({required bool isAvatar, String? documentType}) {
     final c = widget.colors;
     if (!isAvatar && widget.profile.kycStatus.isVerified) {
       _showToast(c, 'Approved KYC documents cannot be changed.', isError: true);
@@ -1158,16 +1202,13 @@ class _ProfileSectionState extends State<_ProfileSection> {
       final docLabel = isAvatar
           ? 'Profile picture'
           : documentType == 'selfie'
-              ? 'Selfie'
-              : documentType == 'cnic_front'
-                  ? 'CNIC Front'
-                  : documentType == 'cnic_back'
-                      ? 'CNIC Back'
-                      : 'Picture';
-      KycImageValidation.validateMaxFileSize(
-        rawBytes,
-        documentLabel: docLabel,
-      );
+          ? 'Selfie'
+          : documentType == 'cnic_front'
+          ? 'CNIC Front'
+          : documentType == 'cnic_back'
+          ? 'CNIC Back'
+          : 'Picture';
+      KycImageValidation.validateMaxFileSize(rawBytes, documentLabel: docLabel);
 
       if (isAvatar) {
         // Downscale safely in memory using Skia engine to prevent GPU OOM crash
@@ -1194,11 +1235,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
         String? serverAvatarUrl;
         if (AppConfig.hasCustomBackend) {
-          final response =
-              await AuthRepository.instance.updateCurrentUserProfile(
-            profilePictureBytes: croppedBytes,
-            fileName: 'avatar.png',
-          );
+          final response = await AuthRepository.instance
+              .updateCurrentUserProfile(
+                profilePictureBytes: croppedBytes,
+                fileName: 'avatar.png',
+              );
           serverAvatarUrl = AuthRepository.instance.extractAvatarUrl(response);
         }
 
@@ -1212,10 +1253,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
       }
 
       // Regulatory KYC documents pipeline
-      final safeBytes = await _safeDownscaleBytes(
-        rawBytes,
-        maxDimension: 1024,
-      );
+      final safeBytes = await _safeDownscaleBytes(rawBytes, maxDimension: 1024);
 
       // Auto crop and enhance via KycImageProcessor
       const processor = KycImageProcessor();
@@ -1273,9 +1311,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
         if (source == ImageSource.camera) {
           final camStatus = await Permission.camera.request();
           if (camStatus.isPermanentlyDenied) {
-            _showToast(c,
-                'Camera permission permanently denied. Please grant in Settings.',
-                isError: true);
+            _showToast(
+              c,
+              'Camera permission permanently denied. Please grant in Settings.',
+              isError: true,
+            );
             return;
           }
         } else {
@@ -1343,7 +1383,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
   /// Builds the avatar with camera section of this interface.
   Widget _buildAvatarWithCamera(
-      PaidiXColorScheme c, UserProfile p, double radius) {
+    PaidiXColorScheme c,
+    UserProfile p,
+    double radius,
+  ) {
     final double avatarSize = radius * 2;
     final double badgeSize = widget.isMobile ? 26 : 28;
 
@@ -1408,7 +1451,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
 
   /// Builds the avatar image or initial section of this interface.
   Widget _buildAvatarImageOrInitial(
-      PaidiXColorScheme c, UserProfile p, double size) {
+    PaidiXColorScheme c,
+    UserProfile p,
+    double size,
+  ) {
     if (p.hasCustomAvatar) {
       if (p.avatarBytes != null && p.avatarBytes!.isNotEmpty) {
         return ClipOval(
@@ -1489,11 +1535,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
         const SizedBox(height: 4),
         Text(
           'Your verified identity documents on file. Tap Replace to update any document.',
-          style: TextStyle(
-            fontSize: 12.5,
-            color: c.textSecondary,
-            height: 1.4,
-          ),
+          style: TextStyle(fontSize: 12.5, color: c.textSecondary, height: 1.4),
         ),
         const SizedBox(height: 14),
 
@@ -1662,8 +1704,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 ),
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
                     color: c.emerald.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -1675,11 +1719,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.check_rounded,
-                        size: 11,
-                        color: c.emerald,
-                      ),
+                      Icon(Icons.check_rounded, size: 11, color: c.emerald),
                       const SizedBox(width: 3),
                       Text(
                         'Verified',
@@ -1718,12 +1758,15 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 Container(
                   height: 155,
                   width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF021B19),
-                  ),
+                  decoration: const BoxDecoration(color: Color(0xFF021B19)),
                   child: ClipRect(
-                    child:
-                        _buildDocPreview(c, label, bytes, filePath, isSelfie),
+                    child: _buildDocPreview(
+                      c,
+                      label,
+                      bytes,
+                      filePath,
+                      isSelfie,
+                    ),
                   ),
                 ),
                 // Floating semi-transparent zoom badge overlay
@@ -1800,8 +1843,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     documentType: docType,
                   ),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
@@ -1837,7 +1882,8 @@ class _ProfileSectionState extends State<_ProfileSection> {
   ) {
     // 1. High-fidelity Biometric Portrait Presentation for Selfie
     if (isSelfie) {
-      final hasRealImage = (bytes != null && bytes.isNotEmpty) ||
+      final hasRealImage =
+          (bytes != null && bytes.isNotEmpty) ||
           (filePath != null &&
               filePath.isNotEmpty &&
               !kIsWeb &&
@@ -1875,10 +1921,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 height: 144,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: c.emerald,
-                    width: 2.2,
-                  ),
+                  border: Border.all(color: c.emerald, width: 2.2),
                   boxShadow: [
                     BoxShadow(
                       color: c.emerald.withValues(alpha: 0.35),
@@ -1908,8 +1951,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
               top: 8,
               left: 10,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 3.5,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF062320).withValues(alpha: 0.90),
                   borderRadius: BorderRadius.circular(12),
@@ -1921,11 +1966,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.face_rounded,
-                      size: 11,
-                      color: c.emerald,
-                    ),
+                    Icon(Icons.face_rounded, size: 11, color: c.emerald),
                     const SizedBox(width: 4),
                     Text(
                       'PORTRAIT BIOMETRIC',
@@ -1985,10 +2026,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: c.cardHighlight,
-                  border: Border.all(
-                    color: c.emerald,
-                    width: 2.0,
-                  ),
+                  border: Border.all(color: c.emerald, width: 2.0),
                   boxShadow: [
                     BoxShadow(
                       color: c.emerald.withValues(alpha: 0.25),
@@ -1997,16 +2035,14 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     ),
                   ],
                 ),
-                child: Icon(
-                  Icons.person_rounded,
-                  color: c.emerald,
-                  size: 32,
-                ),
+                child: Icon(Icons.person_rounded, color: c.emerald, size: 32),
               ),
               const SizedBox(height: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0xFF0F3A35),
                   borderRadius: BorderRadius.circular(12),
@@ -2114,8 +2150,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 decoration: BoxDecoration(
                   color: const Color(0xFFB5933C).withValues(alpha: 0.8),
                   borderRadius: BorderRadius.circular(2),
-                  border:
-                      Border.all(color: const Color(0xFF8B6F27), width: 0.8),
+                  border: Border.all(
+                    color: const Color(0xFF8B6F27),
+                    width: 0.8,
+                  ),
                 ),
               ),
             ],
@@ -2134,8 +2172,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
                       width: 1,
                     ),
                   ),
-                  child: Icon(Icons.person,
-                      size: 22, color: c.aquaLight.withValues(alpha: 0.6)),
+                  child: Icon(
+                    Icons.person,
+                    size: 22,
+                    color: c.aquaLight.withValues(alpha: 0.6),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -2143,25 +2184,31 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Container(
-                          height: 5,
-                          width: 85,
-                          decoration: BoxDecoration(
-                              color: c.border,
-                              borderRadius: BorderRadius.circular(2))),
+                        height: 5,
+                        width: 85,
+                        decoration: BoxDecoration(
+                          color: c.border,
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Container(
-                          height: 5,
-                          width: 60,
-                          decoration: BoxDecoration(
-                              color: c.border.withValues(alpha: 0.6),
-                              borderRadius: BorderRadius.circular(2))),
+                        height: 5,
+                        width: 60,
+                        decoration: BoxDecoration(
+                          color: c.border.withValues(alpha: 0.6),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                       const SizedBox(height: 4),
                       Container(
-                          height: 5,
-                          width: 110,
-                          decoration: BoxDecoration(
-                              color: c.border.withValues(alpha: 0.4),
-                              borderRadius: BorderRadius.circular(2))),
+                        height: 5,
+                        width: 110,
+                        decoration: BoxDecoration(
+                          color: c.border.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -2174,14 +2221,16 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 Container(height: 4, width: double.infinity, color: c.border),
                 const SizedBox(height: 4),
                 Container(
-                    height: 4,
-                    width: 140,
-                    color: c.border.withValues(alpha: 0.6)),
+                  height: 4,
+                  width: 140,
+                  color: c.border.withValues(alpha: 0.6),
+                ),
                 const SizedBox(height: 4),
                 Container(
-                    height: 4,
-                    width: 190,
-                    color: c.border.withValues(alpha: 0.4)),
+                  height: 4,
+                  width: 190,
+                  color: c.border.withValues(alpha: 0.4),
+                ),
               ],
             ),
           ],
@@ -2226,10 +2275,14 @@ class _ProfileSectionState extends State<_ProfileSection> {
     final isKycApproved = p.kycStatus.isVerified;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final stackProfileFields = widget.isMobile || screenWidth < 960;
-    final horizontalPadding =
-        widget.isMobile ? (screenWidth < 360 ? 12.0 : 16.0) : 32.0;
+    final horizontalPadding = widget.isMobile
+        ? (screenWidth < 360 ? 12.0 : 16.0)
+        : 32.0;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.symmetric(
         horizontal: horizontalPadding,
         vertical: widget.isMobile ? 20 : 32,
@@ -2260,8 +2313,11 @@ class _ProfileSectionState extends State<_ProfileSection> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.lock_outline_rounded,
-                          color: c.emerald, size: 20),
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        color: c.emerald,
+                        size: 20,
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -2343,13 +2399,16 @@ class _ProfileSectionState extends State<_ProfileSection> {
                               const SizedBox(height: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: c.aqua.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: c.aqua.withValues(alpha: 0.3),
-                                      width: 1),
+                                    color: c.aqua.withValues(alpha: 0.3),
+                                    width: 1,
+                                  ),
                                 ),
                                 child: Text(
                                   'CUSTOMER',
@@ -2548,8 +2607,11 @@ class _SecuritySectionState extends State<_SecuritySection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _sectionHeader(c, 'Security',
-              'Choose a strong password and change it periodically.'),
+          _sectionHeader(
+            c,
+            'Security',
+            'Choose a strong password and change it periodically.',
+          ),
           const SizedBox(height: 20),
           _SettingsCard(
             colors: c,
@@ -2637,8 +2699,10 @@ class _SecuritySectionState extends State<_SecuritySection> {
               hintText: '••••••••',
               hintStyle: TextStyle(color: c.textPlaceholder, fontSize: 14),
               border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
+              ),
               suffixIcon: GestureDetector(
                 onTap: onToggle,
                 child: Icon(
@@ -2664,7 +2728,11 @@ class _PaymentsPinSection extends StatefulWidget {
   final PaidiXColorScheme colors;
   final bool isMobile;
 
-  const _PaymentsPinSection({required this.colors, required this.isMobile});
+  const _PaymentsPinSection({
+    super.key,
+    required this.colors,
+    required this.isMobile,
+  });
 
   /// Creates the mutable state object that backs this stateful widget.
   @override
@@ -2960,6 +3028,9 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
     final pad = widget.isMobile ? 16.0 : 32.0;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.all(pad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3008,8 +3079,10 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_pinStatusError!,
-                      style: TextStyle(color: c.statusErrorText)),
+                  Text(
+                    _pinStatusError!,
+                    style: TextStyle(color: c.statusErrorText),
+                  ),
                   const SizedBox(height: 12),
                   _SettingsButton(
                     colors: c,
@@ -3031,7 +3104,9 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
                   // Status banner
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
                     decoration: BoxDecoration(
                       color: c.statusPendingBg,
                       borderRadius: BorderRadius.circular(10),
@@ -3102,11 +3177,7 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
                   // Status indicator (matching screenshot)
                   Row(
                     children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 16,
-                        color: c.aqua,
-                      ),
+                      Icon(Icons.shield_outlined, size: 16, color: c.aqua),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -3287,8 +3358,10 @@ class _PaymentsPinSectionState extends State<_PaymentsPinSection> {
                 fontWeight: FontWeight.w400,
               ),
               border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 13,
+              ),
               suffixIcon: GestureDetector(
                 onTap: () => setState(() => _showPin = !_showPin),
                 child: Icon(
@@ -3355,7 +3428,10 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader(
-              c, 'Appearance', 'Personalise how PaidiX looks for you.'),
+            c,
+            'Appearance',
+            'Personalise how PaidiX looks for you.',
+          ),
           const SizedBox(height: 20),
 
           // Theme picker
@@ -3369,16 +3445,31 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
                 Row(
                   children: [
                     Expanded(
-                        child: _themeCard(c, ThemeMode.dark, 'Dark',
-                            Icons.dark_mode_rounded)),
+                      child: _themeCard(
+                        c,
+                        ThemeMode.dark,
+                        'Dark',
+                        Icons.dark_mode_rounded,
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                        child: _themeCard(c, ThemeMode.light, 'Light',
-                            Icons.light_mode_rounded)),
+                      child: _themeCard(
+                        c,
+                        ThemeMode.light,
+                        'Light',
+                        Icons.light_mode_rounded,
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                        child: _themeCard(c, ThemeMode.system, 'System',
-                            Icons.phone_android_rounded)),
+                      child: _themeCard(
+                        c,
+                        ThemeMode.system,
+                        'System',
+                        Icons.phone_android_rounded,
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -3402,7 +3493,11 @@ class _AppearanceSectionState extends State<_AppearanceSection> {
 
   /// Builds one theme choice card and marks it active when its mode is selected.
   Widget _themeCard(
-      PaidiXColorScheme c, ThemeMode mode, String label, IconData icon) {
+    PaidiXColorScheme c,
+    ThemeMode mode,
+    String label,
+    IconData icon,
+  ) {
     final isSelected = _selectedMode == mode;
     return GestureDetector(
       onTap: () {
@@ -3460,6 +3555,7 @@ class _BankAccountsSection extends StatefulWidget {
   final bool isMobile;
 
   const _BankAccountsSection({
+    super.key,
     required this.colors,
     required this.profile,
     required this.isMobile,
@@ -3478,24 +3574,28 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
   @override
   void initState() {
     super.initState();
-    _accounts = UserProfileRepository.instance
-        .getBankAccountsSync(widget.profile.email);
-    UserProfileRepository.instance.bankAccountsRevision
-        .addListener(_onRepositoryBankAccountsChanged);
+    _accounts = UserProfileRepository.instance.getBankAccountsSync(
+      widget.profile.email,
+    );
+    UserProfileRepository.instance.bankAccountsRevision.addListener(
+      _onRepositoryBankAccountsChanged,
+    );
     _loadAccounts();
   }
 
   @override
   void dispose() {
-    UserProfileRepository.instance.bankAccountsRevision
-        .removeListener(_onRepositoryBankAccountsChanged);
+    UserProfileRepository.instance.bankAccountsRevision.removeListener(
+      _onRepositoryBankAccountsChanged,
+    );
     super.dispose();
   }
 
   void _onRepositoryBankAccountsChanged() {
     if (!mounted) return;
-    final cached = UserProfileRepository.instance
-        .getBankAccountsSync(widget.profile.email);
+    final cached = UserProfileRepository.instance.getBankAccountsSync(
+      widget.profile.email,
+    );
     setState(() {
       _accounts = cached;
     });
@@ -3503,8 +3603,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
 
   /// Loads cached accounts immediately and synchronizes live server bank accounts.
   Future<void> _loadAccounts() async {
-    final local = await UserProfileRepository.instance
-        .loadBankAccounts(widget.profile.email);
+    final local = await UserProfileRepository.instance.loadBankAccounts(
+      widget.profile.email,
+    );
     if (mounted && local.isNotEmpty && _accounts.isEmpty) {
       setState(() {
         _accounts = local;
@@ -3517,8 +3618,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
       setState(() => _isLoadingRemote = true);
     }
     try {
-      final remote = await KycRepository.instance
-          .fetchBankAccounts(email: widget.profile.email);
+      final remote = await KycRepository.instance.fetchBankAccounts(
+        email: widget.profile.email,
+      );
       if (mounted) {
         setState(() {
           _accounts = remote;
@@ -3534,8 +3636,10 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
 
   /// Writes the current bank-account list to the user profile repository.
   Future<void> _persistAccounts() async {
-    await UserProfileRepository.instance
-        .saveBankAccounts(widget.profile.email, _accounts);
+    await UserProfileRepository.instance.saveBankAccounts(
+      widget.profile.email,
+      _accounts,
+    );
   }
 
   /// Confirms account removal with the user before deleting the saved account.
@@ -3632,8 +3736,10 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     });
     if (AppConfig.hasCustomBackend) {
       try {
-        await KycRepository.instance
-            .deleteBankAccount(target, email: widget.profile.email);
+        await KycRepository.instance.deleteBankAccount(
+          target,
+          email: widget.profile.email,
+        );
       } catch (e) {
         if (mounted) {
           PaidiXToast.showError(context, 'Could not remove bank account: $e');
@@ -3660,12 +3766,16 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     });
     if (AppConfig.hasCustomBackend) {
       try {
-        await KycRepository.instance
-            .setPrimaryBankAccount(target, email: widget.profile.email);
+        await KycRepository.instance.setPrimaryBankAccount(
+          target,
+          email: widget.profile.email,
+        );
       } catch (e) {
         if (mounted) {
           PaidiXToast.showError(
-              context, 'Could not update primary account: $e');
+            context,
+            'Could not update primary account: $e',
+          );
         }
         await _loadAccounts();
         return;
@@ -3692,19 +3802,24 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
         isMobile: widget.isMobile,
         isEditing: false,
         onSave: (newAcc) async {
-          final candidate =
-              _accounts.isEmpty ? newAcc.copyWith(isPrimary: true) : newAcc;
+          final candidate = _accounts.isEmpty
+              ? newAcc.copyWith(isPrimary: true)
+              : newAcc;
           setState(() {
             _accounts.add(candidate);
           });
           if (AppConfig.hasCustomBackend) {
             try {
-              await KycRepository.instance
-                  .createBankAccount(candidate, email: widget.profile.email);
+              await KycRepository.instance.createBankAccount(
+                candidate,
+                email: widget.profile.email,
+              );
             } catch (e) {
               if (mounted) {
                 PaidiXToast.showError(
-                    this.context, 'Could not save bank account: $e');
+                  this.context,
+                  'Could not save bank account: $e',
+                );
               }
               await _loadAccounts();
               return;
@@ -3741,12 +3856,16 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
           });
           if (AppConfig.hasCustomBackend) {
             try {
-              await KycRepository.instance
-                  .updateBankAccount(updatedAcc, email: widget.profile.email);
+              await KycRepository.instance.updateBankAccount(
+                updatedAcc,
+                email: widget.profile.email,
+              );
             } catch (e) {
               if (mounted) {
                 PaidiXToast.showError(
-                    this.context, 'Could not update bank account: $e');
+                  this.context,
+                  'Could not update bank account: $e',
+                );
               }
               await _loadAccounts();
               return;
@@ -3772,6 +3891,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
     final pad = widget.isMobile ? 16.0 : 32.0;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(
+        parent: BouncingScrollPhysics(),
+      ),
       padding: EdgeInsets.all(pad),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3805,11 +3927,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                     color: c.aqua.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    Icons.payments_outlined,
-                    size: 20,
-                    color: c.aqua,
-                  ),
+                  child: Icon(Icons.payments_outlined, size: 20, color: c.aqua),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -3848,8 +3966,10 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
               SpongyTap(
                 onTap: () => _openAddAccountDialog(context),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: c.aqua.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -3861,8 +3981,11 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_circle_outline_rounded,
-                          size: 15, color: c.aqua),
+                      Icon(
+                        Icons.add_circle_outline_rounded,
+                        size: 15,
+                        color: c.aqua,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Add account',
@@ -3915,8 +4038,11 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
               child: Center(
                 child: Column(
                   children: [
-                    Icon(Icons.account_balance_outlined,
-                        size: 38, color: c.textMuted),
+                    Icon(
+                      Icons.account_balance_outlined,
+                      size: 38,
+                      color: c.textMuted,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'No bank accounts linked.',
@@ -3929,10 +4055,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                     const SizedBox(height: 6),
                     Text(
                       'Add a PKR receiving account to receive payouts.',
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: c.textSecondary,
-                      ),
+                      style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -3940,10 +4063,7 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
               ),
             )
           else
-            ...List.generate(
-              _accounts.length,
-              (i) => _buildAccountCard(c, i),
-            ),
+            ...List.generate(_accounts.length, (i) => _buildAccountCard(c, i)),
         ],
       ),
     );
@@ -3997,8 +4117,10 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
               const SizedBox(width: 8),
               if (acc.isPrimary)
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3.5,
+                  ),
                   decoration: BoxDecoration(
                     color: c.aqua.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
@@ -4028,7 +4150,9 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                   onTap: () => _setAsPrimary(i),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3.5),
+                      horizontal: 8,
+                      vertical: 3.5,
+                    ),
                     decoration: BoxDecoration(
                       color: c.cardDark,
                       borderRadius: BorderRadius.circular(12),
@@ -4037,8 +4161,11 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.star_outline_rounded,
-                            size: 13, color: c.textMuted),
+                        Icon(
+                          Icons.star_outline_rounded,
+                          size: 13,
+                          color: c.textMuted,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           'Set as primary',
@@ -4124,8 +4251,11 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.delete_outline_rounded,
-                            size: 15, color: const Color(0xFFF87171)),
+                        Icon(
+                          Icons.delete_outline_rounded,
+                          size: 15,
+                          color: const Color(0xFFF87171),
+                        ),
                         const SizedBox(width: 6),
                         Text(
                           'Remove',
@@ -4146,8 +4276,11 @@ class _BankAccountsSectionState extends State<_BankAccountsSection> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.lock_outline_rounded,
-                            size: 14, color: c.textMuted),
+                        Icon(
+                          Icons.lock_outline_rounded,
+                          size: 14,
+                          color: c.textMuted,
+                        ),
                         const SizedBox(width: 5),
                         Flexible(
                           child: Text(
@@ -4238,7 +4371,8 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     // Letters, spaces, dots, hyphens only
     if (!RegExp(r"^[a-zA-Z\s\.\-']+$").hasMatch(holder)) {
       _showError(
-          'Account holder must contain letters only (numbers and symbols are not allowed).');
+        'Account holder must contain letters only (numbers and symbols are not allowed).',
+      );
       return;
     }
 
@@ -4250,7 +4384,8 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
     final digitsOnly = accNum.replaceAll(RegExp(r'[\s\-]'), '');
     if (!RegExp(r'^[0-9]+$').hasMatch(digitsOnly)) {
       _showError(
-          'Account number must contain digits only (letters are not allowed).');
+        'Account number must contain digits only (letters are not allowed).',
+      );
       return;
     }
     if (digitsOnly.length < 6) {
@@ -4262,8 +4397,10 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
       return;
     }
 
-    final cleanIban =
-        _ibanCtrl.text.trim().toUpperCase().replaceAll(RegExp(r'\s+'), '');
+    final cleanIban = _ibanCtrl.text.trim().toUpperCase().replaceAll(
+      RegExp(r'\s+'),
+      '',
+    );
     if (cleanIban.isNotEmpty) {
       if (!cleanIban.startsWith('PK')) {
         _showError('Pakistani IBAN must start with PK.');
@@ -4275,11 +4412,13 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
       }
     }
 
-    final sameBank = widget.initialAccount != null &&
+    final sameBank =
+        widget.initialAccount != null &&
         _selectedBank.trim().toLowerCase() ==
             widget.initialAccount!.bankName.trim().toLowerCase();
     final saved = BankAccountItem(
-      id: widget.initialAccount?.id ??
+      id:
+          widget.initialAccount?.id ??
           'bank_${DateTime.now().millisecondsSinceEpoch}',
       bankId: sameBank ? widget.initialAccount?.bankId : null,
       bankName: _selectedBank,
@@ -4363,8 +4502,11 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                     ),
                   ),
                   IconButton(
-                    icon:
-                        Icon(Icons.close_rounded, size: 20, color: c.textMuted),
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 20,
+                      color: c.textMuted,
+                    ),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -4508,9 +4650,7 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
                 child: TextField(
                   controller: _accountNumberCtrl,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                  ],
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   style: TextStyle(
                     fontSize: 14,
                     color: c.textPrimary,
@@ -4637,8 +4777,12 @@ class _BankDetailsDialogState extends State<_BankDetailsDialog> {
 //  SHARED HELPERS & WIDGETS
 // ════════════════════════════════════════════════════════════════════════════
 
-Widget _sectionHeader(PaidiXColorScheme c, String title, String subtitle,
-    {String? eyebrow}) {
+Widget _sectionHeader(
+  PaidiXColorScheme c,
+  String title,
+  String subtitle, {
+  String? eyebrow,
+}) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -4725,15 +4869,13 @@ Widget _labeledField(
         child: Row(
           children: [
             if (prefix != null) ...[
-              Padding(
-                padding: const EdgeInsets.only(left: 14),
-                child: prefix,
-              ),
+              Padding(padding: const EdgeInsets.only(left: 14), child: prefix),
               Container(
-                  width: 1,
-                  height: 20,
-                  margin: const EdgeInsets.symmetric(horizontal: 10),
-                  color: c.border),
+                width: 1,
+                height: 20,
+                margin: const EdgeInsets.symmetric(horizontal: 10),
+                color: c.border,
+              ),
             ],
             Expanded(
               child: TextField(
@@ -4745,8 +4887,10 @@ Widget _labeledField(
                 ),
                 decoration: InputDecoration(
                   hintText: hint,
-                  hintStyle:
-                      TextStyle(color: c.textPlaceholder, fontSize: 13.5),
+                  hintStyle: TextStyle(
+                    color: c.textPlaceholder,
+                    fontSize: 13.5,
+                  ),
                   border: InputBorder.none,
                   contentPadding: EdgeInsets.symmetric(
                     horizontal: prefix != null ? 0 : 14,
@@ -4769,13 +4913,7 @@ Widget _fieldRow({
   required Widget right,
 }) {
   if (isMobile) {
-    return Column(
-      children: [
-        left,
-        const SizedBox(height: 14),
-        right,
-      ],
-    );
+    return Column(children: [left, const SizedBox(height: 14), right]);
   }
   return Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4814,7 +4952,8 @@ class _SettingsCard extends StatelessWidget {
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(
-                alpha: colors.brightness == Brightness.dark ? 0.18 : 0.05),
+              alpha: colors.brightness == Brightness.dark ? 0.18 : 0.05,
+            ),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -4879,15 +5018,12 @@ class _SettingsButtonState extends State<_SettingsButton>
     final c = widget.colors;
     final bg = widget.isDestructive
         ? (c.brightness == Brightness.dark
-            ? const Color(0xFF1B1417)
-            : const Color(0xFFFDE8EC))
+              ? const Color(0xFF1B1417)
+              : const Color(0xFFFDE8EC))
         : c.primaryButton;
     final fg = widget.isDestructive ? c.borderError : c.primaryButtonText;
     final border = widget.isDestructive
-        ? Border.all(
-            color: c.borderError.withValues(alpha: 0.45),
-            width: 1.2,
-          )
+        ? Border.all(color: c.borderError.withValues(alpha: 0.45), width: 1.2)
         : null;
 
     return GestureDetector(
@@ -4917,10 +5053,7 @@ class _SettingsButtonState extends State<_SettingsButton>
               ? SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: fg,
-                  ),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                 )
               : Row(
                   mainAxisSize: MainAxisSize.min,

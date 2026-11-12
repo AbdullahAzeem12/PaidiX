@@ -1,6 +1,7 @@
 /// Defines user profile in the profile feature's domain layer.
 
 import 'dart:typed_data';
+
 import '../../../core/utils/formatters.dart';
 
 /// KYC status for user profile and regulatory compliance
@@ -64,6 +65,16 @@ class UserProfile {
   final List<String> kycObjections;
   final DateTime? kycReviewedAt;
 
+  // Server-calculated customer score fields. These values are refreshed with
+  // the authenticated account/KYC profile and are never locally persisted as
+  // a replacement for a server response.
+  final int? ratingScore;
+  final String? ratingTier;
+  final String? ratingGrade;
+  final int? completedCount;
+  final int? rejectedCount;
+  final double? totalVolumePkr;
+
   const UserProfile({
     required this.fullName,
     required this.email,
@@ -98,6 +109,12 @@ class UserProfile {
     this.kycRejectionReason,
     this.kycObjections = const [],
     this.kycReviewedAt,
+    this.ratingScore,
+    this.ratingTier,
+    this.ratingGrade,
+    this.completedCount,
+    this.rejectedCount,
+    this.totalVolumePkr,
   });
 
   /// Initial unauthenticated clean profile for the application.
@@ -212,6 +229,12 @@ class UserProfile {
     DateTime? kycReviewedAt,
     bool clearKycReviewedAt = false,
     bool clearRejection = false,
+    int? ratingScore,
+    String? ratingTier,
+    String? ratingGrade,
+    int? completedCount,
+    int? rejectedCount,
+    double? totalVolumePkr,
   }) {
     return UserProfile(
       fullName: fullName ?? this.fullName,
@@ -253,10 +276,18 @@ class UserProfile {
       kycRejectionReason: clearRejection
           ? null
           : (kycRejectionReason ?? this.kycRejectionReason),
-      kycObjections:
-          clearRejection ? const [] : (kycObjections ?? this.kycObjections),
-      kycReviewedAt:
-          clearKycReviewedAt ? null : (kycReviewedAt ?? this.kycReviewedAt),
+      kycObjections: clearRejection
+          ? const []
+          : (kycObjections ?? this.kycObjections),
+      kycReviewedAt: clearKycReviewedAt
+          ? null
+          : (kycReviewedAt ?? this.kycReviewedAt),
+      ratingScore: ratingScore ?? this.ratingScore,
+      ratingTier: ratingTier ?? this.ratingTier,
+      ratingGrade: ratingGrade ?? this.ratingGrade,
+      completedCount: completedCount ?? this.completedCount,
+      rejectedCount: rejectedCount ?? this.rejectedCount,
+      totalVolumePkr: totalVolumePkr ?? this.totalVolumePkr,
     );
   }
 
@@ -292,6 +323,12 @@ class UserProfile {
       'kycRejectionReason': kycRejectionReason,
       'kycObjections': kycObjections,
       'kycReviewedAt': kycReviewedAt?.toIso8601String(),
+      'ratingScore': ratingScore,
+      'ratingTier': ratingTier,
+      'ratingGrade': ratingGrade,
+      'completedCount': completedCount,
+      'rejectedCount': rejectedCount,
+      'totalVolumePkr': totalVolumePkr,
     };
   }
 
@@ -334,13 +371,39 @@ class UserProfile {
       bankIban: json['bankIban'] as String?,
       bankBeneficiary: json['bankBeneficiary'] as String?,
       kycRejectionReason: json['kycRejectionReason'] as String?,
-      kycObjections: (json['kycObjections'] as List<dynamic>?)
+      kycObjections:
+          (json['kycObjections'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           const [],
       kycReviewedAt: json['kycReviewedAt'] is String
           ? DateTime.tryParse(json['kycReviewedAt'] as String)
           : null,
+      ratingScore: _asInt(json['ratingScore'] ?? json['rating_score']),
+      ratingTier:
+          json['ratingTier'] as String? ?? json['rating_tier'] as String?,
+      ratingGrade:
+          json['ratingGrade'] as String? ?? json['rating_grade'] as String?,
+      completedCount: _asInt(json['completedCount'] ?? json['completed_count']),
+      rejectedCount: _asInt(json['rejectedCount'] ?? json['rejected_count']),
+      totalVolumePkr: _asDouble(
+        json['totalVolumePkr'] ?? json['total_volume_pkr'],
+      ),
     );
+  }
+
+  static int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      return int.tryParse(value) ?? double.tryParse(value)?.toInt();
+    }
+    return null;
+  }
+
+  static double? _asDouble(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
   }
 }

@@ -2,6 +2,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
+
 import '../core/widgets/app_shell.dart';
 import '../core/widgets/server_error_page.dart';
 import '../features/auth/presentation/pages/sign_in_page.dart';
@@ -9,7 +10,9 @@ import '../features/auth/presentation/pages/sign_up_page.dart';
 import '../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../features/kyc/presentation/pages/kyc_page.dart';
 import '../features/payments/data/payments_repository_impl.dart';
+import '../features/payments/domain/payment_models.dart';
 import '../features/payments/presentation/pages/new_payment_page.dart';
+import '../features/payments/presentation/pages/payment_detail_page.dart';
 import '../features/payments/presentation/pages/payments_page.dart';
 import '../features/profile/data/user_profile_repository.dart';
 import '../features/profile/domain/user_profile.dart';
@@ -37,13 +40,16 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
           transitionDuration: const Duration(milliseconds: 380),
           reverseTransitionDuration: const Duration(milliseconds: 300),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            final slideAnim = Tween<Offset>(
-              begin: const Offset(0.0, 0.06),
-              end: Offset.zero,
-            ).animate(CurvedAnimation(
-              parent: animation,
-              curve: Curves.easeOutCubic,
-            ));
+            final slideAnim =
+                Tween<Offset>(
+                  begin: const Offset(0.0, 0.06),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                  ),
+                );
             final fadeAnim = CurvedAnimation(
               parent: animation,
               curve: const Interval(0.0, 0.75, curve: Curves.easeOut),
@@ -88,43 +94,41 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
             child: ServerErrorPage(info: info),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
-              return FadeTransition(opacity: animation, child: child);
-            },
+                  return FadeTransition(opacity: animation, child: child);
+                },
           );
         },
       ),
       ShellRoute(
         builder: (context, state, child) {
-          return AppShell(
-            currentPath: state.matchedLocation,
-            child: child,
-          );
+          return AppShell(currentPath: state.matchedLocation, child: child);
         },
         routes: [
           GoRoute(
             path: '/app/dashboard',
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
-              child:
-                  DashboardPage(paymentsRepository: sharedPaymentsRepository),
+              child: DashboardPage(
+                paymentsRepository: sharedPaymentsRepository,
+              ),
               transitionDuration: const Duration(milliseconds: 320),
               reverseTransitionDuration: const Duration(milliseconds: 260),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                final curve = CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                  reverseCurve: Curves.easeInCubic,
-                );
-                final slideAnim = Tween<Offset>(
-                  begin: const Offset(-0.06, 0.0),
-                  end: Offset.zero,
-                ).animate(curve);
-                return SlideTransition(
-                  position: slideAnim,
-                  child: FadeTransition(opacity: curve, child: child),
-                );
-              },
+                    final curve = CurvedAnimation(
+                      parent: animation,
+                      curve: Curves.easeOutCubic,
+                      reverseCurve: Curves.easeInCubic,
+                    );
+                    final slideAnim = Tween<Offset>(
+                      begin: const Offset(-0.06, 0.0),
+                      end: Offset.zero,
+                    ).animate(curve);
+                    return SlideTransition(
+                      position: slideAnim,
+                      child: FadeTransition(opacity: curve, child: child),
+                    );
+                  },
             ),
           ),
           GoRoute(
@@ -141,8 +145,8 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
               child: const OnboardingProfilePage(),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
+                    return FadeTransition(opacity: animation, child: child);
+                  },
             ),
           ),
           GoRoute(
@@ -156,22 +160,25 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
               reverseTransitionDuration: const Duration(milliseconds: 260),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                final slideAnim = Tween<Offset>(
-                  begin: const Offset(1.0, 0.0),
-                  end: Offset.zero,
-                ).animate(CurvedAnimation(
-                  parent: animation,
-                  curve: Curves.easeOutCubic,
-                ));
-                final fadeAnim = CurvedAnimation(
-                  parent: animation,
-                  curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
-                );
-                return SlideTransition(
-                  position: slideAnim,
-                  child: FadeTransition(opacity: fadeAnim, child: child),
-                );
-              },
+                    final slideAnim =
+                        Tween<Offset>(
+                          begin: const Offset(1.0, 0.0),
+                          end: Offset.zero,
+                        ).animate(
+                          CurvedAnimation(
+                            parent: animation,
+                            curve: Curves.easeOutCubic,
+                          ),
+                        );
+                    final fadeAnim = CurvedAnimation(
+                      parent: animation,
+                      curve: const Interval(0.0, 0.7, curve: Curves.easeOut),
+                    );
+                    return SlideTransition(
+                      position: slideAnim,
+                      child: FadeTransition(opacity: fadeAnim, child: child),
+                    );
+                  },
             ),
           ),
           GoRoute(
@@ -181,8 +188,8 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
               child: PaymentsPage(paymentsRepository: sharedPaymentsRepository),
               transitionsBuilder:
                   (context, animation, secondaryAnimation, child) {
-                return FadeTransition(opacity: animation, child: child);
-              },
+                    return FadeTransition(opacity: animation, child: child);
+                  },
             ),
             routes: [
               GoRoute(
@@ -190,18 +197,60 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
                 pageBuilder: (context, state) => CustomTransitionPage(
                   key: state.pageKey,
                   child: NewPaymentPage(
-                      paymentsRepository: sharedPaymentsRepository),
+                    paymentsRepository: sharedPaymentsRepository,
+                  ),
                   transitionsBuilder:
                       (context, animation, secondaryAnimation, child) {
-                    return SlideTransition(
-                      position: Tween<Offset>(
-                        begin: const Offset(0.05, 0),
-                        end: Offset.zero,
-                      ).animate(CurvedAnimation(
-                          parent: animation, curve: Curves.easeOutCubic)),
-                      child: FadeTransition(opacity: animation, child: child),
-                    );
-                  },
+                        return SlideTransition(
+                          position:
+                              Tween<Offset>(
+                                begin: const Offset(0.05, 0),
+                                end: Offset.zero,
+                              ).animate(
+                                CurvedAnimation(
+                                  parent: animation,
+                                  curve: Curves.easeOutCubic,
+                                ),
+                              ),
+                          child: FadeTransition(
+                            opacity: animation,
+                            child: child,
+                          ),
+                        );
+                      },
+                ),
+              ),
+              GoRoute(
+                path: ':id',
+                pageBuilder: (context, state) => CustomTransitionPage(
+                  key: state.pageKey,
+                  child: PaymentDetailPage(
+                    paymentsRepository: sharedPaymentsRepository,
+                    paymentId: state.pathParameters['id']!,
+                    initialPayment: state.extra is PaymentItem
+                        ? state.extra as PaymentItem
+                        : null,
+                  ),
+                  transitionDuration: const Duration(milliseconds: 280),
+                  reverseTransitionDuration: const Duration(milliseconds: 220),
+                  transitionsBuilder:
+                      (context, animation, secondaryAnimation, child) {
+                        final curve = CurvedAnimation(
+                          parent: animation,
+                          curve: Curves.easeOutCubic,
+                          reverseCurve: Curves.easeInCubic,
+                        );
+                        return FadeTransition(
+                          opacity: curve,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0.025, 0),
+                              end: Offset.zero,
+                            ).animate(curve),
+                            child: child,
+                          ),
+                        );
+                      },
                 ),
               ),
             ],

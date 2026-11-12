@@ -1,6 +1,7 @@
 /// Defines payments table in the payments feature's presentation layer.
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -11,8 +12,9 @@ import '../../domain/payment_models.dart';
 
 class PaymentsTable extends StatelessWidget {
   final List<PaymentItem> items;
+  final ValueChanged<PaymentItem>? onItemTap;
 
-  const PaymentsTable({super.key, required this.items});
+  const PaymentsTable({super.key, required this.items, this.onItemTap});
 
   /// Builds the widget subtree from its current properties and inherited context.
   @override
@@ -39,40 +41,76 @@ class PaymentsTable extends StatelessWidget {
             dividerThickness: 1,
             columns: [
               DataColumn(
-                label: Text('REFERENCE',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'REFERENCE',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('SENDER',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'SENDER',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('AMOUNT',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'AMOUNT',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('RATE',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'RATE',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('FEE',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'FEE',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('NET PKR',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'NET PKR',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('STATUS',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'STATUS',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('DATE',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'DATE',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
               DataColumn(
-                label: Text('SUBMITTED',
-                    style: AppTypography.tableHeader.copyWith(color: colors.textSecondary)),
+                label: Text(
+                  'SUBMITTED',
+                  style: AppTypography.tableHeader.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
               ),
             ],
             rows: items.map((item) {
@@ -87,6 +125,7 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.textPrimary,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
@@ -97,6 +136,7 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.textPrimary,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
@@ -108,12 +148,16 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.textPrimary,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
                       '1 USD = ${item.exchangeRate.toStringAsFixed(2)}',
-                      style: AppTypography.tableCellMuted.copyWith(color: colors.textSecondary),
+                      style: AppTypography.tableCellMuted.copyWith(
+                        color: colors.textSecondary,
+                      ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
@@ -124,6 +168,7 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.textSecondary,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
@@ -135,9 +180,11 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.aquaLight,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     StatusBadge(status: item.status),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
@@ -147,15 +194,14 @@ class PaymentsTable extends StatelessWidget {
                         color: colors.textSecondary,
                       ),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                   DataCell(
                     Text(
                       AppFormatters.formatDate(item.submittedDate),
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: colors.textMuted,
-                      ),
+                      style: TextStyle(fontSize: 12, color: colors.textMuted),
                     ),
+                    onTap: onItemTap == null ? null : () => onItemTap!(item),
                   ),
                 ],
               );

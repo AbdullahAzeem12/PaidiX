@@ -1,8 +1,10 @@
 /// Repository managing KYC document and identity submission to the backend.
 
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/utils/bank_account_validator.dart';
@@ -50,10 +52,7 @@ class KycRepository {
       'verification',
     };
 
-    void collectWithParent(
-      dynamic value,
-      Map<String, dynamic> inherited,
-    ) {
+    void collectWithParent(dynamic value, Map<String, dynamic> inherited) {
       if (value is List) {
         for (final item in value) {
           collectWithParent(item, inherited);
@@ -77,10 +76,7 @@ class KycRepository {
     return maps;
   }
 
-  static String? _firstString(
-    Map<String, dynamic> source,
-    List<String> keys,
-  ) {
+  static String? _firstString(Map<String, dynamic> source, List<String> keys) {
     for (final key in keys) {
       final value = source[key];
       if (value is String && value.trim().isNotEmpty) return value.trim();
@@ -164,10 +160,7 @@ class KycRepository {
     return null;
   }
 
-  String? parseDocumentUrl(
-    Map<String, dynamic> response,
-    List<String> keys,
-  ) {
+  String? parseDocumentUrl(Map<String, dynamic> response, List<String> keys) {
     for (final map in _responseMaps(response)) {
       final raw = _firstString(map, keys);
       if (raw != null) {
@@ -239,9 +232,8 @@ class KycRepository {
     required UserProfile profile,
     required Map<String, dynamic> uploadResponse,
   }) async {
-    bool responseMatches(dynamic response) => _responseMaps(response).any(
-          (record) => _recordConfirmsResubmission(record, profile: profile),
-        );
+    bool responseMatches(dynamic response) => _responseMaps(response)
+        .any((record) => _recordConfirmsResubmission(record, profile: profile));
 
     if (responseMatches(uploadResponse)) return uploadResponse;
 
@@ -268,8 +260,7 @@ class KycRepository {
 
     throw const ApiException(
       statusCode: 409,
-      message:
-          'The server has not confirmed the updated KYC record for review yet. Please refresh your profile before trying again.',
+      message: 'The server has not confirmed the updated KYC record for review yet. Please refresh your profile before trying again.',
       errorCode: 'KYC_RESUBMISSION_NOT_CONFIRMED',
     );
   }
@@ -349,31 +340,31 @@ class KycRepository {
     );
 
     List<http.MultipartFile> buildFiles() => [
-          if (cnicFrontBytes != null)
-            http.MultipartFile.fromBytes(
-              'cnic_front',
-              cnicFrontBytes,
-              filename: cnicFrontFileName?.isNotEmpty == true
-                  ? cnicFrontFileName!
-                  : 'cnic_front.$frontExtension',
-            ),
-          if (cnicBackBytes != null)
-            http.MultipartFile.fromBytes(
-              'cnic_back',
-              cnicBackBytes,
-              filename: cnicBackFileName?.isNotEmpty == true
-                  ? cnicBackFileName!
-                  : 'cnic_back.$backExtension',
-            ),
-          if (selfieBytes != null)
-            http.MultipartFile.fromBytes(
-              'selfie',
-              selfieBytes,
-              filename: selfieFileName?.isNotEmpty == true
-                  ? selfieFileName!
-                  : 'selfie.$selfieExtension',
-            ),
-        ];
+      if (cnicFrontBytes != null)
+        http.MultipartFile.fromBytes(
+          'cnic_front',
+          cnicFrontBytes,
+          filename: cnicFrontFileName?.isNotEmpty == true
+              ? cnicFrontFileName!
+              : 'cnic_front.$frontExtension',
+        ),
+      if (cnicBackBytes != null)
+        http.MultipartFile.fromBytes(
+          'cnic_back',
+          cnicBackBytes,
+          filename: cnicBackFileName?.isNotEmpty == true
+              ? cnicBackFileName!
+              : 'cnic_back.$backExtension',
+        ),
+      if (selfieBytes != null)
+        http.MultipartFile.fromBytes(
+          'selfie',
+          selfieBytes,
+          filename: selfieFileName?.isNotEmpty == true
+              ? selfieFileName!
+              : 'selfie.$selfieExtension',
+        ),
+    ];
 
     return _patchProfileResubmission(
       profile: profile,
@@ -390,7 +381,8 @@ class KycRepository {
     KycState state, {
     void Function(double progress, String statusLabel)? onProgress,
   }) async {
-    final isResubmission = UserProfileRepository.instance.profile.kycStatus ==
+    final isResubmission =
+        UserProfileRepository.instance.profile.kycStatus ==
         KycReviewStatus.rejected;
     var resubmissionMarkedLocally = false;
     onProgress?.call(0.10, 'Preparing verification package...');
@@ -472,22 +464,22 @@ class KycRepository {
       // Rebuild every MultipartFile for each attempt because the HTTP package
       // consumes each file stream when a request is finalized.
       List<http.MultipartFile> buildFiles() => [
-            http.MultipartFile.fromBytes(
-              'cnic_front',
-              frontBytes,
-              filename: 'cnic_front.$frontExtension',
-            ),
-            http.MultipartFile.fromBytes(
-              'cnic_back',
-              backBytes,
-              filename: 'cnic_back.$backExtension',
-            ),
-            http.MultipartFile.fromBytes(
-              'selfie',
-              selfieBytes,
-              filename: 'selfie.$selfieExtension',
-            ),
-          ];
+        http.MultipartFile.fromBytes(
+          'cnic_front',
+          frontBytes,
+          filename: 'cnic_front.$frontExtension',
+        ),
+        http.MultipartFile.fromBytes(
+          'cnic_back',
+          backBytes,
+          filename: 'cnic_back.$backExtension',
+        ),
+        http.MultipartFile.fromBytes(
+          'selfie',
+          selfieBytes,
+          filename: 'selfie.$selfieExtension',
+        ),
+      ];
 
       onProgress?.call(0.24, 'Uploading identity documents...');
       if (isResubmission) {
@@ -517,18 +509,21 @@ class KycRepository {
         UserProfileRepository.instance.syncFromKyc(state);
         UserProfileRepository.instance.markKycResubmitted(
           submittedAt: parseResubmittedAt(confirmedResponse),
-          selfieUrl: parseDocumentUrl(
-            confirmedResponse,
-            const ['selfie_url', 'selfieUrl', 'selfie'],
-          ),
-          cnicFrontUrl: parseDocumentUrl(
-            confirmedResponse,
-            const ['cnic_front_url', 'cnicFrontUrl', 'cnic_front'],
-          ),
-          cnicBackUrl: parseDocumentUrl(
-            confirmedResponse,
-            const ['cnic_back_url', 'cnicBackUrl', 'cnic_back'],
-          ),
+          selfieUrl: parseDocumentUrl(confirmedResponse, const [
+            'selfie_url',
+            'selfieUrl',
+            'selfie',
+          ]),
+          cnicFrontUrl: parseDocumentUrl(confirmedResponse, const [
+            'cnic_front_url',
+            'cnicFrontUrl',
+            'cnic_front',
+          ]),
+          cnicBackUrl: parseDocumentUrl(confirmedResponse, const [
+            'cnic_back_url',
+            'cnicBackUrl',
+            'cnic_back',
+          ]),
         );
         resubmissionMarkedLocally = true;
       } else {
@@ -575,10 +570,7 @@ class KycRepository {
         try {
           await _client.patch(
             '/auth/onboarding-step/',
-            body: {
-              'step': 4,
-              'is_profile_complete': true,
-            },
+            body: {'step': 4, 'is_profile_complete': true},
           );
         } catch (_) {
           // Non-blocking step update
@@ -638,7 +630,8 @@ class KycRepository {
           files.any((f) => f.length > KycImageValidation.maxFileSizeBytes)) {
         throw const ApiException(
           statusCode: 422,
-          message: 'Picture must be 5 MB or smaller. Please choose a smaller image.',
+          message:
+              'Picture must be 5 MB or smaller. Please choose a smaller image.',
           errorCode: 'KYC_IMAGE_TOO_LARGE',
         );
       }
@@ -650,14 +643,11 @@ class KycRepository {
           };
           return await _client.postMultipart(
             '/auth/onboarding-step/',
-            fields: allFields, 
+            fields: allFields,
             files: files,
           );
         } else {
-          final body = <String, dynamic>{
-            'step': step,
-            ...?fields,
-          };
+          final body = <String, dynamic>{'step': step, ...?fields};
           return await _client.patch('/auth/onboarding-step/', body: body);
         }
       } catch (e) {
@@ -681,11 +671,13 @@ class KycRepository {
           safeFront,
           documentLabel: 'CNIC Front',
         );
-        files.add(http.MultipartFile.fromBytes(
-          'cnic_front',
-          safeFront,
-          filename: 'cnic_front.jpg',
-        ));
+        files.add(
+          http.MultipartFile.fromBytes(
+            'cnic_front',
+            safeFront,
+            filename: 'cnic_front.jpg',
+          ),
+        );
       }
       if (backBytes != null) {
         final safeBack = Uint8List.fromList(backBytes);
@@ -693,11 +685,13 @@ class KycRepository {
           safeBack,
           documentLabel: 'CNIC Back',
         );
-        files.add(http.MultipartFile.fromBytes(
-          'cnic_back',
-          safeBack,
-          filename: 'cnic_back.jpg',
-        ));
+        files.add(
+          http.MultipartFile.fromBytes(
+            'cnic_back',
+            safeBack,
+            filename: 'cnic_back.jpg',
+          ),
+        );
       }
       if (selfieBytes != null) {
         final safeSelfie = Uint8List.fromList(selfieBytes);
@@ -705,11 +699,13 @@ class KycRepository {
           safeSelfie,
           documentLabel: 'Selfie',
         );
-        files.add(http.MultipartFile.fromBytes(
-          'selfie',
-          safeSelfie,
-          filename: 'selfie.jpg',
-        ));
+        files.add(
+          http.MultipartFile.fromBytes(
+            'selfie',
+            safeSelfie,
+            filename: 'selfie.jpg',
+          ),
+        );
       }
 
       if (files.isNotEmpty) {
@@ -780,7 +776,8 @@ class KycRepository {
   }
 
   Future<Map<String, dynamic>?> _resolveServerBankEntry(
-      String bankNameOrCode) async {
+    String bankNameOrCode,
+  ) async {
     final catalogBank = findPakistaniBank(bankNameOrCode);
     final rule = BankAccountValidator.getRule(bankNameOrCode);
     final rawNorm = _normalizeBankLookup(bankNameOrCode);
@@ -801,8 +798,9 @@ class KycRepository {
       final entryName = _normalizeBankLookup(
         '${entry['name'] ?? entry['short_name'] ?? ''}',
       );
-      final entryCode =
-          '${entry['code'] ?? entry['bank_code'] ?? ''}'.trim().toLowerCase();
+      final entryCode = '${entry['code'] ?? entry['bank_code'] ?? ''}'
+          .trim()
+          .toLowerCase();
       if (candidateCodes.contains(entryCode) ||
           candidateAliases.contains(entryName)) {
         return entry;
@@ -832,7 +830,9 @@ class KycRepository {
     if (serverBankId == null) {
       final matched = await _resolveServerBankEntry(account.bankName);
       final rawId = matched?['id'] ?? matched?['pk'] ?? matched?['uuid'];
-      serverBankId = rawId is int ? rawId : int.tryParse('${rawId ?? ''}') ?? rawId;
+      serverBankId = rawId is int
+          ? rawId
+          : int.tryParse('${rawId ?? ''}') ?? rawId;
     }
     if (requireBankId && serverBankId == null) {
       throw ApiException(
@@ -843,8 +843,10 @@ class KycRepository {
       );
     }
 
-    final cleanAccountNumber =
-        account.accountNumber.replaceAll(RegExp(r'[\s\-]'), '');
+    final cleanAccountNumber = account.accountNumber.replaceAll(
+      RegExp(r'[\s\-]'),
+      '',
+    );
     final cleanIban = account.iban.trim().toUpperCase();
 
     return <String, dynamic>{
@@ -856,8 +858,7 @@ class KycRepository {
     };
   }
 
-  static List<BankAccountItem> _sortPrimaryFirst(
-      List<BankAccountItem> items) {
+  static List<BankAccountItem> _sortPrimaryFirst(List<BankAccountItem> items) {
     final sorted = List<BankAccountItem>.from(items);
     sorted.sort((a, b) {
       if (a.isPrimary == b.isPrimary) return 0;
@@ -869,8 +870,8 @@ class KycRepository {
   /// Fetches the authenticated user's bank accounts from `GET /banking/bank-accounts/`
   /// and synchronizes local repository cache.
   Future<List<BankAccountItem>> fetchBankAccounts({String? email}) async {
-    final targetEmail =
-        (email ?? UserProfileRepository.instance.profile.email).trim();
+    final targetEmail = (email ?? UserProfileRepository.instance.profile.email)
+        .trim();
     if (!AppConfig.hasCustomBackend) {
       if (targetEmail.isEmpty) return const <BankAccountItem>[];
       return UserProfileRepository.instance.loadBankAccounts(targetEmail);
@@ -883,8 +884,10 @@ class KycRepository {
         items.map(BankAccountItem.fromJson).toList(),
       );
       if (targetEmail.isNotEmpty) {
-        await UserProfileRepository.instance
-            .saveBankAccounts(targetEmail, parsed);
+        await UserProfileRepository.instance.saveBankAccounts(
+          targetEmail,
+          parsed,
+        );
       }
       return parsed;
     } catch (e) {
@@ -902,12 +905,13 @@ class KycRepository {
     String? email,
     bool persistLocally = true,
   }) async {
-    final targetEmail =
-        (email ?? UserProfileRepository.instance.profile.email).trim();
+    final targetEmail = (email ?? UserProfileRepository.instance.profile.email)
+        .trim();
     if (!AppConfig.hasCustomBackend) {
       if (persistLocally && targetEmail.isNotEmpty) {
-        final existing =
-            UserProfileRepository.instance.getBankAccountsSync(targetEmail);
+        final existing = UserProfileRepository.instance.getBankAccountsSync(
+          targetEmail,
+        );
         final next = _sortPrimaryFirst([
           if (account.isPrimary)
             ...existing.map((a) => a.copyWith(isPrimary: false))
@@ -915,19 +919,20 @@ class KycRepository {
             ...existing,
           account,
         ]);
-        await UserProfileRepository.instance.saveBankAccounts(targetEmail, next);
+        await UserProfileRepository.instance.saveBankAccounts(
+          targetEmail,
+          next,
+        );
       }
       return account;
     }
 
     final payload = await _buildBankAccountPayload(account);
-    final res = await _client.post(
-      '/banking/bank-accounts/',
-      body: payload,
-    );
+    final res = await _client.post('/banking/bank-accounts/', body: payload);
 
     final recordMap = _asStringMap(res['data']) ?? res;
-    final created = recordMap.containsKey('id') ||
+    final created =
+        recordMap.containsKey('id') ||
             recordMap.containsKey('account_number') ||
             recordMap.containsKey('holder_name')
         ? BankAccountItem.fromJson(recordMap)
@@ -936,8 +941,9 @@ class KycRepository {
     if (persistLocally && targetEmail.isNotEmpty) {
       final refreshed = await fetchBankAccounts(email: targetEmail);
       if (refreshed.isEmpty) {
-        await UserProfileRepository.instance
-            .saveBankAccounts(targetEmail, [created]);
+        await UserProfileRepository.instance.saveBankAccounts(targetEmail, [
+          created,
+        ]);
       }
     }
     return created;
@@ -951,8 +957,8 @@ class KycRepository {
     BankAccountItem account, {
     String? email,
   }) async {
-    final targetEmail =
-        (email ?? UserProfileRepository.instance.profile.email).trim();
+    final targetEmail = (email ?? UserProfileRepository.instance.profile.email)
+        .trim();
     if (!AppConfig.hasCustomBackend || _isLocalOnlyId(account.id)) {
       if (AppConfig.hasCustomBackend && _isLocalOnlyId(account.id)) {
         return createBankAccount(account, email: targetEmail);
@@ -963,8 +969,10 @@ class KycRepository {
         );
         final idx = existing.indexWhere((a) => a.id == account.id);
         if (idx >= 0) existing[idx] = account;
-        await UserProfileRepository.instance
-            .saveBankAccounts(targetEmail, existing);
+        await UserProfileRepository.instance.saveBankAccounts(
+          targetEmail,
+          existing,
+        );
       }
       return account;
     }
@@ -974,8 +982,8 @@ class KycRepository {
       body: await _buildBankAccountPayload(account),
     );
     final recordMap = _asStringMap(res['data']) ?? res;
-    final updated = recordMap.containsKey('id') ||
-            recordMap.containsKey('account_number')
+    final updated =
+        recordMap.containsKey('id') || recordMap.containsKey('account_number')
         ? BankAccountItem.fromJson(recordMap)
         : account;
     if (targetEmail.isNotEmpty) {
@@ -990,16 +998,20 @@ class KycRepository {
     BankAccountItem account, {
     String? email,
   }) async {
-    final targetEmail =
-        (email ?? UserProfileRepository.instance.profile.email).trim();
+    final targetEmail = (email ?? UserProfileRepository.instance.profile.email)
+        .trim();
     if (!AppConfig.hasCustomBackend || _isLocalOnlyId(account.id)) {
       if (targetEmail.isNotEmpty) {
-        final existing =
-            UserProfileRepository.instance.getBankAccountsSync(targetEmail);
+        final existing = UserProfileRepository.instance.getBankAccountsSync(
+          targetEmail,
+        );
         final next = existing
             .map((a) => a.copyWith(isPrimary: a.id == account.id))
             .toList();
-        await UserProfileRepository.instance.saveBankAccounts(targetEmail, next);
+        await UserProfileRepository.instance.saveBankAccounts(
+          targetEmail,
+          next,
+        );
       }
       return;
     }
@@ -1032,20 +1044,21 @@ class KycRepository {
     if (account.isPrimary) {
       throw const ApiException(
         statusCode: 400,
-        message:
-            'Primary bank account cannot be removed. Set another account as primary first.',
+        message: 'Primary bank account cannot be removed. Set another account as primary first.',
         errorCode: 'PRIMARY_ACCOUNT_PROTECTED',
       );
     }
-    final targetEmail =
-        (email ?? UserProfileRepository.instance.profile.email).trim();
+    final targetEmail = (email ?? UserProfileRepository.instance.profile.email)
+        .trim();
     if (!AppConfig.hasCustomBackend || _isLocalOnlyId(account.id)) {
       if (targetEmail.isNotEmpty) {
         final existing = List<BankAccountItem>.from(
           UserProfileRepository.instance.getBankAccountsSync(targetEmail),
         )..removeWhere((a) => a.id == account.id);
-        await UserProfileRepository.instance
-            .saveBankAccounts(targetEmail, existing);
+        await UserProfileRepository.instance.saveBankAccounts(
+          targetEmail,
+          existing,
+        );
       }
       return;
     }

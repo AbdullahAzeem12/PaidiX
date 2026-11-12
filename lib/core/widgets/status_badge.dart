@@ -1,6 +1,7 @@
 /// Defines status badge in the application core utilities and reusable widgets.
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_typography.dart';
@@ -21,16 +22,13 @@ class StatusBadge extends StatelessWidget {
   final PaymentStatusType status;
   final String? customLabel;
 
-  const StatusBadge({
-    super.key,
-    required this.status,
-    this.customLabel,
-  });
+  const StatusBadge({super.key, required this.status, this.customLabel});
 
   /// Builds the widget subtree from its current properties and inherited context.
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    final isDark = colors.brightness == Brightness.dark;
 
     Color bg;
     Color fg;
@@ -39,9 +37,10 @@ class StatusBadge extends StatelessWidget {
 
     switch (status) {
       case PaymentStatusType.submitted:
-        bg = const Color(0xFF0F2D3D);
-        fg = const Color(0xFF38BDF8);
-        dot = const Color(0xFF38BDF8);
+        const submittedBlue = Color(0xFF38BDF8);
+        bg = submittedBlue.withValues(alpha: isDark ? 0.18 : 0.12);
+        fg = isDark ? const Color(0xFF7DD3FC) : const Color(0xFF0369A1);
+        dot = submittedBlue;
         label = customLabel ?? 'Submitted';
         break;
       case PaymentStatusType.underReview:
@@ -49,13 +48,14 @@ class StatusBadge extends StatelessWidget {
         bg = colors.statusPendingBg;
         fg = colors.statusPendingText;
         dot = colors.statusPendingDot;
-        label = customLabel ??
+        label =
+            customLabel ??
             (status == PaymentStatusType.pendingReview
                 ? 'Pending Review'
                 : 'Under Review');
         break;
       case PaymentStatusType.verified:
-        bg = const Color(0xFF0B3330);
+        bg = colors.aqua.withValues(alpha: isDark ? 0.2 : 0.12);
         fg = colors.aqua;
         dot = colors.aqua;
         label = customLabel ?? 'Verified';
@@ -65,7 +65,8 @@ class StatusBadge extends StatelessWidget {
         bg = colors.statusAwaitingBg;
         fg = colors.statusAwaitingText;
         dot = colors.statusAwaitingDot;
-        label = customLabel ??
+        label =
+            customLabel ??
             (status == PaymentStatusType.awaitingPkr
                 ? 'Awaiting PKR'
                 : 'PKR Sent');
@@ -77,9 +78,10 @@ class StatusBadge extends StatelessWidget {
         label = customLabel ?? 'Completed';
         break;
       case PaymentStatusType.onHold:
-        bg = const Color(0xFF3B2410);
-        fg = const Color(0xFFFB923C);
-        dot = const Color(0xFFFB923C);
+        const holdOrange = Color(0xFFFB923C);
+        bg = holdOrange.withValues(alpha: isDark ? 0.18 : 0.12);
+        fg = isDark ? const Color(0xFFFDBA74) : const Color(0xFF9A5B13);
+        dot = holdOrange;
         label = customLabel ?? 'On Hold';
         break;
       case PaymentStatusType.rejected:
@@ -103,16 +105,10 @@ class StatusBadge extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: dot,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dot, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
-          Text(
-            label,
-            style: AppTypography.badgeText.copyWith(color: fg),
-          ),
+          Text(label, style: AppTypography.badgeText.copyWith(color: fg)),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 /// Defines customer score card in the dashboard feature's presentation layer.
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -12,22 +13,42 @@ import '../../domain/dashboard_models.dart';
 class CustomerScoreCard extends StatelessWidget {
   final CustomerScore? score;
 
-  const CustomerScoreCard({
-    super.key,
-    this.score,
-  });
+  const CustomerScoreCard({super.key, this.score});
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    final scoreVal = score?.score?.toString() ?? '50';
+    final scoreVal = score?.score?.toString() ?? '—';
     final gradeVal = score?.grade ?? '—';
-    final trustVal = score?.trustLabel ?? 'NEW';
-    final completedVal = score?.completedTransactions?.toString() ?? '0';
-    final rateVal = score?.completionRate != null
-        ? '${score!.completionRate!.toStringAsFixed(0)}%'
-        : '0%';
+    final trustVal = score?.trustLabel ?? 'UPDATING';
+    final completedVal = score?.completedTransactions?.toString() ?? '—';
+    final completionRate = score?.completionRate;
+    final rateVal = completionRate == null
+        ? (score == null ? '—' : '0%')
+        : '${completionRate.toStringAsFixed(completionRate == completionRate.roundToDouble() ? 0 : 1)}%';
+    final scoreValue = score?.score;
+    final isHighRisk = scoreValue != null && scoreValue < 40;
+    final isStandard =
+        scoreValue != null && scoreValue >= 40 && scoreValue < 70;
+    final isTrusted = scoreValue != null && scoreValue >= 70;
+    final heroBackground = isHighRisk
+        ? const Color(0xFFB5163E)
+        : isStandard
+        ? const Color(0xFF286F9F)
+        : isTrusted
+        ? const Color(0xFF17494A)
+        : colors.mintHero;
+    final heroSubtle = isHighRisk
+        ? const Color(0xFFCE5572)
+        : isStandard
+        ? const Color(0xFF4E8DB6)
+        : isTrusted
+        ? const Color(0xFF3B6F70)
+        : colors.mintHeroSubtle;
+    final heroText = isHighRisk || isStandard || isTrusted
+        ? const Color(0xFFFFFFFF)
+        : colors.mintHeroText;
 
     return AnimatedBuilder(
       animation: Listenable.merge([
@@ -42,9 +63,9 @@ class CustomerScoreCard extends StatelessWidget {
         final double? totalVolume = score?.totalVolumePkr;
         final String volumeVal;
         if (score != null && totalVolume != null) {
-          volumeVal = FxDisplayPreferences.formatVolumePkr(
-            totalVolume,
-          );
+          volumeVal = FxDisplayPreferences.formatVolumePkr(totalVolume);
+        } else if (score == null || totalVolume == null) {
+          volumeVal = '—';
         } else if (isStealth && !isRevealed) {
           volumeVal = 'Rs. ••••••••••';
         } else {
@@ -59,7 +80,7 @@ class CustomerScoreCard extends StatelessWidget {
         return Container(
           width: double.infinity,
           decoration: BoxDecoration(
-            color: colors.mintHero,
+            color: heroBackground,
             borderRadius: AppSpacing.radiusXl,
             boxShadow: [
               BoxShadow(
@@ -81,14 +102,16 @@ class CustomerScoreCard extends StatelessWidget {
                   child: Container(
                     width: 140,
                     decoration: BoxDecoration(
-                      color: colors.mintHeroSubtle,
+                      color: heroSubtle,
                       shape: BoxShape.circle,
                     ),
                   ),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 22, vertical: 22),
+                    horizontal: 22,
+                    vertical: 22,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -98,17 +121,17 @@ class CustomerScoreCard extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.all(4.5),
                             decoration: BoxDecoration(
-                              color: colors.mintHeroSubtle,
+                              color: heroSubtle,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                color: colors.mintHeroText.withValues(alpha: 0.25),
+                                color: heroText.withValues(alpha: 0.25),
                                 width: 1.0,
                               ),
                             ),
                             child: Icon(
                               Icons.verified_user_outlined,
                               size: 15,
-                              color: colors.mintHeroText,
+                              color: heroText,
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -119,7 +142,7 @@ class CustomerScoreCard extends StatelessWidget {
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 1.5,
-                              color: colors.mintHeroText,
+                              color: heroText,
                             ),
                           ),
                         ],
@@ -137,7 +160,7 @@ class CustomerScoreCard extends StatelessWidget {
                               fontSize: 48,
                               fontWeight: FontWeight.w700,
                               letterSpacing: -1.2,
-                              color: colors.mintHeroText,
+                              color: heroText,
                               height: 1.0,
                             ),
                           ),
@@ -152,7 +175,7 @@ class CustomerScoreCard extends StatelessWidget {
                                   fontFamily: AppTheme.activeFontFamily,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
-                                  color: colors.mintHeroText,
+                                  color: heroText,
                                   height: 1.1,
                                 ),
                               ),
@@ -164,7 +187,7 @@ class CustomerScoreCard extends StatelessWidget {
                                   fontSize: 11,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 1.2,
-                                  color: colors.mintHeroText.withValues(alpha: 0.85),
+                                  color: heroText.withValues(alpha: 0.85),
                                   height: 1.1,
                                 ),
                               ),
@@ -177,7 +200,7 @@ class CustomerScoreCard extends StatelessWidget {
                       // Divider line on hero card
                       Container(
                         height: 1,
-                        color: colors.mintHeroText.withValues(alpha: 0.18),
+                        color: heroText.withValues(alpha: 0.25),
                       ),
                       const SizedBox(height: 16),
 
@@ -188,29 +211,28 @@ class CustomerScoreCard extends StatelessWidget {
                           _buildMetricCol(
                             label: 'COMPLETED',
                             value: completedVal,
-                            textColor: colors.mintHeroText,
+                            textColor: heroText,
                             flex: 3,
                             paddingRight: 10,
                           ),
                           _buildMetricCol(
                             label: 'RATE',
                             value: rateVal,
-                            textColor: colors.mintHeroText,
+                            textColor: heroText,
                             flex: 2,
                             paddingRight: 10,
                           ),
                           _buildMetricCol(
                             label: 'VOLUME',
                             value: volumeVal,
-                            textColor: colors.mintHeroText,
+                            textColor: heroText,
                             flex: 5,
                             isVolume: true,
                             isStealth: isStealth && !isRevealed,
                             isRevealed: isStealth && isRevealed,
                             onTap: isStealth
                                 ? () {
-                                    FxDisplayPreferences
-                                        .toggleDashboardBalanceRevealed();
+                                    FxDisplayPreferences.toggleDashboardBalanceRevealed();
                                     final nowRevealed = !isRevealed;
                                     PaidiXToast.showInfo(
                                       context,

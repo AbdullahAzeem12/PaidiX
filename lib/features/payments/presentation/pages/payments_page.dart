@@ -3,12 +3,15 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/payments_pin_lock_scope.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
 // import '../widgets/bulk_add_payments_dialog.dart';
@@ -28,15 +31,64 @@ class PaymentsPage extends StatefulWidget {
   State<PaymentsPage> createState() => _PaymentsPageState();
 }
 
-class _PaymentsPageState extends State<PaymentsPage> {
+class _PaymentsPageState extends State<PaymentsPage>
+    with WidgetsBindingObserver {
   final _searchController = TextEditingController();
   PaymentFilter _filter = const PaymentFilter();
   int _pageSize = 20;
   int _currentPage = 1;
+  VoidCallback? _releasePaymentPolling;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _startPaymentPolling();
+  }
+
+  void _startPaymentPolling() {
+    _releasePaymentPolling ??= widget.paymentsRepository.watchServerUpdates();
+  }
+
+  void _stopPaymentPolling() {
+    _releasePaymentPolling?.call();
+    _releasePaymentPolling = null;
+  }
+
+  Future<void> _refreshPayments() async {
+    try {
+      final refreshed = await widget.paymentsRepository
+          .refreshServerDataWithResult();
+      if (!refreshed && mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not refresh all payment data. Showing the latest saved data.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not refresh payments. Please try again.',
+        );
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPaymentPolling();
+    } else {
+      _stopPaymentPolling();
+    }
+  }
 
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPaymentPolling();
     _searchController.dispose();
     super.dispose();
   }
@@ -78,129 +130,163 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
         // Paginate
         final startIndex = (_currentPage - 1) * _pageSize;
-        final paginatedList =
-            filteredList.skip(startIndex).take(_pageSize).toList();
+        final paginatedList = filteredList
+            .skip(startIndex)
+            .take(_pageSize)
+            .toList();
 
         return Scaffold(
           backgroundColor: colors.background,
           body: SafeArea(
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Page Header & Actions
-                  _buildHeader(context),
-                  const SizedBox(height: 20),
+            child: RefreshIndicator(
+              color: colors.aqua,
+              backgroundColor: colors.card,
+              onRefresh: _refreshPayments,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics(),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Page Header & Actions
+                    _buildHeader(context),
+                    const SizedBox(height: 20),
 
-                  // Filters Section (Expandable Accordion)
-                  PaymentsFilterBar(
-                    filter: _filter,
-                    onFilterChanged: _onFilterChanged,
-                    onReset: _onResetFilters,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Search Bar
-                  AppTextField(
-                    label: 'SEARCH',
-                    placeholder:
-                        'Search by reference, sender, transaction ID...',
-                    controller: _searchController,
-                    onChanged: _onSearchChanged,
-                    prefix: Icon(
-                      Icons.search_rounded,
-                      color: colors.textSecondary,
-                      size: 20,
+                    // Filters Section (Expandable Accordion)
+                    PaymentsFilterBar(
+                      filter: _filter,
+                      onFilterChanged: _onFilterChanged,
+                      onReset: _onResetFilters,
                     ),
-                    suffix: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear_rounded,
-                              size: 18,
-                              color: colors.textSecondary,
-                            ),
-                            onPressed: () {
-                              _searchController.clear();
-                              _onSearchChanged('');
-                            },
-                          )
-                        : null,
-                  ),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 14),
 
-                  // Payments List or Empty State
-                  if (paginatedList.isEmpty)
-                    EmptyStateView(
-                      title: 'No payments match this filter',
-                      subtitle: 'Try clearing filters or submit a new payment.',
-                      actionText: 'New payment',
-                      onAction: () => context.go('/app/payments/new'),
-                    )
-                  else ...[
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 320),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.0, 0.03),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: KeyedSubtree(
-                        key: ValueKey(
-                          '$_currentPage-$_pageSize-${_filter.searchQuery}-${_filter.status}-${_filter.dateRange}-${_filter.isBitnexWeek}',
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth >= 768) {
-                              return PaymentsTable(items: paginatedList);
-                            }
-                            return Column(
-                              children: List.generate(
-                                paginatedList.length,
-                                (idx) => SmoothAnimatedListItem(
-                                  index: idx,
-                                  child: PaymentCard(item: paginatedList[idx]),
-                                ),
+                    // Search Bar
+                    AppTextField(
+                      label: 'SEARCH',
+                      placeholder:
+                          'Search by reference, sender, transaction ID...',
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      prefix: Icon(
+                        Icons.search_rounded,
+                        color: colors.textSecondary,
+                        size: 20,
+                      ),
+                      suffix: _searchController.text.isNotEmpty
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.clear_rounded,
+                                size: 18,
+                                color: colors.textSecondary,
                               ),
-                            );
-                          },
+                              onPressed: () {
+                                _searchController.clear();
+                                _onSearchChanged('');
+                              },
+                            )
+                          : null,
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Payments List or Empty State
+                    if (paginatedList.isEmpty &&
+                        AppConfig.hasCustomBackend &&
+                        !widget.paymentsRepository.hasLoadedFromServer)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 56),
+                        child: Center(child: CircularProgressIndicator()),
+                      )
+                    else if (paginatedList.isEmpty)
+                      EmptyStateView(
+                        title: 'No payments match this filter',
+                        subtitle:
+                            'Try clearing filters or submit a new payment.',
+                        actionText: 'New payment',
+                        onAction: () => context.go('/app/payments/new'),
+                      )
+                    else ...[
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 320),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.0, 0.03),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: KeyedSubtree(
+                          key: ValueKey(
+                            '$_currentPage-$_pageSize-${_filter.searchQuery}-${_filter.status}-${_filter.dateRange}-${_filter.isBitnexWeek}',
+                          ),
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              if (constraints.maxWidth >= 768) {
+                                return PaymentsTable(
+                                  items: paginatedList,
+                                  onItemTap: _openPayment,
+                                );
+                              }
+                              return Column(
+                                children: List.generate(
+                                  paginatedList.length,
+                                  (idx) => SmoothAnimatedListItem(
+                                    index: idx,
+                                    child: PaymentCard(
+                                      item: paginatedList[idx],
+                                      onTap: () =>
+                                          _openPayment(paginatedList[idx]),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
+                      const SizedBox(height: 18),
 
-                    // Pagination Controls (Showing, Rows, Page)
-                    PaginationControls(
-                      totalCount: totalCount,
-                      pageSize: _pageSize,
-                      currentPage: _currentPage,
-                      onPageSizeChanged: (newSize) {
-                        setState(() {
-                          _pageSize = newSize;
-                          _currentPage = 1;
-                        });
-                      },
-                      onPageChanged: (newPage) {
-                        setState(() => _currentPage = newPage);
-                      },
-                    ),
+                      // Pagination Controls (Showing, Rows, Page)
+                      PaginationControls(
+                        totalCount: totalCount,
+                        pageSize: _pageSize,
+                        currentPage: _currentPage,
+                        onPageSizeChanged: (newSize) {
+                          setState(() {
+                            _pageSize = newSize;
+                            _currentPage = 1;
+                          });
+                        },
+                        onPageChanged: (newPage) {
+                          setState(() => _currentPage = newPage);
+                        },
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+
+  void _openPayment(PaymentItem payment) {
+    context.push(
+      '/app/payments/${Uri.encodeComponent(payment.id)}',
+      extra: payment,
     );
   }
 
@@ -218,8 +304,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
           children: [
             Text(
               'PAYMENTS',
-              style: AppTypography.sectionEyebrow
-                  .copyWith(color: colors.textSecondary),
+              style: AppTypography.sectionEyebrow.copyWith(
+                color: colors.textSecondary,
+              ),
             ),
             const SizedBox(height: 4),
             Row(
@@ -228,8 +315,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
                 Expanded(
                   child: Text(
                     'My payments',
-                    style: AppTypography.pageHeading
-                        .copyWith(color: colors.textPrimary),
+                    style: AppTypography.pageHeading.copyWith(
+                      color: colors.textPrimary,
+                    ),
                   ),
                 ),
                 if (pinLockScope?.isConfigured == true)
@@ -251,8 +339,9 @@ class _PaymentsPageState extends State<PaymentsPage> {
             const SizedBox(height: 4),
             Text(
               "Every incoming payment you've submitted.",
-              style: AppTypography.pageSubtitle
-                  .copyWith(color: colors.textSecondary),
+              style: AppTypography.pageSubtitle.copyWith(
+                color: colors.textSecondary,
+              ),
             ),
           ],
         );
@@ -277,8 +366,11 @@ class _PaymentsPageState extends State<PaymentsPage> {
             */
             AppButton(
               text: 'New payment',
-              icon: Icon(Icons.add_circle_outline_rounded,
-                  size: 18, color: colors.primaryButtonText),
+              icon: Icon(
+                Icons.add_circle_outline_rounded,
+                size: 18,
+                color: colors.primaryButtonText,
+              ),
               variant: AppButtonVariant.primary,
               onPressed: () => context.go('/app/payments/new'),
             ),

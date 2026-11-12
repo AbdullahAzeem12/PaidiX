@@ -1,17 +1,21 @@
 /// Defines dashboard page in the dashboard feature's presentation layer.
 
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/payments_pin_lock_scope.dart';
 import '../../../../core/widgets/spongy_tap.dart';
-import '../../../../core/widgets/status_badge.dart';
 import '../../../payments/data/payments_repository_impl.dart';
 import '../../../payments/domain/payment_models.dart';
 import '../../../payments/presentation/widgets/payment_card.dart';
@@ -19,6 +23,7 @@ import '../../../payments/presentation/widgets/payments_table.dart';
 import '../../../payments/presentation/widgets/smooth_animated_list_item.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../../profile/domain/user_profile.dart';
+import '../../../auth/data/auth_repository.dart';
 import '../../../settings/domain/fx_display_preferences.dart';
 import '../../data/dashboard_repository_impl.dart';
 import '../../domain/dashboard_models.dart';
@@ -36,8 +41,16 @@ class DashboardPage extends StatefulWidget {
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends State<DashboardPage> {
+class _DashboardPageState extends State<DashboardPage>
+    with WidgetsBindingObserver {
   late final DashboardRepositoryImpl _dashboardRepo;
+  VoidCallback? _releasePaymentPolling;
+  final ValueNotifier<CustomerScore?> _customerScoreNotifier = ValueNotifier(
+    null,
+  );
+  Timer? _customerScoreTimer;
+  Future<bool>? _customerScoreRefresh;
+  String _scoreAccountEmail = '';
 
   // Filters section is closed by default as per requirement
   bool _isFiltersExpanded = false;
@@ -52,63 +65,165 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _dashboardRepo = DashboardRepositoryImpl(widget.paymentsRepository);
+    WidgetsBinding.instance.addObserver(this);
+    _scoreAccountEmail = _currentAccountEmail;
+    _customerScoreNotifier.addListener(_onCustomerScoreChanged);
+    if (AppConfig.hasCustomBackend) {
+      UserProfileRepository.instance.profileNotifier.addListener(
+        _onProfileChanged,
+      );
+      _startCustomerScorePolling();
+      unawaited(_refreshCustomerScore());
+    } else {
+      _customerScoreNotifier.value = _dashboardRepo.customerScoreFor(
+        UserProfileRepository.instance.profile,
+      );
+    }
+    _startPaymentPolling();
+  }
+
+  String get _currentAccountEmail =>
+      UserProfileRepository.instance.profile.email.trim().toLowerCase();
+
+  void _onCustomerScoreChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onProfileChanged() {
+    final email = _currentAccountEmail;
+    if (email == _scoreAccountEmail) return;
+    _scoreAccountEmail = email;
+    _customerScoreNotifier.value = null;
+    final inFlight = _customerScoreRefresh;
+    if (inFlight == null) {
+      unawaited(_refreshCustomerScore());
+    } else {
+      unawaited(
+        inFlight.whenComplete(() {
+          if (mounted && email == _currentAccountEmail) {
+            unawaited(_refreshCustomerScore());
+          }
+        }),
+      );
+    }
+  }
+
+  void _startCustomerScorePolling() {
+    if (!AppConfig.hasCustomBackend || _customerScoreTimer != null) return;
+    _customerScoreTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_refreshCustomerScore()),
+    );
+  }
+
+  void _stopCustomerScorePolling() {
+    _customerScoreTimer?.cancel();
+    _customerScoreTimer = null;
+  }
+
+  Future<bool> _refreshCustomerScore() {
+    final current = _customerScoreRefresh;
+    if (current != null) return current;
+
+    final requestedEmail = _currentAccountEmail;
+    final request = _dashboardRepo
+        .getCustomerScore()
+        .then((score) {
+          if (score == null || !score.isAvailable) return false;
+          if (!mounted || requestedEmail != _currentAccountEmail) return false;
+          if (score.userEmail != null && score.userEmail != requestedEmail) {
+            return false;
+          }
+          _customerScoreNotifier.value = score;
+          return true;
+        })
+        .catchError((Object _) => false);
+    _customerScoreRefresh = request;
+    return request.whenComplete(() {
+      if (identical(_customerScoreRefresh, request)) {
+        _customerScoreRefresh = null;
+      }
+    });
+  }
+
+  void _startPaymentPolling() {
+    _releasePaymentPolling ??= widget.paymentsRepository.watchServerUpdates();
+  }
+
+  void _stopPaymentPolling() {
+    _releasePaymentPolling?.call();
+    _releasePaymentPolling = null;
+  }
+
+  Future<void> _refreshDashboard() async {
+    try {
+      final tasks = <Future<bool>>[
+        widget.paymentsRepository.refreshServerDataWithResult(),
+      ];
+      if (AppConfig.hasCustomBackend) {
+        tasks.add(_refreshCustomerScore());
+        tasks.add(
+          AuthRepository.instance.refreshKycReviewStatus().then((_) => true),
+        );
+      }
+      final results = await Future.wait(tasks);
+      if (mounted && results.any((success) => !success)) {
+        PaidiXToast.showError(
+          context,
+          'Some dashboard data could not be refreshed. Showing the latest saved data.',
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        PaidiXToast.showError(
+          context,
+          'Could not refresh dashboard data. Please try again.',
+        );
+      }
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startPaymentPolling();
+      _startCustomerScorePolling();
+      if (AppConfig.hasCustomBackend) {
+        unawaited(_refreshCustomerScore());
+      }
+    } else {
+      _stopPaymentPolling();
+      _stopCustomerScorePolling();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopPaymentPolling();
+    _stopCustomerScorePolling();
+    if (AppConfig.hasCustomBackend) {
+      UserProfileRepository.instance.profileNotifier.removeListener(
+        _onProfileChanged,
+      );
+    }
+    _customerScoreNotifier
+      ..removeListener(_onCustomerScoreChanged)
+      ..dispose();
+    super.dispose();
   }
 
   PaymentFilter get _currentFilter => PaymentFilter(
-        dateRange: _selectedRange,
-        currency: _selectedCurrency,
-        status: _selectedStatus,
-        fromDate: _fromDate,
-        toDate: _toDate,
-      );
+    dateRange: _selectedRange,
+    currency: _selectedCurrency,
+    status: _selectedStatus,
+    fromDate: _fromDate,
+    toDate: _toDate,
+  );
 
   /// Aggregates the supplied payment list into dashboard counts and balances.
   FinancialSummary _computeSummary(List<PaymentItem> list) {
-    if (list.isEmpty) {
-      return FinancialSummary.empty();
-    }
-
-    int pendingReview = 0;
-    int awaitingPkr = 0;
-    int completed = 0;
-    double pkrReceived = 0.0;
-    double totalTransferred = 0.0;
-
-    for (final item in list) {
-      switch (item.status) {
-        case PaymentStatusType.completed:
-          completed++;
-          pkrReceived += item.netPkr;
-          totalTransferred += item.amount;
-          break;
-        case PaymentStatusType.underReview:
-        case PaymentStatusType.pendingReview:
-          pendingReview++;
-          break;
-        case PaymentStatusType.pkrSent:
-        case PaymentStatusType.awaitingPkr:
-          awaitingPkr++;
-          break;
-        case PaymentStatusType.submitted:
-        case PaymentStatusType.verified:
-        case PaymentStatusType.onHold:
-        case PaymentStatusType.rejected:
-          break;
-      }
-    }
-
-    return FinancialSummary(
-      pkrReceived: pkrReceived,
-      paymentsCompleted: completed,
-      totalTransferred: totalTransferred,
-      awaitingVerificationAmount:
-          null, // em dash per design specs and PROJECT_BRAIN
-      awaitingVerificationCount: pendingReview + awaitingPkr,
-      transactionsCount: list.length,
-      pendingReviewCount: pendingReview,
-      awaitingPkrCount: awaitingPkr,
-      completedCount: completed,
-    );
+    return _dashboardRepo.financialSummaryFor(list);
   }
 
   /// Builds the widget subtree from its current properties and inherited context.
@@ -120,147 +235,176 @@ class _DashboardPageState extends State<DashboardPage> {
         return ValueListenableBuilder<UserProfile>(
           valueListenable: UserProfileRepository.instance.profileNotifier,
           builder: (context, userProfile, _) {
-            return FutureBuilder<CustomerScore?>(
-              future: _dashboardRepo.getCustomerScore(),
-              builder: (context, snapshot) {
+            return ValueListenableBuilder<PaymentsServerSummary?>(
+              valueListenable:
+                  widget.paymentsRepository.serverSummaryListenable,
+              builder: (context, serverSummary, _) {
                 final colors = AppColors.of(context);
-                final score = snapshot.data;
+                final score = AppConfig.hasCustomBackend
+                    ? (_customerScoreNotifier.value?.userEmail == null ||
+                              _customerScoreNotifier.value?.userEmail ==
+                                  userProfile.email.trim().toLowerCase()
+                          ? _customerScoreNotifier.value
+                          : null)
+                    : _dashboardRepo.customerScoreFor(userProfile);
                 final isKycApproved =
                     userProfile.kycStatus == KycReviewStatus.verified;
 
                 // Unfiltered by status for category metrics cards
                 final statusUnfilteredPayments = widget.paymentsRepository
-                    .filterPayments(_currentFilter.copyWith(
-                  status: StatusFilterOption.all,
-                ));
+                    .filterPayments(
+                      _currentFilter.copyWith(status: StatusFilterOption.all),
+                    );
                 final summary = _computeSummary(statusUnfilteredPayments);
 
                 // Filtered payments taking all filters (including status) into account
-                final filteredPayments =
-                    widget.paymentsRepository.filterPayments(_currentFilter);
-                final isRepoEmpty = widget.paymentsRepository.payments.isEmpty;
+                final filteredPayments = widget.paymentsRepository
+                    .filterPayments(_currentFilter);
+                final isRepoEmpty = serverSummary?.totalCount != null
+                    ? serverSummary!.totalCount == 0
+                    : widget.paymentsRepository.payments.isEmpty;
+                final isInitialPaymentsLoad =
+                    AppConfig.hasCustomBackend &&
+                    !widget.paymentsRepository.hasLoadedFromServer &&
+                    payments.isEmpty;
 
                 return Scaffold(
                   backgroundColor: colors.background,
                   body: SafeArea(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Header (Greeting & New Payment button / Locked indicator)
-                          _buildHeader(context, userProfile, isKycApproved),
-                          const SizedBox(height: 18),
+                    child: RefreshIndicator(
+                      color: colors.aqua,
+                      backgroundColor: colors.card,
+                      onRefresh: _refreshDashboard,
+                      child: SingleChildScrollView(
+                        physics: const AlwaysScrollableScrollPhysics(
+                          parent: BouncingScrollPhysics(),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 24,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Header (Greeting & New Payment button / Locked indicator)
+                            _buildHeader(context, userProfile, isKycApproved),
+                            const SizedBox(height: 18),
 
-                          // KYC Pending Lock Warning Banner (when profile is not yet approved)
-                          if (!isKycApproved) ...[
-                            _buildKycLockBanner(context, userProfile, colors),
-                            const SizedBox(height: 22),
-                          ],
+                            // KYC Pending Lock Warning Banner (when profile is not yet approved)
+                            if (!isKycApproved) ...[
+                              _buildKycLockBanner(context, userProfile, colors),
+                              const SizedBox(height: 22),
+                            ],
 
-                          // Customer Score Card (Hero 50 — NEW for starter / dynamic for activity)
-                          CustomerScoreCard(score: score),
-                          const SizedBox(height: 24),
+                            // Customer Score Card (Hero 50 — NEW for starter / dynamic for activity)
+                            CustomerScoreCard(score: score),
+                            const SizedBox(height: 24),
 
-                          // FILTERS Bar (Closed by default, expandable with Range, From/To calendar, Status)
-                          _buildFiltersBar(colors),
-                          const SizedBox(height: 28),
+                            // FILTERS Bar (Closed by default, expandable with Range, From/To calendar, Status)
+                            _buildFiltersBar(colors),
+                            const SizedBox(height: 28),
 
-                          // Section Title: YOUR MONEY, AT A GLANCE
-                          _buildSectionHeader(
-                            title: 'YOUR MONEY, AT A GLANCE',
-                            actionText: 'View all',
-                            onAction: () => context.go('/app/payments'),
-                            colors: colors,
-                          ),
-                          const SizedBox(height: 14),
-
-                          // If payments repository is truly empty (clean onboarding state)
-                          if (isRepoEmpty) ...[
-                            // Empty Transactions Card Container
-                            _buildEmptyTransactionsCard(colors),
-                            const SizedBox(height: 20),
-
-                            // 4 Small Status Metric Cards
-                            _buildStatusSummaryGrid(context, summary),
-                            const SizedBox(height: 32),
-
-                            // RECENT ACTIVITY Section
+                            // Section Title: YOUR MONEY, AT A GLANCE
                             _buildSectionHeader(
-                              title: 'RECENT ACTIVITY',
-                              actionText: 'View all payments',
+                              title: 'YOUR MONEY, AT A GLANCE',
+                              actionText: 'View all',
                               onAction: () => context.go('/app/payments'),
                               colors: colors,
                             ),
                             const SizedBox(height: 14),
 
-                            // Empty Recent Activity Card matching Screenshot 1
-                            _buildEmptyRecentActivityCard(colors),
-                          ] else ...[
-                            // 3 Large Financial Stat Cards
-                            _buildLargeFinancialCards(context, summary),
-                            const SizedBox(height: 16),
+                            // If payments repository is truly empty (clean onboarding state)
+                            if (isInitialPaymentsLoad) ...[
+                              _buildPaymentsLoadingCard(colors),
+                            ] else if (isRepoEmpty) ...[
+                              // Empty Transactions Card Container
+                              _buildEmptyTransactionsCard(colors),
+                              const SizedBox(height: 20),
 
-                            // 4 Small Status Metric Cards
-                            _buildStatusSummaryGrid(context, summary),
-                            const SizedBox(height: 32),
+                              // 4 Small Status Metric Cards
+                              _buildStatusSummaryGrid(context, summary),
+                              const SizedBox(height: 32),
 
-                            // RECENT ACTIVITY Section
-                            _buildSectionHeader(
-                              title: 'RECENT ACTIVITY',
-                              actionText: 'View all payments',
-                              onAction: () => context.go('/app/payments'),
-                              colors: colors,
-                            ),
-                            const SizedBox(height: 14),
+                              // RECENT ACTIVITY Section
+                              _buildSectionHeader(
+                                title: 'RECENT ACTIVITY',
+                                actionText: 'View all payments',
+                                onAction: () => context.go('/app/payments'),
+                                colors: colors,
+                              ),
+                              const SizedBox(height: 14),
 
-                            // Active Filter Notification Banner
-                            if (_selectedStatus != StatusFilterOption.all)
-                              _buildActiveStatusFilterBanner(
+                              // Empty Recent Activity Card matching Screenshot 1
+                              _buildEmptyRecentActivityCard(colors),
+                            ] else ...[
+                              // 3 Large Financial Stat Cards
+                              _buildLargeFinancialCards(context, summary),
+                              const SizedBox(height: 16),
+
+                              // 4 Small Status Metric Cards
+                              _buildStatusSummaryGrid(context, summary),
+                              const SizedBox(height: 32),
+
+                              // RECENT ACTIVITY Section
+                              _buildSectionHeader(
+                                title: 'RECENT ACTIVITY',
+                                actionText: 'View all payments',
+                                onAction: () => context.go('/app/payments'),
+                                colors: colors,
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Active Filter Notification Banner
+                              if (_selectedStatus != StatusFilterOption.all)
+                                _buildActiveStatusFilterBanner(
                                   colors,
                                   Theme.of(context).brightness ==
                                       Brightness.dark,
-                                  filteredPayments.length),
+                                  filteredPayments.length,
+                                ),
 
-                            // Filtered empty state or payments list
-                            if (filteredPayments.isEmpty)
-                              _buildFilteredEmptyState(colors)
-                            else
-                              AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 280),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
-                                child: KeyedSubtree(
-                                  key: ValueKey(
-                                    'recent_${_selectedStatus.name}_${filteredPayments.length}',
-                                  ),
-                                  child: LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      if (constraints.maxWidth >= 768) {
-                                        return PaymentsTable(
-                                          items:
-                                              filteredPayments.take(5).toList(),
-                                        );
-                                      }
-                                      final recentList =
-                                          filteredPayments.take(4).toList();
-                                      return Column(
-                                        children: List.generate(
-                                          recentList.length,
-                                          (idx) => SmoothAnimatedListItem(
-                                            index: idx,
-                                            child: PaymentCard(
-                                                item: recentList[idx]),
+                              // Filtered empty state or payments list
+                              if (filteredPayments.isEmpty)
+                                _buildFilteredEmptyState(colors)
+                              else
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 280),
+                                  switchInCurve: Curves.easeOutCubic,
+                                  switchOutCurve: Curves.easeInCubic,
+                                  child: KeyedSubtree(
+                                    key: ValueKey(
+                                      'recent_${_selectedStatus.name}_${filteredPayments.length}',
+                                    ),
+                                    child: LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        if (constraints.maxWidth >= 768) {
+                                          return PaymentsTable(
+                                            items: filteredPayments
+                                                .take(5)
+                                                .toList(),
+                                          );
+                                        }
+                                        final recentList = filteredPayments
+                                            .take(4)
+                                            .toList();
+                                        return Column(
+                                          children: List.generate(
+                                            recentList.length,
+                                            (idx) => SmoothAnimatedListItem(
+                                              index: idx,
+                                              child: PaymentCard(
+                                                item: recentList[idx],
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      );
-                                    },
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
-                              ),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -270,6 +414,19 @@ class _DashboardPageState extends State<DashboardPage> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildPaymentsLoadingCard(PaidiXColorScheme colors) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 42, horizontal: 20),
+      decoration: BoxDecoration(
+        color: colors.card,
+        borderRadius: AppSpacing.radiusXl,
+        border: Border.all(color: colors.border),
+      ),
+      child: Center(child: CircularProgressIndicator(color: colors.aqua)),
     );
   }
 
@@ -366,11 +523,7 @@ class _DashboardPageState extends State<DashboardPage> {
         if (isSmall) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              titleBlock,
-              const SizedBox(height: 16),
-              actionWidget,
-            ],
+            children: [titleBlock, const SizedBox(height: 16), actionWidget],
           );
         }
 
@@ -394,14 +547,15 @@ class _DashboardPageState extends State<DashboardPage> {
     PaidiXColorScheme colors,
   ) {
     final isRejected = userProfile.kycStatus == KycReviewStatus.rejected;
-    final isResubmitted = userProfile.hasResubmittedKyc &&
+    final isResubmitted =
+        userProfile.hasResubmittedKyc &&
         userProfile.kycStatus == KycReviewStatus.pendingReview;
     const resubmittedColor = Color(0xFF3B82F6);
     final accent = isRejected
         ? colors.ruby
         : isResubmitted
-            ? resubmittedColor
-            : colors.gold;
+        ? resubmittedColor
+        : colors.gold;
     final backgroundColor = isRejected || isResubmitted
         ? accent.withValues(alpha: 0.08)
         : colors.cardDark;
@@ -411,16 +565,16 @@ class _DashboardPageState extends State<DashboardPage> {
     final statusIcon = isRejected
         ? Icons.error_outline_rounded
         : isResubmitted
-            ? Icons.sync_rounded
-            : Icons.warning_amber_rounded;
+        ? Icons.sync_rounded
+        : Icons.warning_amber_rounded;
     final statusMessage = switch (userProfile.kycStatus) {
       KycReviewStatus.rejected =>
         'You can update your information and resubmit.',
-      KycReviewStatus.pendingReview => isResubmitted
-          ? 'New payments stay locked until approval. You wll see another update here if the reviewer raises objections or approves your account.'
-          : 'Current KYC status: Pending review. You can still add or edit your bank accounts in the meantime.',
-      KycReviewStatus.inProgress =>
-        'Current KYC status: In progress. Complete your profile to unlock payments.',
+      KycReviewStatus.pendingReview =>
+        isResubmitted
+            ? 'New payments stay locked until approval. You wll see another update here if the reviewer raises objections or approves your account.'
+            : 'Current KYC status: Pending review. You can still add or edit your bank accounts in the meantime.',
+      KycReviewStatus.inProgress => 'Current KYC status: In progress. Complete your profile to unlock payments.',
       KycReviewStatus.notStarted =>
         'Complete KYC verification to unlock new payments.',
       KycReviewStatus.verified => '',
@@ -432,21 +586,14 @@ class _DashboardPageState extends State<DashboardPage> {
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: AppSpacing.radiusXl,
-        border: Border.all(
-          color: borderColor,
-          width: 1.2,
-        ),
+        border: Border.all(color: borderColor, width: 1.2),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 2),
-            child: Icon(
-              statusIcon,
-              color: accent,
-              size: 22,
-            ),
+            child: Icon(statusIcon, color: accent, size: 22),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -457,8 +604,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   isRejected
                       ? 'Your KYC submission was rejected.'
                       : isResubmitted
-                          ? 'Thanks, your updated information is awaiting review.'
-                          : 'New payments are locked until your profile is approved.',
+                      ? 'Thanks, your updated information is awaiting review.'
+                      : 'New payments are locked until your profile is approved.',
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
@@ -488,9 +635,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ],
                 const SizedBox(height: 8),
                 // "Go to Profile -->" with animated color transition & navigation
-                AnimatedProfileLink(
-                  onTap: () => context.go('/app/onboarding'),
-                ),
+                AnimatedProfileLink(onTap: () => context.go('/app/onboarding')),
               ],
             ),
           ),
@@ -554,7 +699,9 @@ class _DashboardPageState extends State<DashboardPage> {
                         const SizedBox(width: 5),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.aquaDark,
                             shape: BoxShape.circle,
@@ -572,7 +719,11 @@ class _DashboardPageState extends State<DashboardPage> {
                       const Spacer(),
                       // Prominent 'Bitnex week' button just beside toggle chevron
                       _buildHeaderResetButton(
-                          context, colors, isDark, isMobile),
+                        context,
+                        colors,
+                        isDark,
+                        isMobile,
+                      ),
                       const SizedBox(width: 6),
                       AnimatedRotation(
                         turns: _isFiltersExpanded ? 0.5 : 0.0,
@@ -598,8 +749,9 @@ class _DashboardPageState extends State<DashboardPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding:
-                                EdgeInsets.symmetric(horizontal: headerHPad),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: headerHPad,
+                            ),
                             child: Divider(
                               color: colors.divider.withValues(alpha: 0.6),
                               height: 1,
@@ -610,7 +762,11 @@ class _DashboardPageState extends State<DashboardPage> {
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
                             padding: EdgeInsets.fromLTRB(
-                                headerHPad, 0, headerHPad, 14),
+                              headerHPad,
+                              0,
+                              headerHPad,
+                              14,
+                            ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -720,7 +876,10 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the active status filter banner section of this interface.
   Widget _buildActiveStatusFilterBanner(
-      PaidiXColorScheme colors, bool isDark, int count) {
+    PaidiXColorScheme colors,
+    bool isDark,
+    int count,
+  ) {
     String statusLabel = 'Filtered';
     Color chipColor = colors.aqua;
 
@@ -868,10 +1027,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(
             'Try clearing filters or selecting another status to see your payments.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12, color: colors.textSecondary),
           ),
           const SizedBox(height: 16),
           SpongyTap(
@@ -939,8 +1095,8 @@ class _DashboardPageState extends State<DashboardPage> {
         decoration: BoxDecoration(
           color: hasActiveFilters
               ? (isDark
-                  ? colors.aquaDark.withValues(alpha: 0.35)
-                  : colors.cardHighlight)
+                    ? colors.aquaDark.withValues(alpha: 0.35)
+                    : colors.cardHighlight)
               : (isDark ? colors.cardDark : colors.cardHighlight),
           borderRadius: AppSpacing.radiusPill,
           border: Border.all(
@@ -971,8 +1127,9 @@ class _DashboardPageState extends State<DashboardPage> {
               style: TextStyle(
                 fontFamily: AppTheme.activeFontFamily,
                 fontSize: isMobile ? 10 : 11,
-                fontWeight:
-                    hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: hasActiveFilters
+                    ? FontWeight.w700
+                    : FontWeight.w500,
                 color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),
@@ -1055,10 +1212,12 @@ class _DashboardPageState extends State<DashboardPage> {
                     itemLabel(item),
                     style: TextStyle(
                       fontSize: 12.5,
-                      fontWeight:
-                          isItemActive ? FontWeight.w700 : FontWeight.w500,
-                      color:
-                          isItemActive ? colors.aquaLight : colors.textPrimary,
+                      fontWeight: isItemActive
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: isItemActive
+                          ? colors.aquaLight
+                          : colors.textPrimary,
                     ),
                   ),
                 ],
@@ -1071,13 +1230,14 @@ class _DashboardPageState extends State<DashboardPage> {
           decoration: BoxDecoration(
             color: isActive
                 ? (isDark
-                    ? colors.aquaDark.withValues(alpha: 0.3)
-                    : colors.cardHighlight)
+                      ? colors.aquaDark.withValues(alpha: 0.3)
+                      : colors.cardHighlight)
                 : colors.inputFill,
             borderRadius: AppSpacing.radiusMd,
             border: Border.all(
-              color:
-                  isActive ? colors.aqua : colors.border.withValues(alpha: 0.9),
+              color: isActive
+                  ? colors.aqua
+                  : colors.border.withValues(alpha: 0.9),
               width: 1.2,
             ),
             boxShadow: isActive
@@ -1212,7 +1372,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Calendar picker for "From" date
   Future<void> _pickFromDate(
-      BuildContext context, PaidiXColorScheme colors) async {
+    BuildContext context,
+    PaidiXColorScheme colors,
+  ) async {
     final now = DateTime.now();
     final initial = _fromDate ?? now;
     final picked = await showDatePicker(
@@ -1237,7 +1399,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Calendar picker for "To" date
   Future<void> _pickToDate(
-      BuildContext context, PaidiXColorScheme colors) async {
+    BuildContext context,
+    PaidiXColorScheme colors,
+  ) async {
     final now = DateTime.now();
     final firstDate = _fromDate ?? DateTime(2020);
     final lastDate = DateTime(2035);
@@ -1313,11 +1477,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.description_outlined,
-            size: 34,
-            color: colors.aqua,
-          ),
+          Icon(Icons.description_outlined, size: 34, color: colors.aqua),
           const SizedBox(height: 14),
           Text(
             'No transactions yet',
@@ -1331,10 +1491,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(
             'Submit your first incoming payment to start tracking your money.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
           ),
         ],
       ),
@@ -1357,11 +1514,7 @@ class _DashboardPageState extends State<DashboardPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.description_outlined,
-            size: 34,
-            color: colors.aqua,
-          ),
+          Icon(Icons.description_outlined, size: 34, color: colors.aqua),
           const SizedBox(height: 14),
           Text(
             'No payments yet',
@@ -1375,10 +1528,7 @@ class _DashboardPageState extends State<DashboardPage> {
           Text(
             'When you submit an incoming payment, it will show up here.',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 12.5,
-              color: colors.textSecondary,
-            ),
+            style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
           ),
         ],
       ),
@@ -1422,11 +1572,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(
-                Icons.arrow_outward_rounded,
-                size: 13,
-                color: colors.aqua,
-              ),
+              Icon(Icons.arrow_outward_rounded, size: 13, color: colors.aqua),
             ],
           ),
         ),
@@ -1436,7 +1582,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the large financial cards section of this interface.
   Widget _buildLargeFinancialCards(
-      BuildContext context, FinancialSummary summary) {
+    BuildContext context,
+    FinancialSummary summary,
+  ) {
     final colors = AppColors.of(context);
 
     return AnimatedBuilder(
@@ -1454,11 +1602,13 @@ class _DashboardPageState extends State<DashboardPage> {
               title: 'PKR RECEIVED',
               value: FxDisplayPreferences.formatVolumePkr(summary.pkrReceived),
               subtext: '${summary.paymentsCompleted} payments completed',
-              description:
-                  'Net PKR deposited to your bank account from completed transactions.',
+              description: 'Net PKR deposited to your bank account from completed transactions.',
               iconBg: colors.aquaLight,
-              icon: Icon(Icons.account_balance_wallet_outlined,
-                  color: colors.mintHeroText, size: 18),
+              icon: Icon(
+                Icons.account_balance_wallet_outlined,
+                color: colors.mintHeroText,
+                size: 18,
+              ),
               onTap: FxDisplayPreferences.isStealthMode
                   ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
                   : null,
@@ -1467,10 +1617,10 @@ class _DashboardPageState extends State<DashboardPage> {
             final card2 = FinancialStatCard(
               title: 'TOTAL TRANSFERRED TO YOU',
               value: FxDisplayPreferences.formatVolumePkr(
-                  summary.totalTransferred),
+                summary.totalTransferred,
+              ),
               subtext: 'Lifetime PKR',
-              description:
-                  "Everything we've sent to your bank account since joining PaidiX.",
+              description: "Everything we've sent to your bank account since joining PaidiX.",
               iconBg: colors.cardDark,
               icon: Icon(Icons.send_rounded, color: colors.aquaLight, size: 18),
               onTap: FxDisplayPreferences.isStealthMode
@@ -1482,15 +1632,18 @@ class _DashboardPageState extends State<DashboardPage> {
               title: 'AWAITING VERIFICATION',
               value: summary.awaitingVerificationAmount != null
                   ? FxDisplayPreferences.formatVolumePkr(
-                      summary.awaitingVerificationAmount)
-                  : '—',
+                      summary.awaitingVerificationAmount,
+                    )
+                  : '${summary.awaitingVerificationCount}',
               subtext:
                   '${summary.awaitingVerificationCount} payments in progress',
-              description:
-                  'Payments still being processed. Foreign-currency amounts are shown below.',
+              description: 'Payments still being processed. Foreign-currency amounts are shown below.',
               iconBg: colors.gold,
-              icon: Icon(Icons.access_time_rounded,
-                  color: colors.mintHeroText, size: 18),
+              icon: Icon(
+                Icons.access_time_rounded,
+                color: colors.mintHeroText,
+                size: 18,
+              ),
               onTap: FxDisplayPreferences.isStealthMode
                   ? () => FxDisplayPreferences.toggleDashboardBalanceRevealed()
                   : () {
@@ -1536,15 +1689,18 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /// Builds the status summary grid section of this interface.
   Widget _buildStatusSummaryGrid(
-      BuildContext context, FinancialSummary summary) {
+    BuildContext context,
+    FinancialSummary summary,
+  ) {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final isAllSelected = _selectedStatus == StatusFilterOption.all;
     final isPendingSelected =
         _selectedStatus == StatusFilterOption.underReview ||
-            _selectedStatus == StatusFilterOption.pendingReview;
-    final isAwaitingSelected = _selectedStatus == StatusFilterOption.pkrSent ||
+        _selectedStatus == StatusFilterOption.pendingReview;
+    final isAwaitingSelected =
+        _selectedStatus == StatusFilterOption.pkrSent ||
         _selectedStatus == StatusFilterOption.awaitingPkr;
     final isCompletedSelected = _selectedStatus == StatusFilterOption.completed;
 
@@ -1556,8 +1712,11 @@ class _DashboardPageState extends State<DashboardPage> {
           title: 'TRANSACTIONS',
           count: '${summary.transactionsCount}',
           iconBgColor: colors.aquaLight,
-          icon: Icon(Icons.description_outlined,
-              color: colors.mintHeroText, size: 16),
+          icon: Icon(
+            Icons.description_outlined,
+            color: colors.mintHeroText,
+            size: 16,
+          ),
           isSelected: isAllSelected,
           activeColor: colors.aqua,
           onTap: () {
@@ -1572,11 +1731,15 @@ class _DashboardPageState extends State<DashboardPage> {
           title: 'PENDING REVIEW',
           count: '${summary.pendingReviewCount}',
           iconBgColor: colors.aquaLight,
-          icon: Icon(Icons.access_time_rounded,
-              color: colors.mintHeroText, size: 16),
+          icon: Icon(
+            Icons.access_time_rounded,
+            color: colors.mintHeroText,
+            size: 16,
+          ),
           isSelected: isPendingSelected,
-          activeColor:
-              isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
+          activeColor: isDark
+              ? const Color(0xFFFBBF24)
+              : const Color(0xFFD97706),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
@@ -1593,11 +1756,15 @@ class _DashboardPageState extends State<DashboardPage> {
           title: 'AWAITING PKR',
           count: '${summary.awaitingPkrCount}',
           iconBgColor: colors.aquaLight,
-          icon: Icon(Icons.arrow_outward_rounded,
-              color: colors.mintHeroText, size: 16),
+          icon: Icon(
+            Icons.arrow_outward_rounded,
+            color: colors.mintHeroText,
+            size: 16,
+          ),
           isSelected: isAwaitingSelected,
-          activeColor:
-              isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+          activeColor: isDark
+              ? const Color(0xFF38BDF8)
+              : const Color(0xFF0284C7),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
@@ -1614,11 +1781,15 @@ class _DashboardPageState extends State<DashboardPage> {
           title: 'COMPLETED',
           count: '${summary.completedCount}',
           iconBgColor: colors.statusCompletedDot,
-          icon: Icon(Icons.check_circle_outline,
-              color: colors.mintHeroText, size: 16),
+          icon: Icon(
+            Icons.check_circle_outline,
+            color: colors.mintHeroText,
+            size: 16,
+          ),
           isSelected: isCompletedSelected,
-          activeColor:
-              isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+          activeColor: isDark
+              ? const Color(0xFF34D399)
+              : const Color(0xFF059669),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
@@ -1705,12 +1876,10 @@ class _AnimatedProfileLinkState extends State<AnimatedProfileLink>
         reverseCurve: Curves.easeOutBack,
       ),
     );
-    _slideAnimation = Tween<double>(begin: 0.0, end: 5.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    _slideAnimation = Tween<double>(
+      begin: 0.0,
+      end: 5.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
   }
 
   /// Releases resources owned by this object before it is removed.
@@ -1748,8 +1917,9 @@ class _AnimatedProfileLinkState extends State<AnimatedProfileLink>
     final normalColor = colors.aqua;
     final activeColor = Colors.white;
 
-    final targetColor =
-        _isTapped ? activeColor : (_isHovered ? colors.aquaLight : normalColor);
+    final targetColor = _isTapped
+        ? activeColor
+        : (_isHovered ? colors.aquaLight : normalColor);
 
     return MouseRegion(
       cursor: SystemMouseCursors.click,
