@@ -137,7 +137,7 @@ also declares `INTERNET`, which is required by release APKs for HTTPS API access
 
 **Splash & Brand Colors:** light `#EFF3F0`, night `#031415`, icon background `#022F32` (`values/colors.xml`, `values-night/colors.xml`). Launch drawables exist for both.
 
-**Android Release APK:** `release/PaidiX.apk` is the tracked universal release artifact (version `1.0.1+2`; latest build approximately 56.5 MB). `.github/workflows/build_android.yml` builds it on pushes to `main`, uploads it as a workflow artifact, and publishes it as a GitHub Release asset. Release builds currently use the debug signing key and are not production-signing-ready. The iOS project source remains in `ios/`; automated iOS IPA publishing is disabled.
+**Android Release APK:** `release/PaidiX.apk` is the tracked universal release artifact (version `1.0.1+2`; latest build approximately 56.5 MB). `.github/workflows/build_android.yml` pins Flutter 3.47.8, builds the APK on pushes to `main`, uploads it as a workflow artifact, and publishes it as a GitHub Release asset. Release builds currently use the debug signing key and are not production-signing-ready. The iOS project source remains in `ios/`; automated iOS IPA publishing is disabled.
 
 **TODOs still in Gradle:** unique applicationId comment (ID is already `com.paidix.paidix`); release signing config.
 
