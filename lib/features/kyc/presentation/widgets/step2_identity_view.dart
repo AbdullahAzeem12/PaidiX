@@ -14,6 +14,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
+import '../../data/kyc_image_validation.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
 import 'kyc_media_access.dart';
@@ -172,7 +173,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
   Future<void> _applyPickedImage(XFile xFile, bool isFront) async {
     try {
       final sourceBytes = await xFile.readAsBytes();
-      final bytes = await KycMediaAccess.validateImage(sourceBytes);
+      final bytes = await KycMediaAccess.validateImage(
+        sourceBytes,
+        documentLabel: isFront ? 'CNIC Front' : 'CNIC Back',
+      );
       // The view can be disposed while the gallery / file read was in flight
       // (Android recreating the activity). Don't push state into a dead tree.
       if (!mounted) return;
@@ -205,7 +209,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
     } catch (e) {
       debugPrint('Error applying picked image bytes: $e');
       if (mounted) {
-        PaidiXToast.showError(context, 'Error processing image: $e');
+        final message = e is FormatException
+            ? KycImageValidation.errorMessage(e)
+            : 'Error processing image: $e';
+        PaidiXToast.showError(context, message);
       }
     }
   }

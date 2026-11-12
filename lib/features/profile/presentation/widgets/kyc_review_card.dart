@@ -94,6 +94,20 @@ class KycReviewCard extends StatelessWidget {
                   ),
                 ),
               ],
+              if (profile.hasResubmittedKyc &&
+                  profile.formattedKycResubmittedAt != null) ...[
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(left: 26),
+                  child: Text(
+                    'Submitted for review ${profile.formattedKycResubmittedAt}',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 11.5,
+                    ),
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 20),
 
@@ -178,22 +192,31 @@ class KycReviewCard extends StatelessWidget {
   Widget _buildStatusPill(PaidiXColorScheme colors) {
     final isVerified = profile.kycStatus.isVerified;
     final isRejected = profile.kycStatus.isRejected;
+    final isResubmitted = profile.hasResubmittedKyc &&
+        profile.kycStatus == KycReviewStatus.pendingReview;
     const rejectedColor = Color(0xFFBE123C);
+    const resubmittedColor = Color(0xFF8064D9);
     final pillBg = isVerified
         ? colors.emerald.withValues(alpha: 0.12)
         : isRejected
             ? rejectedColor.withValues(alpha: 0.08)
-            : colors.gold.withValues(alpha: 0.12);
+            : isResubmitted
+                ? resubmittedColor.withValues(alpha: 0.08)
+                : colors.gold.withValues(alpha: 0.12);
     final pillBorder = isVerified
         ? colors.emerald.withValues(alpha: 0.40)
         : isRejected
             ? rejectedColor.withValues(alpha: 0.30)
-            : colors.gold.withValues(alpha: 0.40);
+            : isResubmitted
+                ? resubmittedColor.withValues(alpha: 0.30)
+                : colors.gold.withValues(alpha: 0.40);
     final dotColor = isVerified
         ? colors.emerald
         : isRejected
             ? rejectedColor
-            : colors.gold;
+            : isResubmitted
+                ? resubmittedColor
+                : colors.gold;
     final textColor = dotColor;
 
     return Container(
@@ -216,7 +239,11 @@ class KycReviewCard extends StatelessWidget {
           ),
           const SizedBox(width: 6),
           Text(
-            isRejected ? 'Rejected' : profile.kycStatus.label,
+            isRejected
+                ? 'Rejected'
+                : isResubmitted
+                    ? 'Resubmitted'
+                    : profile.kycStatus.label,
             style: TextStyle(
               color: textColor,
               fontSize: 11,

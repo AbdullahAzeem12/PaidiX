@@ -60,6 +60,9 @@ class KycMediaAccess {
 
   /// Validates selected image bytes before they enter KYC state. The native
   /// picker applies the requested dimensions and quality where supported.
-  static Future<Uint8List> validateImage(Uint8List bytes) =>
-      KycImageValidation.validate(bytes);
+  static Future<Uint8List> validateImage(
+    Uint8List bytes, {
+    String? documentLabel,
+  }) =>
+      KycImageValidation.validate(bytes, documentLabel: documentLabel);
 }

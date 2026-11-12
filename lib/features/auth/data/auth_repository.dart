@@ -1,10 +1,14 @@
 /// Authentication repository connecting PaidiX to the backend auth services.
 
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/config/app_config.dart';
 import '../../../core/network/api_client.dart';
+import '../../kyc/data/kyc_image_validation.dart';
+import '../../kyc/data/kyc_repository.dart';
 import '../../profile/data/user_profile_repository.dart';
+import '../../profile/domain/bank_account_item.dart';
 import '../../profile/domain/user_profile.dart';
 import '../domain/auth_models.dart';
 
@@ -58,10 +62,60 @@ class MobileAdminAccessException extends ApiException {
 }
 
 class AuthRepository {
-  AuthRepository._();
+  AuthRepository._() {
+    UserProfileRepository.instance.profileNotifier
+        .addListener(_syncWithProfileReset);
+  }
+
   static final AuthRepository instance = AuthRepository._();
 
   final ApiClient _client = ApiClient.instance;
+
+  String? _serverConfirmedKycEmail;
+  KycReviewStatus? _serverConfirmedKycStatus;
+
+  /// Broadcasts live server-confirmed KYC review status transitions in the active session.
+  final ValueNotifier<KycReviewStatus?> serverKycStatusNotifier =
+      ValueNotifier<KycReviewStatus?>(null);
+
+  void _syncWithProfileReset() {
+    final current = UserProfileRepository.instance.profile;
+    if (current.email.isEmpty &&
+        current.kycStatus == KycReviewStatus.notStarted) {
+      clearServerKycStatus();
+    }
+  }
+
+  void _recordServerKycStatus(String email, KycReviewStatus? status) {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty || status == null) return;
+    _serverConfirmedKycEmail = normalized;
+    _serverConfirmedKycStatus = status;
+    if (serverKycStatusNotifier.value != status) {
+      serverKycStatusNotifier.value = status;
+    }
+  }
+
+  /// Clears cached session-level server KYC confirmation on logout or account switch.
+  void clearServerKycStatus() {
+    _serverConfirmedKycEmail = null;
+    _serverConfirmedKycStatus = null;
+    serverKycStatusNotifier.value = null;
+  }
+
+  /// Returns the last server-confirmed KYC status for [email] in the current runtime session.
+  KycReviewStatus? serverConfirmedKycStatusFor(String email) {
+    final normalized = email.trim().toLowerCase();
+    if (normalized.isEmpty || _serverConfirmedKycEmail != normalized) {
+      return null;
+    }
+    return _serverConfirmedKycStatus;
+  }
+
+  /// Returns true when [email] has already been confirmed KYC-verified by the backend in this session.
+  bool isServerKycVerifiedFor(String email) {
+    return serverConfirmedKycStatusFor(email) == KycReviewStatus.verified;
+  }
 
   /// Returns true when a backend error message indicates the email is already verified.
   static bool isAlreadyVerifiedMessage(String message) {
@@ -265,24 +319,42 @@ class AuthRepository {
   static List<Map<String, dynamic>> _responseMaps(
     Map<String, dynamic> response,
   ) {
-    final maps = <Map<String, dynamic>>[response];
-    for (final key in const [
+    final maps = <Map<String, dynamic>>[];
+    const envelopeKeys = {
       'data',
-      'user',
+      'results',
+      'result',
+      'records',
+      'items',
+      'submissions',
+      'profiles',
       'profile',
+      'user',
+      'account',
+      'customer',
       'kyc',
+      'kyc_profile',
+      'kycProfile',
+      'review',
       'verification',
-    ]) {
-      final nested = _asStringMap(response[key]);
-      if (nested != null) maps.add(nested);
-    }
-    final data = _asStringMap(response['data']);
-    if (data != null) {
-      for (final key in const ['user', 'profile', 'kyc', 'verification']) {
-        final nested = _asStringMap(data[key]);
-        if (nested != null) maps.add(nested);
+    };
+
+    void collect(dynamic value) {
+      if (value is List) {
+        for (final item in value) {
+          collect(item);
+        }
+        return;
+      }
+      final source = _asStringMap(value);
+      if (source == null) return;
+      maps.add(source);
+      for (final key in envelopeKeys) {
+        if (source.containsKey(key)) collect(source[key]);
       }
     }
+
+    collect(response);
     return maps;
   }
 
@@ -309,14 +381,16 @@ class AuthRepository {
       for (final key in statusKeys) {
         final value = source[key];
         if (value is! String || value.trim().isEmpty) continue;
-        final status = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        final status = _normalizeKycStatus(value);
         switch (status) {
           case 'approved':
           case 'verified':
           case 'accepted':
             return KycReviewStatus.verified;
           case 'pending':
+          case 'review':
           case 'pendingreview':
+          case 'awaitingreview':
           case 'underreview':
           case 'inreview':
           case 'submitted':
@@ -366,6 +440,104 @@ class AuthRepository {
       }
     }
 
+    return null;
+  }
+
+  static String _normalizeKycStatus(String value) {
+    var normalized = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    // The API contract uses enum values such as KYC_PENDING and
+    // KYC_RESUBMITTED. Treat these as their corresponding review states.
+    if (normalized.startsWith('kyc')) {
+      normalized = normalized.substring(3);
+    }
+    return normalized;
+  }
+
+  /// Keeps the server's distinct resubmission state for the profile UI while
+  /// treating it as pending for access control.
+  static bool _hasServerResubmittedKyc(Map<String, dynamic> response) {
+    const statusKeys = [
+      'kyc_status',
+      'kycStatus',
+      'verification_status',
+      'verificationStatus',
+      'identity_status',
+      'identityStatus',
+      'review_status',
+      'reviewStatus',
+      'kyc_review_status',
+      'kycReviewStatus',
+      'status',
+    ];
+    const resubmissionFlags = [
+      'has_resubmitted_kyc',
+      'hasResubmittedKyc',
+      'kyc_resubmitted',
+      'kycResubmitted',
+      'is_kyc_resubmitted',
+      'isKycResubmitted',
+      'resubmission_pending',
+      'resubmissionPending',
+    ];
+
+    for (final source in _responseMaps(response)) {
+      for (final key in statusKeys) {
+        final value = source[key];
+        if (value is String && _normalizeKycStatus(value) == 'resubmitted') {
+          return true;
+        }
+      }
+      for (final key in resubmissionFlags) {
+        final value = source[key];
+        if (value == true ||
+            (value is String && value.toLowerCase() == 'true')) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  static const List<String> _avatarUrlKeys = [
+    'profile_picture_url',
+    'profilePictureUrl',
+    'profile_picture',
+    'profilePicture',
+    'avatar_url',
+    'avatarUrl',
+    'avatar',
+    'photo_url',
+    'photoUrl',
+  ];
+
+  /// Extracts a normalized profile-picture URL from an auth/profile payload.
+  String? extractAvatarUrl(Map<String, dynamic> response) =>
+      _firstServerImageUrl(_responseMaps(response), _avatarUrlKeys);
+
+  String? _firstServerImageUrl(
+    List<Map<String, dynamic>> sources,
+    List<String> keys,
+  ) {
+    for (final source in sources) {
+      for (final key in keys) {
+        final raw = source[key];
+        final value = raw is String
+            ? raw.trim()
+            : raw is Map
+                ? _firstNonEmptyString([
+                    raw.map((k, v) => MapEntry('$k', v)),
+                  ], const [
+                    'url',
+                    'uri',
+                    'path',
+                    'file'
+                  ])
+                : null;
+        if (value != null && value.isNotEmpty) {
+          return _client.resolveMediaUrl(value);
+        }
+      }
+    }
     return null;
   }
 
@@ -637,6 +809,7 @@ class AuthRepository {
     if (access.isNotEmpty) {
       await _client.setAuthTokens(access: access, refresh: refresh);
     }
+    clearServerKycStatus();
 
     final userData = _asStringMap(data['user']) ?? {};
     final userRepository = UserProfileRepository.instance;
@@ -732,64 +905,66 @@ class AuthRepository {
     final serverCity = _firstNonEmptyString(remoteSources, const ['city']);
     final serverAddress =
         _firstNonEmptyString(remoteSources, const ['address']);
-    String? serverImageUrl(List<String> keys) {
-      for (final source in remoteSources) {
-        for (final key in keys) {
-          final raw = source[key];
-          final value = raw is String
-              ? raw.trim()
-              : raw is Map
-                  ? _firstNonEmptyString([
-                      raw.map((key, value) => MapEntry('$key', value)),
-                    ], const [
-                      'url',
-                      'uri',
-                      'path',
-                      'file'
-                    ])
-                  : null;
-          if (value != null && value.isNotEmpty) {
-            return _client.resolveMediaUrl(value);
-          }
-        }
-      }
-      return null;
-    }
-
-    final selfieUrl = serverImageUrl(const [
+    final selfieUrl = _firstServerImageUrl(remoteSources, const [
       'selfie_url',
       'selfieUrl',
       'selfie_image',
       'selfie_image_url',
       'selfie',
     ]);
-    final cnicFrontUrl = serverImageUrl(const [
+    final cnicFrontUrl = _firstServerImageUrl(remoteSources, const [
       'cnic_front_url',
       'cnicFrontUrl',
       'cnic_front_image',
       'cnic_front_image_url',
       'cnic_front',
     ]);
-    final cnicBackUrl = serverImageUrl(const [
+    final cnicBackUrl = _firstServerImageUrl(remoteSources, const [
       'cnic_back_url',
       'cnicBackUrl',
       'cnic_back_image',
       'cnic_back_image_url',
       'cnic_back',
     ]);
-    final rejectionReason = _firstNonEmptyString(
-          remoteSources,
-          const [
-            'kyc_rejection_reason',
-            'rejection_reason',
-            'rejectionReason',
-            'objection_reason',
-            'review_notes',
-            'rejection_notes',
-            'admin_comment',
-          ],
-        ) ??
-        savedProfile?.kycRejectionReason;
+    final serverAvatarUrl = _firstServerImageUrl(remoteSources, _avatarUrlKeys);
+    final remoteAvatarChanged = serverAvatarUrl != null &&
+        savedProfile?.avatarUrl != null &&
+        serverAvatarUrl != savedProfile!.avatarUrl;
+    final hasResubmittedKyc = kycStatus == KycReviewStatus.pendingReview &&
+        (_hasServerResubmittedKyc(kycProfileData) ||
+            _hasServerResubmittedKyc(currentUserData) ||
+            _hasServerResubmittedKyc(data));
+    final resubmittedAtValue = _firstNonEmptyString(remoteSources, const [
+      'kyc_last_resubmit_at',
+      'kycLastResubmitAt',
+      'kyc_resubmitted_at',
+      'resubmitted_at',
+      'kyc_submitted_at',
+      'submitted_at',
+    ]);
+    final kycResubmittedAt = !hasResubmittedKyc
+        ? null
+        : (resubmittedAtValue == null
+                ? null
+                : DateTime.tryParse(resubmittedAtValue)) ??
+            savedProfile?.kycResubmittedAt;
+    final rejectionReason = kycStatus == KycReviewStatus.rejected
+        ? (_firstNonEmptyString(
+              remoteSources,
+              const [
+                'kyc_rejection_reason',
+                'rejection_reason',
+                'rejectionReason',
+                'objection_reason',
+                'kyc_notes',
+                'kycNotes',
+                'review_notes',
+                'rejection_notes',
+                'admin_comment',
+              ],
+            ) ??
+            savedProfile?.kycRejectionReason)
+        : null;
     List? rawObjections;
     for (final source in remoteSources) {
       final value = source['kyc_objections'] ?? source['objections'];
@@ -798,9 +973,11 @@ class AuthRepository {
         break;
       }
     }
-    final kycObjections = rawObjections == null
-        ? savedProfile?.kycObjections ?? const <String>[]
-        : rawObjections.map((value) => '$value').toList();
+    final kycObjections = kycStatus == KycReviewStatus.rejected
+        ? (rawObjections == null
+            ? savedProfile?.kycObjections ?? const <String>[]
+            : rawObjections.map((value) => '$value').toList())
+        : const <String>[];
     final reviewedAtValue = _firstNonEmptyString(remoteSources, const [
       'kyc_reviewed_at',
       'reviewed_at',
@@ -834,6 +1011,8 @@ class AuthRepository {
       updatedAt: now,
       hasCompletedKyc: hasCompletedKyc,
       kycStatus: kycStatus,
+      hasResubmittedKyc: hasResubmittedKyc,
+      kycResubmittedAt: kycResubmittedAt,
       smsConsent: savedProfile?.smsConsent ?? true,
       selfieBytes: savedProfile?.selfieBytes,
       selfieFilePath: savedProfile?.selfieFilePath,
@@ -844,8 +1023,9 @@ class AuthRepository {
       cnicBackBytes: savedProfile?.cnicBackBytes,
       cnicBackFilePath: savedProfile?.cnicBackFilePath,
       cnicBackUrl: cnicBackUrl ?? savedProfile?.cnicBackUrl,
-      avatarBytes: savedProfile?.avatarBytes,
-      avatarFilePath: savedProfile?.avatarFilePath,
+      avatarBytes: remoteAvatarChanged ? null : savedProfile?.avatarBytes,
+      avatarFilePath: remoteAvatarChanged ? null : savedProfile?.avatarFilePath,
+      avatarUrl: serverAvatarUrl ?? savedProfile?.avatarUrl,
       bankName: savedProfile?.bankName,
       bankAccountNumber: savedProfile?.bankAccountNumber,
       bankIban: savedProfile?.bankIban,
@@ -856,6 +1036,14 @@ class AuthRepository {
     );
 
     userRepository.setActiveUser(profile);
+    if (serverKycStatus != null) {
+      _recordServerKycStatus(serverEmail, serverKycStatus);
+    }
+    unawaited(
+      KycRepository.instance
+          .fetchBankAccounts(email: serverEmail)
+          .catchError((_) => <BankAccountItem>[]),
+    );
     return AuthResult(profile: profile, token: access);
   }
 
@@ -926,6 +1114,16 @@ class AuthRepository {
   Future<Map<String, dynamic>> fetchCurrentUserProfile() async {
     if (AppConfig.hasCustomBackend) {
       final data = await _client.get('/auth/me/');
+      final current = UserProfileRepository.instance.profile;
+      if (current.email.isNotEmpty) {
+        final serverAvatarUrl = extractAvatarUrl(data);
+        if (serverAvatarUrl != null && serverAvatarUrl != current.avatarUrl) {
+          UserProfileRepository.instance.updateProfile(
+            avatarUrl: serverAvatarUrl,
+            clearAvatarBytes: current.avatarUrl != null,
+          );
+        }
+      }
       return data;
     }
     return {};
@@ -936,17 +1134,30 @@ class AuthRepository {
   Future<KycReviewStatus?> refreshKycReviewStatus() async {
     if (!AppConfig.hasCustomBackend) return null;
 
+    final requestStartedAt = DateTime.now();
     final response = await _client.get('/accounts/profile/');
     final status = _parseKycStatus(response, allowGenericStatus: true);
     if (status == null) return null;
 
+    final profileRepository = UserProfileRepository.instance;
     final sources = _responseMaps(response);
-    final current = UserProfileRepository.instance.profile;
+    final current = profileRepository.profile;
+    // A poll that began before the multipart upload completed can return an
+    // older rejection after the local profile has already moved to review.
+    // Ignore that one in-flight snapshot; the next poll fetches a fresh state.
+    final submissionCompletedDuringPoll = current.hasResubmittedKyc &&
+        current.kycResubmittedAt != null &&
+        current.kycResubmittedAt!.isAfter(requestStartedAt);
+    if (submissionCompletedDuringPoll) return current.kycStatus;
+
+    final serverReportsResubmission = _hasServerResubmittedKyc(response);
     final reason = _firstNonEmptyString(sources, const [
       'kyc_rejection_reason',
       'rejection_reason',
       'rejectionReason',
       'objection_reason',
+      'kyc_notes',
+      'kycNotes',
       'review_notes',
       'rejection_notes',
       'admin_comment',
@@ -973,25 +1184,92 @@ class AuthRepository {
       'rejection_date',
       'reviewed_on',
     ]);
+    final serverReviewedAt =
+        reviewedAtValue == null ? null : DateTime.tryParse(reviewedAtValue);
+    final latestResubmissionAt = current.kycResubmittedAt;
+    if (status == KycReviewStatus.rejected &&
+        current.hasResubmittedKyc &&
+        latestResubmissionAt != null &&
+        serverReviewedAt != null &&
+        !serverReviewedAt.isAfter(latestResubmissionAt)) {
+      // The review timestamp belongs to the rejection that was already fixed.
+      // Keep the accepted resubmission visible until a newer server review
+      // arrives.
+      return current.kycStatus;
+    }
     final reviewedAt = reviewedAtValue == null
         ? current.kycReviewedAt
-        : DateTime.tryParse(reviewedAtValue) ?? current.kycReviewedAt;
+        : serverReviewedAt ?? current.kycReviewedAt;
     final nextReason = status == KycReviewStatus.rejected
         ? reason ?? current.kycRejectionReason
         : null;
     final nextObjections = status == KycReviewStatus.rejected
         ? objections ?? current.kycObjections
         : const <String>[];
+    final hasResubmittedKyc = status == KycReviewStatus.pendingReview &&
+        (serverReportsResubmission || current.hasResubmittedKyc);
+    final resubmittedAtValue = _firstNonEmptyString(sources, const [
+      'kyc_last_resubmit_at',
+      'kycLastResubmitAt',
+      'kyc_resubmitted_at',
+      'resubmitted_at',
+      'kyc_submitted_at',
+      'submitted_at',
+    ]);
+    final kycResubmittedAt = !hasResubmittedKyc
+        ? null
+        : (resubmittedAtValue == null
+                ? null
+                : DateTime.tryParse(resubmittedAtValue)) ??
+            current.kycResubmittedAt ??
+            DateTime.now();
+    final selfieUrl = _firstServerImageUrl(sources, const [
+      'selfie_url',
+      'selfieUrl',
+      'selfie_image',
+      'selfie_image_url',
+      'selfie',
+    ]);
+    final cnicFrontUrl = _firstServerImageUrl(sources, const [
+      'cnic_front_url',
+      'cnicFrontUrl',
+      'cnic_front_image',
+      'cnic_front_image_url',
+      'cnic_front',
+    ]);
+    final cnicBackUrl = _firstServerImageUrl(sources, const [
+      'cnic_back_url',
+      'cnicBackUrl',
+      'cnic_back_image',
+      'cnic_back_image_url',
+      'cnic_back',
+    ]);
+
+    final effectiveEmail = current.email.isNotEmpty
+        ? current.email
+        : (_firstNonEmptyString(sources, const ['user_email', 'email']) ?? '');
+    _recordServerKycStatus(effectiveEmail, status);
 
     final changed = status != current.kycStatus ||
+        hasResubmittedKyc != current.hasResubmittedKyc ||
+        kycResubmittedAt != current.kycResubmittedAt ||
         nextReason != current.kycRejectionReason ||
         !_sameStrings(nextObjections, current.kycObjections) ||
-        reviewedAt != current.kycReviewedAt;
+        reviewedAt != current.kycReviewedAt ||
+        (selfieUrl != null && selfieUrl != current.selfieUrl) ||
+        (cnicFrontUrl != null && cnicFrontUrl != current.cnicFrontUrl) ||
+        (cnicBackUrl != null && cnicBackUrl != current.cnicBackUrl);
     if (!changed) return status;
 
     final updated = current.copyWith(
       kycStatus: status,
       hasCompletedKyc: status != KycReviewStatus.notStarted,
+      hasResubmittedKyc: hasResubmittedKyc,
+      kycResubmittedAt: kycResubmittedAt,
+      clearKycResubmittedAt: !hasResubmittedKyc,
+      selfieUrl: selfieUrl ?? current.selfieUrl,
+      cnicFrontUrl: cnicFrontUrl ?? current.cnicFrontUrl,
+      cnicBackUrl: cnicBackUrl ?? current.cnicBackUrl,
       updatedAt: DateTime.now(),
       kycRejectionReason: nextReason,
       kycObjections: nextObjections,
@@ -1010,37 +1288,89 @@ class AuthRepository {
     return true;
   }
 
-  /// Updates personal profile details or avatar (PATCH /auth/me/)
+  /// Updates personal profile details or avatar (PATCH /auth/me/).
   Future<Map<String, dynamic>> updateCurrentUserProfile({
     String? fullName,
     String? phone,
     List<int>? profilePictureBytes,
     String? fileName,
+    bool clearProfilePicture = false,
   }) async {
-    if (AppConfig.hasCustomBackend) {
-      if (profilePictureBytes != null) {
-        final fields = <String, String>{
-          if (fullName != null) 'full_name': fullName,
-          if (phone != null) 'phone': phone,
-        };
-        final files = [
-          http.MultipartFile.fromBytes(
-            'profile_picture',
-            profilePictureBytes,
-            filename: fileName ?? 'avatar.jpg',
-          ),
-        ];
-        return await _client.postMultipart('/auth/me/',
-            fields: fields, files: files);
-      } else {
-        final body = <String, dynamic>{
-          if (fullName != null) 'full_name': fullName,
-          if (phone != null) 'phone': phone,
-        };
-        return await _client.patch('/auth/me/', body: body);
-      }
+    if (!AppConfig.hasCustomBackend) {
+      return {};
     }
-    return {};
+
+    late final Map<String, dynamic> response;
+    if (profilePictureBytes != null) {
+      final safeBytes = Uint8List.fromList(profilePictureBytes);
+      KycImageValidation.validateMaxFileSize(
+        safeBytes,
+        documentLabel: 'Profile picture',
+      );
+      var ext = 'png';
+      try {
+        ext = KycImageValidation.extensionFor(safeBytes);
+      } catch (_) {}
+      final effectiveName = (fileName != null && fileName.trim().isNotEmpty)
+          ? fileName.trim()
+          : 'avatar.$ext';
+      final fields = <String, String>{
+        if (fullName != null) 'full_name': fullName,
+        if (phone != null) 'phone': phone,
+      };
+      List<http.MultipartFile> buildFiles() => [
+            http.MultipartFile.fromBytes(
+              'profile_picture',
+              safeBytes,
+              filename: effectiveName,
+            ),
+          ];
+      try {
+        response = await _client.patchMultipart(
+          '/auth/me/',
+          fields: fields,
+          filesBuilder: buildFiles,
+        );
+      } on ApiException catch (e) {
+        if (e.statusCode == 405 || e.statusCode == 501) {
+          response = await _client.postMultipart(
+            '/auth/me/',
+            fields: fields,
+            filesBuilder: buildFiles,
+          );
+        } else {
+          rethrow;
+        }
+      }
+
+      final serverAvatarUrl = extractAvatarUrl(response);
+      if (UserProfileRepository.instance.profile.email.isNotEmpty) {
+        UserProfileRepository.instance.updateProfile(
+          fullName: fullName,
+          phoneNumber: phone,
+          avatarBytes: safeBytes,
+          avatarUrl: serverAvatarUrl,
+        );
+      }
+      return response;
+    } else {
+      final body = <String, dynamic>{
+        if (fullName != null) 'full_name': fullName,
+        if (phone != null) 'phone': phone,
+        if (clearProfilePicture) 'profile_picture': null,
+      };
+      response = await _client.patch('/auth/me/', body: body);
+      final serverAvatarUrl = extractAvatarUrl(response);
+      if (UserProfileRepository.instance.profile.email.isNotEmpty) {
+        UserProfileRepository.instance.updateProfile(
+          fullName: fullName,
+          phoneNumber: phone,
+          avatarUrl: serverAvatarUrl,
+          clearAvatar: clearProfilePicture,
+        );
+      }
+      return response;
+    }
   }
 
   /// Requests a password reset OTP code (POST /auth/forgot-password/request-otp/)
@@ -1096,7 +1426,13 @@ class AuthRepository {
   /// Checks if Payments PIN is configured (GET /auth/payments-pin/)
   Future<bool> checkPaymentsPinStatus() async {
     if (AppConfig.hasCustomBackend) {
-      final res = await _client.get('/auth/payments-pin/');
+      // These checks are independent reads. Run them concurrently to avoid
+      // adding the /auth/me/ round trip to the PIN-status response time.
+      final results = await Future.wait<Object>([
+        _requireVerifiedEmailForPaymentsPin().then<Object>((_) => true),
+        _client.get('/auth/payments-pin/'),
+      ]);
+      final res = results[1] as Map<String, dynamic>;
       return res['is_set'] == true;
     }
     return false;
@@ -1105,6 +1441,7 @@ class AuthRepository {
   /// Sets initial Payments PIN (POST /auth/payments-pin/)
   Future<bool> setPaymentsPin({required String pin}) async {
     if (AppConfig.hasCustomBackend) {
+      await _requireVerifiedEmailForPaymentsPin();
       await _client.post(
         '/auth/payments-pin/',
         body: {'pin': pin},
@@ -1120,6 +1457,7 @@ class AuthRepository {
     required String newPin,
   }) async {
     if (AppConfig.hasCustomBackend) {
+      await _requireVerifiedEmailForPaymentsPin();
       await _client.post(
         '/auth/payments-pin/',
         body: {
@@ -1135,6 +1473,7 @@ class AuthRepository {
   /// Removes Payments PIN (DELETE /auth/payments-pin/)
   Future<bool> removePaymentsPin({required String currentPin}) async {
     if (AppConfig.hasCustomBackend) {
+      await _requireVerifiedEmailForPaymentsPin();
       await _client.delete(
         '/auth/payments-pin/',
         body: {'current_pin': currentPin},
@@ -1147,6 +1486,7 @@ class AuthRepository {
   /// Verifies Payments PIN before sensitive operations (POST /auth/payments-pin/verify/)
   Future<bool> verifyPaymentsPin({required String pin}) async {
     if (AppConfig.hasCustomBackend) {
+      await _requireVerifiedEmailForPaymentsPin();
       final res = await _client.post(
         '/auth/payments-pin/verify/',
         body: {'pin': pin},
@@ -1154,6 +1494,45 @@ class AuthRepository {
       return res['ok'] == true;
     }
     return true;
+  }
+
+  /// Requests a fresh temporary Payments PIN by email
+  /// (POST /auth/payments-pin/forgot/). The backend checks that [email] matches
+  /// the authenticated account and applies its own reset rate limit.
+  Future<String> requestPaymentsPinReset({required String email}) async {
+    if (!AppConfig.hasCustomBackend) {
+      throw const ApiException(
+        statusCode: 501,
+        message: 'Payments PIN recovery requires a server connection.',
+        errorCode: 'PIN_RECOVERY_UNAVAILABLE',
+      );
+    }
+
+    await _requireVerifiedEmailForPaymentsPin();
+    final response = await _client.post(
+      '/auth/payments-pin/forgot/',
+      body: {'email': email.trim().toLowerCase()},
+    );
+    final detail = response['detail'] ?? response['message'];
+    if (detail is String && detail.trim().isNotEmpty) return detail.trim();
+    return 'A new Payments PIN has been sent to your registered email.';
+  }
+
+  /// PIN operations are available only for authenticated, email-verified users.
+  /// The backend remains authoritative and must enforce this rule as well.
+  Future<void> _requireVerifiedEmailForPaymentsPin() async {
+    final profile = await _client.get('/auth/me/');
+    final emailVerified = _readBoolean(
+      _responseMaps(profile),
+      const ['email_verified', 'emailVerified', 'is_email_verified'],
+    );
+    if (emailVerified != true) {
+      throw const ApiException(
+        statusCode: 403,
+        message: 'Verify your account email before using a Payments PIN.',
+        errorCode: 'EMAIL_UNVERIFIED',
+      );
+    }
   }
 
   /// Terminates the active session, revokes refresh token on server, and clears secure storage.
@@ -1171,6 +1550,7 @@ class AuthRepository {
         // Non-blocking logout network error
       }
     }
+    clearServerKycStatus();
     await _client.clearSession();
   }
 }

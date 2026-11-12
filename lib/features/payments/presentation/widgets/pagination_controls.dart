@@ -260,9 +260,7 @@ class PaginationControls extends StatelessWidget {
             fontFamily: AppTheme.activeFontFamily,
             fontSize: 11.5,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-            color: isSelected
-                ? const Color(0xFF022F32)
-                : colors.textSecondary,
+            color: isSelected ? const Color(0xFF022F32) : colors.textSecondary,
           ),
         ),
       ),
@@ -432,8 +430,7 @@ class PaginationControls extends StatelessWidget {
               }
             },
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
                 color: colors.aqua,
                 borderRadius: BorderRadius.circular(8),
@@ -460,94 +457,121 @@ class PaginationControls extends StatelessWidget {
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: colors.card,
-        shape: RoundedRectangleBorder(
-          borderRadius: AppSpacing.radiusLg,
-          side: BorderSide(color: colors.border, width: 1.2),
-        ),
-        title: Text(
-          'Jump to page',
-          style: TextStyle(
-            fontFamily: AppTheme.activeFontFamily,
-            fontSize: 16.5,
-            fontWeight: FontWeight.w700,
-            color: colors.textPrimary,
+      builder: (ctx) {
+        final media = MediaQuery.of(ctx);
+        // Reserve the dialog inset and AlertDialog's 24 px content padding.
+        // Override its usual 280 px minimum so very narrow windows can shrink.
+        final dialogMaxWidth = max(0.0, media.size.width - 2 * 16);
+        final contentWidth = max(0.0, min(320.0, dialogMaxWidth - 2 * 24));
+        final availableContentHeight = max(
+          96.0,
+          media.size.height - media.viewInsets.bottom - 200,
+        );
+
+        return AlertDialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
           ),
-        ),
-        content: SizedBox(
-          width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select any page from 1 to $totalPages:',
-                style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
-              ),
-              const SizedBox(height: 14),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 220),
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: List.generate(totalPages, (i) {
-                      final p = i + 1;
-                      final isCurrent = p == currentPage;
-                      return SpongyTap(
-                        onTap: () {
-                          Navigator.of(ctx).pop();
-                          onPageChanged(p);
-                        },
-                        child: Container(
-                          width: 44,
-                          height: 40,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: isCurrent ? colors.aqua : colors.cardDark,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: isCurrent ? colors.aqua : colors.border,
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            '$p',
-                            style: TextStyle(
-                              fontFamily: AppTheme.activeFontFamily,
-                              fontSize: 13,
-                              fontWeight: isCurrent
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                              color: isCurrent
-                                  ? const Color(0xFF022F32)
-                                  : colors.textPrimary,
-                            ),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                ),
-              ),
-            ],
+          constraints: BoxConstraints(
+            minWidth: min(280.0, dialogMaxWidth),
+            maxWidth: dialogMaxWidth,
+            maxHeight: max(0.0, media.size.height - 32),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Close',
-              style: TextStyle(
-                color: colors.textSecondary,
-                fontWeight: FontWeight.w600,
-              ),
+          scrollable: true,
+          backgroundColor: colors.card,
+          shape: RoundedRectangleBorder(
+            borderRadius: AppSpacing.radiusLg,
+            side: BorderSide(color: colors.border, width: 1.2),
+          ),
+          title: Text(
+            'Jump to page',
+            style: TextStyle(
+              fontFamily: AppTheme.activeFontFamily,
+              fontSize: 16.5,
+              fontWeight: FontWeight.w700,
+              color: colors.textPrimary,
             ),
           ),
-        ],
-      ),
+          content: SizedBox(
+            width: contentWidth,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select any page from 1 to $totalPages:',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: colors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: min(220.0, availableContentHeight),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(totalPages, (i) {
+                        final p = i + 1;
+                        final isCurrent = p == currentPage;
+                        return SpongyTap(
+                          onTap: () {
+                            Navigator.of(ctx).pop();
+                            onPageChanged(p);
+                          },
+                          child: Container(
+                            width: 44,
+                            height: 40,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: isCurrent ? colors.aqua : colors.cardDark,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: isCurrent ? colors.aqua : colors.border,
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              '$p',
+                              style: TextStyle(
+                                fontFamily: AppTheme.activeFontFamily,
+                                fontSize: 13,
+                                fontWeight: isCurrent
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                                color: isCurrent
+                                    ? const Color(0xFF022F32)
+                                    : colors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text(
+                'Close',
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

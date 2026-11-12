@@ -1,12 +1,14 @@
 /// Defines payments page in the payments feature's presentation layer.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/empty_state.dart';
+import '../../../../core/widgets/payments_pin_lock_scope.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
 // import '../widgets/bulk_add_payments_dialog.dart';
@@ -76,18 +78,15 @@ class _PaymentsPageState extends State<PaymentsPage> {
 
         // Paginate
         final startIndex = (_currentPage - 1) * _pageSize;
-        final paginatedList = filteredList
-            .skip(startIndex)
-            .take(_pageSize)
-            .toList();
+        final paginatedList =
+            filteredList.skip(startIndex).take(_pageSize).toList();
 
         return Scaffold(
           backgroundColor: colors.background,
           body: SafeArea(
             child: SingleChildScrollView(
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 20, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -135,8 +134,7 @@ class _PaymentsPageState extends State<PaymentsPage> {
                   if (paginatedList.isEmpty)
                     EmptyStateView(
                       title: 'No payments match this filter',
-                      subtitle:
-                          'Try clearing filters or submit a new payment.',
+                      subtitle: 'Try clearing filters or submit a new payment.',
                       actionText: 'New payment',
                       onAction: () => context.go('/app/payments/new'),
                     )
@@ -213,23 +211,48 @@ class _PaymentsPageState extends State<PaymentsPage> {
         final isSmall = constraints.maxWidth < 600;
 
         final colors = AppColors.of(context);
+        final pinLockScope = PaymentsPinLockScope.maybeOf(context);
 
         final titleBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               'PAYMENTS',
-              style: AppTypography.sectionEyebrow.copyWith(color: colors.textSecondary),
+              style: AppTypography.sectionEyebrow
+                  .copyWith(color: colors.textSecondary),
             ),
             const SizedBox(height: 4),
-            Text(
-              'My payments',
-              style: AppTypography.pageHeading.copyWith(color: colors.textPrimary),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    'My payments',
+                    style: AppTypography.pageHeading
+                        .copyWith(color: colors.textPrimary),
+                  ),
+                ),
+                if (pinLockScope?.isConfigured == true)
+                  IconButton(
+                    tooltip: 'Lock My Payments',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      pinLockScope!.onLockPayments();
+                    },
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    color: colors.textSecondary,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colors.card.withValues(alpha: .72),
+                      side: BorderSide(color: colors.border),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
               "Every incoming payment you've submitted.",
-              style: AppTypography.pageSubtitle.copyWith(color: colors.textSecondary),
+              style: AppTypography.pageSubtitle
+                  .copyWith(color: colors.textSecondary),
             ),
           ],
         );
@@ -289,4 +312,3 @@ class _PaymentsPageState extends State<PaymentsPage> {
     );
   }
 }
-

@@ -474,55 +474,6 @@ class _Step4BankViewState extends State<Step4BankView> {
               ),
               const SizedBox(height: 6),
               _buildRealtimeIbanStatus(colors, rule),
-              const SizedBox(height: 20),
-
-              // 1-LINK / PRISM Verification Notice Card
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: colors.emerald.withValues(alpha: 0.08),
-                  borderRadius: AppSpacing.radiusMd,
-                  border: Border.all(
-                    color: colors.emerald.withValues(alpha: 0.35),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(
-                      Icons.verified_user_rounded,
-                      size: 20,
-                      color: colors.emerald,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '1-LINK & PRISM Real-time Direct Clearing',
-                            style: TextStyle(
-                              color: colors.emerald,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            'Your bank account is validated against State Bank of Pakistan 1-LINK directory to ensure swift, zero-failure PKR payouts.',
-                            style: TextStyle(
-                              color: colors.textSecondary,
-                              fontSize: 11,
-                              height: 1.35,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 24),
 
               // Complete Setup & Submit Verification Button

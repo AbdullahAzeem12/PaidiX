@@ -175,183 +175,233 @@ class _SignInPageState extends State<SignInPage> {
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          backgroundColor: colors.card,
-          shape: RoundedRectangleBorder(
-            borderRadius: AppSpacing.radiusLg,
-            side: BorderSide(color: colors.border, width: 1.2),
-          ),
-          title: Text(
-            currentStep == 1 ? 'Reset Password' : 'Enter Reset Code',
-            style: TextStyle(
-              color: colors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (currentStep == 1) ...[
-                Text(
-                  'Enter your registered email address to receive a 6-digit password reset code.',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'Email Address',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    filled: true,
-                    fillColor: colors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: AppSpacing.radiusMd,
-                      borderSide: BorderSide(color: colors.border),
-                    ),
-                  ),
-                ),
-              ] else ...[
-                Text(
-                  'A 6-digit reset code was sent to ${emailController.text}. Enter the code and your new password:',
-                  style: TextStyle(color: colors.textSecondary, fontSize: 13),
-                ),
-                const SizedBox(height: 14),
-                TextField(
-                  controller: codeController,
-                  keyboardType: TextInputType.number,
-                  maxLength: 6,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: colors.textPrimary,
-                    fontSize: 18,
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  decoration: InputDecoration(
-                    counterText: '',
-                    hintText: '••••••',
-                    labelText: '6-Digit Code',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    filled: true,
-                    fillColor: colors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: AppSpacing.radiusMd,
-                      borderSide: BorderSide(color: colors.border),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: newPasswordController,
-                  obscureText: true,
-                  style: TextStyle(color: colors.textPrimary),
-                  decoration: InputDecoration(
-                    labelText: 'New Password',
-                    labelStyle: TextStyle(color: colors.textSecondary),
-                    filled: true,
-                    fillColor: colors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: AppSpacing.radiusMd,
-                      borderSide: BorderSide(color: colors.border),
-                    ),
-                  ),
-                ),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
-              child:
-                  Text('Cancel', style: TextStyle(color: colors.textSecondary)),
-            ),
-            ElevatedButton(
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      final email = emailController.text.trim().toLowerCase();
-                      if (email.isEmpty) {
-                        PaidiXToast.showWarning(
-                            context, 'Please enter your email.');
-                        return;
-                      }
+        builder: (ctx, setDialogState) {
+          final viewportSize = MediaQuery.sizeOf(ctx);
+          final isCompactWidth = viewportSize.width < 400;
 
-                      setDialogState(() => isSubmitting = true);
-                      try {
-                        if (currentStep == 1) {
-                          if (AppConfig.hasCustomBackend) {
-                            await AuthRepository.instance
-                                .requestPasswordResetOtp(email: email);
-                          }
-                          setDialogState(() {
-                            currentStep = 2;
-                            isSubmitting = false;
-                          });
-                          if (!mounted) return;
-                          PaidiXToast.showSuccess(
-                              context, 'Reset code sent to $email');
-                        } else {
-                          final code = codeController.text.trim();
-                          final newPassword = newPasswordController.text;
-                          if (code.length != 6) {
-                            PaidiXToast.showWarning(
-                                context, 'Please enter the 6-digit code.');
-                            setDialogState(() => isSubmitting = false);
-                            return;
-                          }
-                          if (newPassword.length < 8) {
-                            PaidiXToast.showWarning(context,
-                                'Password must be at least 8 characters.');
-                            setDialogState(() => isSubmitting = false);
-                            return;
-                          }
+          return AlertDialog(
+            backgroundColor: colors.card,
+            scrollable: true,
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: isCompactWidth ? 16 : 24,
+              vertical: 16,
+            ),
+            titlePadding: EdgeInsets.fromLTRB(
+              isCompactWidth ? 20 : 24,
+              isCompactWidth ? 18 : 22,
+              isCompactWidth ? 20 : 24,
+              8,
+            ),
+            contentPadding: EdgeInsets.fromLTRB(
+              isCompactWidth ? 20 : 24,
+              8,
+              isCompactWidth ? 20 : 24,
+              12,
+            ),
+            actionsPadding: EdgeInsets.fromLTRB(
+              isCompactWidth ? 16 : 20,
+              4,
+              isCompactWidth ? 16 : 20,
+              16,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: AppSpacing.radiusLg,
+              side: BorderSide(color: colors.border, width: 1.2),
+            ),
+            title: Text(
+              currentStep == 1 ? 'Reset Password' : 'Enter Reset Code',
+              style: TextStyle(
+                color: colors.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            content: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (currentStep == 1) ...[
+                    Text(
+                      'Enter your registered email address to receive a 6-digit password reset code.',
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      style: TextStyle(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'Email Address',
+                        labelStyle: TextStyle(color: colors.textSecondary),
+                        filled: true,
+                        fillColor: colors.background,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppSpacing.radiusMd,
+                          borderSide: BorderSide(color: colors.border),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    Text(
+                      'A 6-digit reset code was sent to ${emailController.text}. Enter the code and your new password:',
+                      style:
+                          TextStyle(color: colors.textSecondary, fontSize: 13),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textPrimary,
+                        fontSize: 18,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: InputDecoration(
+                        counterText: '',
+                        hintText: '••••••',
+                        labelText: '6-Digit Code',
+                        labelStyle: TextStyle(color: colors.textSecondary),
+                        filled: true,
+                        fillColor: colors.background,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppSpacing.radiusMd,
+                          borderSide: BorderSide(color: colors.border),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: newPasswordController,
+                      obscureText: true,
+                      style: TextStyle(color: colors.textPrimary),
+                      decoration: InputDecoration(
+                        labelText: 'New Password',
+                        labelStyle: TextStyle(color: colors.textSecondary),
+                        filled: true,
+                        fillColor: colors.background,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: AppSpacing.radiusMd,
+                          borderSide: BorderSide(color: colors.border),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.of(ctx).pop(),
+                child: Text('Cancel',
+                    style: TextStyle(color: colors.textSecondary)),
+              ),
+              ElevatedButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final email =
+                            emailController.text.trim().toLowerCase();
+                        if (email.isEmpty) {
+                          PaidiXToast.showWarning(
+                              context, 'Please enter your email.');
+                          return;
+                        }
 
-                          if (AppConfig.hasCustomBackend) {
-                            await AuthRepository.instance.resetPasswordWithOtp(
-                              email: email,
-                              code: code,
-                              newPassword: newPassword,
+                        setDialogState(() => isSubmitting = true);
+                        try {
+                          if (currentStep == 1) {
+                            if (AppConfig.hasCustomBackend) {
+                              await AuthRepository.instance
+                                  .requestPasswordResetOtp(email: email);
+                            }
+                            setDialogState(() {
+                              currentStep = 2;
+                              isSubmitting = false;
+                            });
+                            if (!mounted) return;
+                            PaidiXToast.showSuccess(
+                                context, 'Reset code sent to $email');
+                          } else {
+                            final code = codeController.text.trim();
+                            final newPassword = newPasswordController.text;
+                            if (code.length != 6) {
+                              PaidiXToast.showWarning(
+                                  context, 'Please enter the 6-digit code.');
+                              setDialogState(() => isSubmitting = false);
+                              return;
+                            }
+                            if (newPassword.length < 8) {
+                              PaidiXToast.showWarning(context,
+                                  'Password must be at least 8 characters.');
+                              setDialogState(() => isSubmitting = false);
+                              return;
+                            }
+
+                            if (AppConfig.hasCustomBackend) {
+                              await AuthRepository.instance
+                                  .resetPasswordWithOtp(
+                                email: email,
+                                code: code,
+                                newPassword: newPassword,
+                              );
+                            }
+                            if (!mounted) return;
+                            Navigator.of(ctx).pop();
+                            _passwordController.text = newPassword;
+                            PaidiXToast.showSuccess(
+                              context,
+                              'Password updated! You can now log in with your new password.',
                             );
                           }
+                        } on ApiException catch (e) {
+                          setDialogState(() => isSubmitting = false);
                           if (!mounted) return;
-                          Navigator.of(ctx).pop();
-                          _passwordController.text = newPassword;
-                          PaidiXToast.showSuccess(
-                            context,
-                            'Password updated! You can now log in with your new password.',
-                          );
+                          PaidiXToast.showError(context, e.message);
+                        } catch (e) {
+                          setDialogState(() => isSubmitting = false);
+                          if (!mounted) return;
+                          PaidiXToast.showError(
+                              context, 'Reset request failed: $e');
                         }
-                      } on ApiException catch (e) {
-                        setDialogState(() => isSubmitting = false);
-                        if (!mounted) return;
-                        PaidiXToast.showError(context, e.message);
-                      } catch (e) {
-                        setDialogState(() => isSubmitting = false);
-                        if (!mounted) return;
-                        PaidiXToast.showError(
-                            context, 'Reset request failed: $e');
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: colors.aqua,
-                foregroundColor: Colors.white,
-                shape:
-                    RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: colors.aqua,
+                  foregroundColor: Colors.white,
+                  shape:
+                      RoundedRectangleBorder(borderRadius: AppSpacing.radiusMd),
+                ),
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : Text(
+                        currentStep == 1 ? 'Send Code' : 'Update Password',
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ),
-              child: isSubmitting
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(currentStep == 1 ? 'Send Code' : 'Update Password'),
-            ),
-          ],
-        ),
+            ],
+          );
+        },
       ),
     );
   }

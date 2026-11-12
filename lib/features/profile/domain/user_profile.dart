@@ -33,6 +33,8 @@ class UserProfile {
   final DateTime updatedAt;
   final KycReviewStatus kycStatus;
   final bool hasCompletedKyc;
+  final bool hasResubmittedKyc;
+  final DateTime? kycResubmittedAt;
   final bool smsConsent;
 
   // Real uploaded or captured document assets
@@ -49,6 +51,7 @@ class UserProfile {
   // Custom profile avatar
   final Uint8List? avatarBytes;
   final String? avatarFilePath;
+  final String? avatarUrl;
 
   // Linked payout bank details
   final String? bankName;
@@ -73,6 +76,8 @@ class UserProfile {
     required this.updatedAt,
     this.kycStatus = KycReviewStatus.pendingReview,
     this.hasCompletedKyc = true,
+    this.hasResubmittedKyc = false,
+    this.kycResubmittedAt,
     this.smsConsent = true,
     this.selfieBytes,
     this.selfieFilePath,
@@ -85,6 +90,7 @@ class UserProfile {
     this.cnicBackUrl,
     this.avatarBytes,
     this.avatarFilePath,
+    this.avatarUrl,
     this.bankName,
     this.bankAccountNumber,
     this.bankIban,
@@ -146,7 +152,8 @@ class UserProfile {
   /// Whether the user has an uploaded custom profile photo
   bool get hasCustomAvatar =>
       (avatarBytes != null && avatarBytes!.isNotEmpty) ||
-      (avatarFilePath != null && avatarFilePath!.isNotEmpty);
+      (avatarFilePath != null && avatarFilePath!.isNotEmpty) ||
+      (avatarUrl != null && avatarUrl!.isNotEmpty);
 
   /// Formatted creation timestamp: e.g. "Oct 29, 2026, 01:09 AM"
   String get formattedCreatedAt => AppFormatters.formatDateTime(createdAt);
@@ -156,6 +163,9 @@ class UserProfile {
   String? get formattedKycReviewedAt => kycReviewedAt == null
       ? null
       : AppFormatters.formatDateTime(kycReviewedAt!);
+  String? get formattedKycResubmittedAt => kycResubmittedAt == null
+      ? null
+      : AppFormatters.formatDateTime(kycResubmittedAt!);
 
   String get displayPhone => phoneNumber.isNotEmpty ? phoneNumber : '—';
   String get displayCnic => cnicNumber.isNotEmpty ? cnicNumber : '—';
@@ -175,6 +185,9 @@ class UserProfile {
     DateTime? updatedAt,
     KycReviewStatus? kycStatus,
     bool? hasCompletedKyc,
+    bool? hasResubmittedKyc,
+    DateTime? kycResubmittedAt,
+    bool clearKycResubmittedAt = false,
     bool? smsConsent,
     Uint8List? selfieBytes,
     String? selfieFilePath,
@@ -187,7 +200,9 @@ class UserProfile {
     String? cnicBackUrl,
     Uint8List? avatarBytes,
     String? avatarFilePath,
+    String? avatarUrl,
     bool clearAvatar = false,
+    bool clearAvatarBytes = false,
     String? bankName,
     String? bankAccountNumber,
     String? bankIban,
@@ -210,6 +225,10 @@ class UserProfile {
       updatedAt: updatedAt ?? this.updatedAt,
       kycStatus: kycStatus ?? this.kycStatus,
       hasCompletedKyc: hasCompletedKyc ?? this.hasCompletedKyc,
+      hasResubmittedKyc: hasResubmittedKyc ?? this.hasResubmittedKyc,
+      kycResubmittedAt: clearKycResubmittedAt
+          ? null
+          : (kycResubmittedAt ?? this.kycResubmittedAt),
       smsConsent: smsConsent ?? this.smsConsent,
       selfieBytes: selfieBytes ?? this.selfieBytes,
       selfieFilePath: selfieFilePath ?? this.selfieFilePath,
@@ -220,9 +239,13 @@ class UserProfile {
       cnicBackBytes: cnicBackBytes ?? this.cnicBackBytes,
       cnicBackFilePath: cnicBackFilePath ?? this.cnicBackFilePath,
       cnicBackUrl: cnicBackUrl ?? this.cnicBackUrl,
-      avatarBytes: clearAvatar ? null : (avatarBytes ?? this.avatarBytes),
-      avatarFilePath:
-          clearAvatar ? null : (avatarFilePath ?? this.avatarFilePath),
+      avatarBytes: (clearAvatar || clearAvatarBytes)
+          ? null
+          : (avatarBytes ?? this.avatarBytes),
+      avatarFilePath: (clearAvatar || clearAvatarBytes)
+          ? null
+          : (avatarFilePath ?? this.avatarFilePath),
+      avatarUrl: clearAvatar ? null : (avatarUrl ?? this.avatarUrl),
       bankName: bankName ?? this.bankName,
       bankAccountNumber: bankAccountNumber ?? this.bankAccountNumber,
       bankIban: bankIban ?? this.bankIban,
@@ -251,6 +274,8 @@ class UserProfile {
       'updatedAt': updatedAt.toIso8601String(),
       'kycStatus': kycStatus.name,
       'hasCompletedKyc': hasCompletedKyc,
+      'hasResubmittedKyc': hasResubmittedKyc,
+      'kycResubmittedAt': kycResubmittedAt?.toIso8601String(),
       'smsConsent': smsConsent,
       'selfieFilePath': selfieFilePath,
       'selfieUrl': selfieUrl,
@@ -259,6 +284,7 @@ class UserProfile {
       'cnicBackFilePath': cnicBackFilePath,
       'cnicBackUrl': cnicBackUrl,
       'avatarFilePath': avatarFilePath,
+      'avatarUrl': avatarUrl,
       'bankName': bankName,
       'bankAccountNumber': bankAccountNumber,
       'bankIban': bankIban,
@@ -290,6 +316,10 @@ class UserProfile {
         orElse: () => KycReviewStatus.pendingReview,
       ),
       hasCompletedKyc: json['hasCompletedKyc'] as bool? ?? false,
+      hasResubmittedKyc: json['hasResubmittedKyc'] as bool? ?? false,
+      kycResubmittedAt: json['kycResubmittedAt'] is String
+          ? DateTime.tryParse(json['kycResubmittedAt'] as String)
+          : null,
       smsConsent: json['smsConsent'] as bool? ?? true,
       selfieFilePath: json['selfieFilePath'] as String?,
       selfieUrl: json['selfieUrl'] as String?,
@@ -298,6 +328,7 @@ class UserProfile {
       cnicBackFilePath: json['cnicBackFilePath'] as String?,
       cnicBackUrl: json['cnicBackUrl'] as String?,
       avatarFilePath: json['avatarFilePath'] as String?,
+      avatarUrl: json['avatarUrl'] as String?,
       bankName: json['bankName'] as String?,
       bankAccountNumber: json['bankAccountNumber'] as String?,
       bankIban: json['bankIban'] as String?,

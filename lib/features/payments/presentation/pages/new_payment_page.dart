@@ -19,6 +19,11 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/info_banner.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/selectable_tile.dart';
+import '../../../auth/data/auth_repository.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../kyc/data/kyc_image_validation.dart';
+import '../../../profile/data/user_profile_repository.dart';
+import '../../../profile/domain/user_profile.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
 
@@ -49,7 +54,15 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   Uint8List? _selectedFileBytes;
   bool _isPickingImage = false;
   bool _isSubmitting = false;
+  bool _isCheckingKycStatus = false;
+  KycReviewStatus? _serverKycStatus;
   double _feePercentage = 12.0;
+
+  bool _isProfileVerifiedForSession(UserProfile profile) {
+    if (profile.kycStatus != KycReviewStatus.verified) return false;
+    if (!AppConfig.hasCustomBackend) return true;
+    return AuthRepository.instance.isServerKycVerifiedFor(profile.email);
+  }
 
   /// Initializes controllers, listeners, and other state owned by this widget.
   @override
@@ -57,6 +70,103 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     super.initState();
     _loadFee();
     _checkLostData();
+    final profile = UserProfileRepository.instance.profile;
+    final alreadyVerified = _isProfileVerifiedForSession(profile);
+    if (alreadyVerified) {
+      _serverKycStatus = KycReviewStatus.verified;
+      _isCheckingKycStatus = false;
+    } else if (AppConfig.hasCustomBackend) {
+      _serverKycStatus =
+          AuthRepository.instance.serverConfirmedKycStatusFor(profile.email);
+      _isCheckingKycStatus = true;
+    } else {
+      _serverKycStatus = profile.kycStatus;
+      _isCheckingKycStatus = false;
+    }
+    UserProfileRepository.instance.profileNotifier.addListener(
+      _handleProfileKycStatusChanged,
+    );
+    AuthRepository.instance.serverKycStatusNotifier.addListener(
+      _handleProfileKycStatusChanged,
+    );
+    if (AppConfig.hasCustomBackend) {
+      _refreshKycStatus(background: alreadyVerified);
+    }
+  }
+
+  void _handleProfileKycStatusChanged() {
+    if (!mounted) return;
+    final profile = UserProfileRepository.instance.profile;
+    final confirmedServerStatus = AppConfig.hasCustomBackend
+        ? AuthRepository.instance.serverConfirmedKycStatusFor(profile.email)
+        : profile.kycStatus;
+    final nextStatus = confirmedServerStatus ??
+        (_isProfileVerifiedForSession(profile)
+            ? KycReviewStatus.verified
+            : null);
+    if (nextStatus != null &&
+        (nextStatus != _serverKycStatus || _isCheckingKycStatus)) {
+      setState(() {
+        _serverKycStatus = nextStatus;
+        _isCheckingKycStatus = false;
+      });
+    } else if (_isProfileVerifiedForSession(profile) &&
+        (_serverKycStatus != KycReviewStatus.verified ||
+            _isCheckingKycStatus)) {
+      setState(() {
+        _serverKycStatus = KycReviewStatus.verified;
+        _isCheckingKycStatus = false;
+      });
+    } else {
+      setState(() {});
+    }
+  }
+
+  Future<void> _refreshKycStatus({bool background = false}) async {
+    if (!mounted) return;
+    if (!AppConfig.hasCustomBackend) {
+      final profile = UserProfileRepository.instance.profile;
+      setState(() {
+        _serverKycStatus = profile.kycStatus;
+        _isCheckingKycStatus = false;
+      });
+      return;
+    }
+    if (!background) {
+      setState(() => _isCheckingKycStatus = true);
+    }
+    try {
+      final status = await AuthRepository.instance.refreshKycReviewStatus();
+      if (!mounted) return;
+      final profile = UserProfileRepository.instance.profile;
+      if (status != null) {
+        setState(() {
+          _serverKycStatus = status;
+          _isCheckingKycStatus = false;
+        });
+      } else if (_isProfileVerifiedForSession(profile)) {
+        setState(() {
+          _serverKycStatus = KycReviewStatus.verified;
+          _isCheckingKycStatus = false;
+        });
+      } else if (!background) {
+        setState(() => _isCheckingKycStatus = false);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      final profile = UserProfileRepository.instance.profile;
+      if (_isProfileVerifiedForSession(profile)) {
+        if (_serverKycStatus != KycReviewStatus.verified ||
+            _isCheckingKycStatus) {
+          setState(() {
+            _serverKycStatus = KycReviewStatus.verified;
+            _isCheckingKycStatus = false;
+          });
+        }
+      } else if (!background) {
+        setState(() => _isCheckingKycStatus = false);
+      }
+    }
   }
 
   /// Restores image if the Android OS destroyed MainActivity while in external gallery
@@ -69,6 +179,10 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
       if (file != null) {
         final pickedFile = file;
         final bytes = await pickedFile.readAsBytes();
+        KycImageValidation.validateMaxFileSize(
+          bytes,
+          documentLabel: 'Transaction screenshot',
+        );
         if (mounted) {
           setState(() {
             _selectedFileName = pickedFile.name.isNotEmpty
@@ -78,6 +192,10 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
             _selectedFileBytes = bytes;
           });
         }
+      }
+    } on FormatException catch (e) {
+      if (mounted) {
+        PaidiXToast.showError(context, e.message);
       }
     } catch (e) {
       debugPrint('NewPaymentPage retrieveLostData error: $e');
@@ -95,6 +213,12 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
+    UserProfileRepository.instance.profileNotifier.removeListener(
+      _handleProfileKycStatusChanged,
+    );
+    AuthRepository.instance.serverKycStatusNotifier.removeListener(
+      _handleProfileKycStatusChanged,
+    );
     _senderNameController.dispose();
     _senderCompanyController.dispose();
     _confirmationCodeController.dispose();
@@ -143,7 +267,9 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
       );
 
       // Aggressive Android lifecycle recovery (e.g. Huawei, low memory)
-      if (file == null && !kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      if (file == null &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android) {
         try {
           final lost = await _picker.retrieveLostData();
           if (!lost.isEmpty && lost.file != null) {
@@ -155,6 +281,10 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
       if (file != null) {
         final pickedFile = file;
         final bytes = await pickedFile.readAsBytes();
+        KycImageValidation.validateMaxFileSize(
+          bytes,
+          documentLabel: 'Transaction screenshot',
+        );
         if (mounted) {
           setState(() {
             _selectedFileName = pickedFile.name.isNotEmpty
@@ -164,6 +294,10 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
             _selectedFileBytes = bytes;
           });
         }
+      }
+    } on FormatException catch (e) {
+      if (mounted) {
+        PaidiXToast.showError(context, e.message);
       }
     } catch (e) {
       debugPrint('Error picking image: $e');
@@ -200,6 +334,45 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
 
   /// Validates this payment form, submits one payment, and returns to the list.
   Future<void> _handleSubmit() async {
+    if (AppConfig.hasCustomBackend) {
+      KycReviewStatus? serverStatus;
+      try {
+        serverStatus = await AuthRepository.instance.refreshKycReviewStatus();
+      } catch (_) {
+        if (!mounted) return;
+        PaidiXToast.showWarning(
+          context,
+          'Could not confirm KYC approval. Please try again when connected.',
+        );
+        return;
+      }
+      if (!mounted) return;
+      if (serverStatus != null) {
+        _serverKycStatus = serverStatus;
+      }
+      final currentProfile = UserProfileRepository.instance.profile;
+      final effectiveStatus = serverStatus ??
+          AuthRepository.instance
+              .serverConfirmedKycStatusFor(currentProfile.email);
+      if (effectiveStatus != KycReviewStatus.verified ||
+          currentProfile.kycStatus != KycReviewStatus.verified) {
+        setState(() => _isCheckingKycStatus = false);
+        PaidiXToast.showWarning(
+          context,
+          'New payments are available after your KYC is approved.',
+        );
+        return;
+      }
+    } else if (UserProfileRepository.instance.profile.kycStatus !=
+        KycReviewStatus.verified) {
+      setState(() => _isCheckingKycStatus = false);
+      PaidiXToast.showWarning(
+        context,
+        'New payments are available after your KYC is approved.',
+      );
+      return;
+    }
+
     // Validate method
     if (_selectedMethodId == null) {
       PaidiXToast.showWarning(context, 'Please select a payment method.');
@@ -237,8 +410,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
         proofBytes: _selectedFileBytes,
       );
 
-      final created =
-          await widget.paymentsRepository.submitPayment(submission);
+      final created = await widget.paymentsRepository.submitPayment(submission);
 
       // Trigger local push notification for transaction confirmation
       try {
@@ -309,8 +481,8 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
                 Navigator.of(ctx).pop();
                 context.pop();
               },
-              child: Text('Discard',
-                  style: TextStyle(color: colors.borderError)),
+              child:
+                  Text('Discard', style: TextStyle(color: colors.borderError)),
             ),
           ],
         ),
@@ -324,101 +496,270 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
+    return ValueListenableBuilder<UserProfile>(
+      valueListenable: UserProfileRepository.instance.profileNotifier,
+      builder: (context, profile, _) {
+        final effectiveServerStatus = _serverKycStatus ??
+            (AppConfig.hasCustomBackend
+                ? AuthRepository.instance
+                    .serverConfirmedKycStatusFor(profile.email)
+                : profile.kycStatus);
+        final isUnlocked = profile.kycStatus == KycReviewStatus.verified &&
+            effectiveServerStatus == KycReviewStatus.verified &&
+            !_isCheckingKycStatus;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 820),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Fee info banner (Screen 1)
-                  InfoBanner(
-                    title:
-                        'Your processing fee is ${_feePercentage.toStringAsFixed(2)}% of the received amount.',
-                    subtitle: 'Applied at verification before PKR is transferred.',
-                  ),
-                  const SizedBox(height: 24),
+        if (!isUnlocked) {
+          return Scaffold(
+            backgroundColor: colors.background,
+            body: SafeArea(child: _buildKycLockedContent(context, profile)),
+          );
+        }
 
-                  // Main Form Container
-                  Container(
-                    padding: EdgeInsets.all(
-                      MediaQuery.of(context).size.width < 400 ? 16 : 24,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.card,
-                      borderRadius: AppSpacing.radiusXl,
-                      border: Border.all(color: colors.border, width: 1.2),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Payment Method Section
-                        Row(
+        return Scaffold(
+          backgroundColor: colors.background,
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 820),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Fee info banner (Screen 1)
+                      InfoBanner(
+                        title:
+                            'Your processing fee is ${_feePercentage.toStringAsFixed(2)}% of the received amount.',
+                        subtitle:
+                            'Applied at verification before PKR is transferred.',
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Main Form Container
+                      Container(
+                        padding: EdgeInsets.all(
+                          MediaQuery.of(context).size.width < 400 ? 16 : 24,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.card,
+                          borderRadius: AppSpacing.radiusXl,
+                          border: Border.all(color: colors.border, width: 1.2),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'PAYMENT METHOD',
-                              style: AppTypography.label.copyWith(color: colors.textLabel),
+                            // Payment Method Section
+                            Row(
+                              children: [
+                                Text(
+                                  'PAYMENT METHOD',
+                                  style: AppTypography.label
+                                      .copyWith(color: colors.textLabel),
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  '*',
+                                  style: TextStyle(
+                                    color: colors.borderError,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(height: 4),
                             Text(
-                              '*',
+                              'How did the sender pay you?',
                               style: TextStyle(
-                                color: colors.borderError,
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 12.5,
+                                color: colors.textSecondary,
                               ),
                             ),
+                            const SizedBox(height: 14),
+
+                            // Method Tiles (Responsive)
+                            _buildPaymentMethodTiles(),
+                            const SizedBox(height: 24),
+
+                            // Sender Name & Company (2 columns on wide, stacked on narrow)
+                            _buildSenderFields(),
+                            const SizedBox(height: 20),
+
+                            // Confirmation Code
+                            AppTextField(
+                              label: 'CONFIRMATION CODE',
+                              placeholder: '',
+                              subtext:
+                                  "Reference number from the sender's bank / payment app. Must be unique.",
+                              controller: _confirmationCodeController,
+                              isRequired: true,
+                              validator:
+                                  PaymentValidators.validateConfirmationCode,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Amount Received & Transaction Date
+                            _buildAmountAndDateFields(),
+                            const SizedBox(height: 24),
+
+                            // Transaction Screenshot Upload Box
+                            _buildUploadArea(),
+                            const SizedBox(height: 32),
+
+                            // Bottom Actions: Cancel & Submit Payment
+                            _buildFormActions(),
                           ],
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'How did the sender pay you?',
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            color: colors.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-                        // Method Tiles (Responsive)
-                        _buildPaymentMethodTiles(),
-                        const SizedBox(height: 24),
+  Widget _buildKycLockedContent(BuildContext context, UserProfile profile) {
+    final colors = AppColors.of(context);
+    final status = _serverKycStatus ?? profile.kycStatus;
+    final isRejected = status == KycReviewStatus.rejected;
+    final statusMessage = _isCheckingKycStatus
+        ? 'Checking your KYC verification status...'
+        : _serverKycStatus == null &&
+                profile.kycStatus == KycReviewStatus.verified
+            ? 'We could not confirm your KYC approval with the server.'
+            : switch (status) {
+                KycReviewStatus.rejected => 'Your KYC submission was rejected.',
+                KycReviewStatus.pendingReview =>
+                  'Your KYC submission is pending review.',
+                KycReviewStatus.inProgress ||
+                KycReviewStatus.notStarted =>
+                  'Complete your KYC verification to unlock payments.',
+                KycReviewStatus.verified => 'Your KYC is approved.',
+              };
+    const description =
+        'Once your profile is approved, you’ll be able to submit incoming payments.';
 
-                        // Sender Name & Company (2 columns on wide, stacked on narrow)
-                        _buildSenderFields(),
-                        const SizedBox(height: 20),
-
-                        // Confirmation Code
-                        AppTextField(
-                          label: 'CONFIRMATION CODE',
-                          placeholder: '',
-                          subtext:
-                              "Reference number from the sender's bank / payment app. Must be unique.",
-                          controller: _confirmationCodeController,
-                          isRequired: true,
-                          validator: PaymentValidators.validateConfirmationCode,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Amount Received & Transaction Date
-                        _buildAmountAndDateFields(),
-                        const SizedBox(height: 24),
-
-                        // Transaction Screenshot Upload Box
-                        _buildUploadArea(),
-                        const SizedBox(height: 32),
-
-                        // Bottom Actions: Cancel & Submit Payment
-                        _buildFormActions(),
-                      ],
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight - 64),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 680),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      color: colors.gold.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.lock_outline_rounded,
+                      color: colors.gold,
+                      size: 24,
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'New payments are locked.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    statusMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    description,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 14,
+                      height: 1.45,
+                    ),
+                  ),
+                  if (isRejected &&
+                      profile.kycRejectionReason?.isNotEmpty == true) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      profile.kycRejectionReason!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 22),
+                  LayoutBuilder(
+                    builder: (context, buttonConstraints) {
+                      final buttons = [
+                        AppButton(
+                          text: 'Go to profile',
+                          icon: const Icon(Icons.person_outline_rounded,
+                              size: 18),
+                          onPressed: () => context.go('/app/onboarding'),
+                          variant: AppButtonVariant.primary,
+                        ),
+                        AppButton(
+                          text: 'Bank accounts',
+                          icon: const Icon(Icons.account_balance_outlined,
+                              size: 18),
+                          onPressed: () =>
+                              context.go('/app/settings?section=bank-accounts'),
+                          variant: AppButtonVariant.outline,
+                        ),
+                      ];
+                      if (buttonConstraints.maxWidth < 460) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            buttons[0],
+                            const SizedBox(height: 10),
+                            buttons[1],
+                          ],
+                        );
+                      }
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          buttons[0],
+                          const SizedBox(width: 10),
+                          buttons[1],
+                        ],
+                      );
+                    },
+                  ),
+                  if (_serverKycStatus == null && !_isCheckingKycStatus) ...[
+                    const SizedBox(height: 14),
+                    TextButton.icon(
+                      onPressed: _refreshKycStatus,
+                      icon: const Icon(Icons.refresh_rounded, size: 17),
+                      label: const Text('Check again'),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -614,9 +955,7 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
               color: colors.inputFill,
               borderRadius: AppSpacing.radiusMd,
               border: Border.all(
-                color: _selectedFileName != null
-                    ? colors.aqua
-                    : colors.border,
+                color: _selectedFileName != null ? colors.aqua : colors.border,
                 width: 1.4,
               ),
             ),
@@ -723,5 +1062,3 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     );
   }
 }
-
-

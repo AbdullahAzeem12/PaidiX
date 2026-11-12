@@ -1,6 +1,9 @@
 /// Builds the root Material application and listens for global theme changes.
 
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../core/network/api_client.dart';
 import '../core/services/session_timeout_service.dart';
 import '../core/widgets/paidix_toast.dart';
@@ -16,14 +19,52 @@ class PaidiXApp extends StatefulWidget {
   State<PaidiXApp> createState() => _PaidiXAppState();
 }
 
-class _PaidiXAppState extends State<PaidiXApp> {
+class _PaidiXAppState extends State<PaidiXApp> with WidgetsBindingObserver {
+  static const MethodChannel _lifecycleChannel =
+      MethodChannel('com.paidix.paidix/lifecycle');
+
   /// Initializes controllers, listeners, and other state owned by this widget.
   @override
   void initState() {
     super.initState();
     AppTheme.init();
+    WidgetsBinding.instance.addObserver(this);
+    if (!kIsWeb) {
+      _lifecycleChannel.setMethodCallHandler(_handleNativeLifecycleCall);
+    }
     ApiClient.instance.sessionInvalidationNotifier
         .addListener(_handleSessionInvalidation);
+  }
+
+  Future<dynamic> _handleNativeLifecycleCall(MethodCall call) async {
+    if (call.method == 'verifyFrameRendered') {
+      return _scheduleAndConfirmFrame();
+    }
+    return null;
+  }
+
+  Future<bool> _scheduleAndConfirmFrame() async {
+    if (!mounted) return false;
+    final completer = Completer<bool>();
+    setState(() {});
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!completer.isCompleted) {
+        completer.complete(mounted);
+      }
+    });
+    WidgetsBinding.instance.scheduleForcedFrame();
+    return completer.future.timeout(
+      const Duration(milliseconds: 1200),
+      onTimeout: () => false,
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+      WidgetsBinding.instance.scheduleForcedFrame();
+    }
   }
 
   void _handleSessionInvalidation() {
@@ -52,6 +93,10 @@ class _PaidiXAppState extends State<PaidiXApp> {
 
   @override
   void dispose() {
+    if (!kIsWeb) {
+      _lifecycleChannel.setMethodCallHandler(null);
+    }
+    WidgetsBinding.instance.removeObserver(this);
     ApiClient.instance.sessionInvalidationNotifier
         .removeListener(_handleSessionInvalidation);
     super.dispose();

@@ -46,9 +46,11 @@ class OnboardingProfilePage extends StatelessWidget {
                     children: [
                       // Header Section: Eyebrow + Title + Subtitle + Edit Profile Action
                       _buildHeader(context, profile, isNarrow, colors),
-                      if (profile.kycStatus == KycReviewStatus.rejected) ...[
+                      if (profile.kycStatus == KycReviewStatus.rejected ||
+                          (profile.kycStatus == KycReviewStatus.pendingReview &&
+                              profile.hasResubmittedKyc)) ...[
                         const SizedBox(height: 18),
-                        _buildRejectionBanner(profile, colors),
+                        _buildKycStatusBanner(profile, colors),
                       ],
                       const SizedBox(height: 24),
 
@@ -218,30 +220,38 @@ class OnboardingProfilePage extends StatelessWidget {
     );
   }
 
-  Widget _buildRejectionBanner(
+  Widget _buildKycStatusBanner(
     UserProfile profile,
     PaidiXColorScheme colors,
   ) {
     const rejection = Color(0xFFBE123C);
+    const resubmitted = Color(0xFF3B82F6);
+    final isResubmitted = profile.hasResubmittedKyc &&
+        profile.kycStatus == KycReviewStatus.pendingReview;
+    final accent = isResubmitted ? resubmitted : rejection;
     final message = profile.effectiveKycMessage;
-    final hasSpecificReason = message != KycReviewStatus.rejected.label &&
+    final hasSpecificReason = !isResubmitted &&
+        message != KycReviewStatus.rejected.label &&
         message != 'Verification Rejected';
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: rejection.withValues(alpha: 0.08),
-        border: Border.all(color: rejection.withValues(alpha: 0.30)),
+        color: accent.withValues(alpha: 0.08),
+        border: Border.all(color: accent.withValues(alpha: 0.30)),
         borderRadius: AppSpacing.radiusLg,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(top: 1),
-            child:
-                Icon(Icons.warning_amber_rounded, size: 19, color: rejection),
+            child: Icon(
+              isResubmitted ? Icons.sync_rounded : Icons.warning_amber_rounded,
+              size: 19,
+              color: accent,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -249,7 +259,9 @@ class OnboardingProfilePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Your KYC submission was rejected.',
+                  isResubmitted
+                      ? 'Thanks, your updated information is awaiting review.'
+                      : 'Your KYC submission was rejected.',
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 14,
@@ -258,9 +270,11 @@ class OnboardingProfilePage extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  hasSpecificReason
-                      ? message
-                      : 'Update the requested information and resubmit your documents.',
+                  isResubmitted
+                      ? "You'll see another update here if the reviewer raises any further objections or approves your account."
+                      : hasSpecificReason
+                          ? message
+                          : 'Update the requested information and resubmit your documents.',
                   style: TextStyle(
                     color: colors.textSecondary,
                     fontSize: 12.5,

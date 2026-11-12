@@ -12,19 +12,18 @@ import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
+import '../../features/kyc/data/kyc_image_validation.dart';
 import '../../features/kyc/presentation/widgets/kyc_permission_dialog.dart';
 import '../widgets/app_button.dart';
 
 class PermissionHelper {
   const PermissionHelper._();
 
-  static bool _hasPromptedGalleryInSession = false;
   static bool _hasPromptedCameraInSession = false;
 
   /// Resets permission session tracking (useful for test suites)
   @visibleForTesting
   static void resetSessionPrompts() {
-    _hasPromptedGalleryInSession = false;
     _hasPromptedCameraInSession = false;
   }
 
@@ -37,27 +36,15 @@ class PermissionHelper {
   }
 
   /// Safely requests photo gallery / storage permission across all Android and iOS versions.
-  /// Shows the institutional KYC permission explanation modal on the first interaction
-  /// so the user is informed and gives explicit consent before opening storage.
-  static Future<bool> requestStorageOrPhotosPermission(BuildContext context) async {
+  /// Opens the platform picker directly without an app-specific gallery rationale dialog.
+  static Future<bool> requestStorageOrPhotosPermission(
+      BuildContext context) async {
     if (kIsWeb || _isTestEnv) return true;
     if (!Platform.isAndroid && !Platform.isIOS) return true;
 
     try {
-      // 1. Show permission rationale dialog to user if not already accepted in this session
-      if (!_hasPromptedGalleryInSession) {
-        if (context.mounted) {
-          final accepted = await KycPermissionDialog.show(
-            context,
-            isCamera: false,
-            onGranted: () {},
-          );
-          if (accepted != true) return false;
-          _hasPromptedGalleryInSession = true;
-        }
-      }
-
-      // 2. Request Android OS runtime permissions (photos + storage)
+      // Request Android OS runtime permissions (photos + storage).
+      // The system image picker remains the fallback when broad access is declined.
       if (Platform.isAndroid) {
         final statuses = await [
           Permission.photos,
@@ -76,7 +63,7 @@ class PermissionHelper {
 
         final isPermanentlyDenied =
             (photosStatus?.isPermanentlyDenied ?? false) &&
-            (storageStatus?.isPermanentlyDenied ?? false);
+                (storageStatus?.isPermanentlyDenied ?? false);
 
         if (isPermanentlyDenied && context.mounted) {
           _showSettingsDialog(
@@ -177,7 +164,11 @@ class PermissionHelper {
       codec.dispose();
 
       if (byteData != null) {
-        return byteData.buffer.asUint8List();
+        final scaled = byteData.buffer.asUint8List();
+        if (scaled.lengthInBytes <= KycImageValidation.maxFileSizeBytes ||
+            rawBytes.lengthInBytes > KycImageValidation.maxFileSizeBytes) {
+          return scaled;
+        }
       }
     } catch (e) {
       debugPrint('[PermissionHelper] Downscale fallback: $e');

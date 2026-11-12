@@ -9,6 +9,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
+import '../../../../core/widgets/payments_pin_lock_scope.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../../core/widgets/status_badge.dart';
 import '../../../payments/data/payments_repository_impl.dart';
@@ -100,7 +101,8 @@ class _DashboardPageState extends State<DashboardPage> {
       pkrReceived: pkrReceived,
       paymentsCompleted: completed,
       totalTransferred: totalTransferred,
-      awaitingVerificationAmount: null, // em dash per design specs and PROJECT_BRAIN
+      awaitingVerificationAmount:
+          null, // em dash per design specs and PROJECT_BRAIN
       awaitingVerificationCount: pendingReview + awaitingPkr,
       transactionsCount: list.length,
       pendingReviewCount: pendingReview,
@@ -237,9 +239,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                     builder: (context, constraints) {
                                       if (constraints.maxWidth >= 768) {
                                         return PaymentsTable(
-                                          items: filteredPayments
-                                              .take(5)
-                                              .toList(),
+                                          items:
+                                              filteredPayments.take(5).toList(),
                                         );
                                       }
                                       final recentList =
@@ -283,19 +284,41 @@ class _DashboardPageState extends State<DashboardPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isSmall = constraints.maxWidth < 600;
+        final pinLockScope = PaymentsPinLockScope.maybeOf(context);
 
         final titleBlock = Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Hello, ${userProfile.firstName}.',
-              style: TextStyle(
-                fontFamily: AppTheme.activeFontFamily,
-                fontSize: 26,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.5,
-                color: colors.textPrimary,
-              ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Hello, ${userProfile.firstName}.',
+                    style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.5,
+                      color: colors.textPrimary,
+                    ),
+                  ),
+                ),
+                if (pinLockScope?.isConfigured == true)
+                  IconButton(
+                    tooltip: 'Lock dashboard',
+                    onPressed: () {
+                      HapticFeedback.selectionClick();
+                      pinLockScope!.onLockDashboard();
+                    },
+                    icon: const Icon(Icons.lock_outline_rounded),
+                    color: colors.textSecondary,
+                    style: IconButton.styleFrom(
+                      backgroundColor: colors.card.withValues(alpha: .72),
+                      side: BorderSide(color: colors.border),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 4),
             Text(
@@ -370,14 +393,47 @@ class _DashboardPageState extends State<DashboardPage> {
     UserProfile userProfile,
     PaidiXColorScheme colors,
   ) {
+    final isRejected = userProfile.kycStatus == KycReviewStatus.rejected;
+    final isResubmitted = userProfile.hasResubmittedKyc &&
+        userProfile.kycStatus == KycReviewStatus.pendingReview;
+    const resubmittedColor = Color(0xFF3B82F6);
+    final accent = isRejected
+        ? colors.ruby
+        : isResubmitted
+            ? resubmittedColor
+            : colors.gold;
+    final backgroundColor = isRejected || isResubmitted
+        ? accent.withValues(alpha: 0.08)
+        : colors.cardDark;
+    final borderColor = isRejected || isResubmitted
+        ? accent.withValues(alpha: 0.35)
+        : colors.border.withValues(alpha: 0.9);
+    final statusIcon = isRejected
+        ? Icons.error_outline_rounded
+        : isResubmitted
+            ? Icons.sync_rounded
+            : Icons.warning_amber_rounded;
+    final statusMessage = switch (userProfile.kycStatus) {
+      KycReviewStatus.rejected =>
+        'You can update your information and resubmit.',
+      KycReviewStatus.pendingReview => isResubmitted
+          ? 'New payments stay locked until approval. You wll see another update here if the reviewer raises objections or approves your account.'
+          : 'Current KYC status: Pending review. You can still add or edit your bank accounts in the meantime.',
+      KycReviewStatus.inProgress =>
+        'Current KYC status: In progress. Complete your profile to unlock payments.',
+      KycReviewStatus.notStarted =>
+        'Complete KYC verification to unlock new payments.',
+      KycReviewStatus.verified => '',
+    };
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: colors.cardDark,
+        color: backgroundColor,
         borderRadius: AppSpacing.radiusXl,
         border: Border.all(
-          color: colors.border.withValues(alpha: 0.9),
+          color: borderColor,
           width: 1.2,
         ),
       ),
@@ -387,8 +443,8 @@ class _DashboardPageState extends State<DashboardPage> {
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: Icon(
-              Icons.warning_amber_rounded,
-              color: colors.gold,
+              statusIcon,
+              color: accent,
               size: 22,
             ),
           ),
@@ -398,7 +454,11 @@ class _DashboardPageState extends State<DashboardPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'New payments are locked until your profile is approved.',
+                  isRejected
+                      ? 'Your KYC submission was rejected.'
+                      : isResubmitted
+                          ? 'Thanks, your updated information is awaiting review.'
+                          : 'New payments are locked until your profile is approved.',
                   style: TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
@@ -407,13 +467,25 @@ class _DashboardPageState extends State<DashboardPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Current KYC status: Pending review. You can still add or edit your bank accounts in the meantime.',
+                  statusMessage,
                   style: TextStyle(
                     fontSize: 12.5,
                     height: 1.45,
                     color: colors.textSecondary,
                   ),
                 ),
+                if (isRejected &&
+                    userProfile.kycRejectionReason?.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    userProfile.kycRejectionReason!,
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: colors.textSecondary,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 // "Go to Profile -->" with animated color transition & navigation
                 AnimatedProfileLink(
@@ -452,7 +524,8 @@ class _DashboardPageState extends State<DashboardPage> {
             children: [
               // Filter toggle header (tapping expands/collapses)
               InkWell(
-                onTap: () => setState(() => _isFiltersExpanded = !_isFiltersExpanded),
+                onTap: () =>
+                    setState(() => _isFiltersExpanded = !_isFiltersExpanded),
                 borderRadius: AppSpacing.radiusLg,
                 child: Padding(
                   padding: EdgeInsets.symmetric(
@@ -498,7 +571,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       ],
                       const Spacer(),
                       // Prominent 'Bitnex week' button just beside toggle chevron
-                      _buildHeaderResetButton(context, colors, isDark, isMobile),
+                      _buildHeaderResetButton(
+                          context, colors, isDark, isMobile),
                       const SizedBox(width: 6),
                       AnimatedRotation(
                         turns: _isFiltersExpanded ? 0.5 : 0.0,
@@ -524,7 +598,8 @@ class _DashboardPageState extends State<DashboardPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: EdgeInsets.symmetric(horizontal: headerHPad),
+                            padding:
+                                EdgeInsets.symmetric(horizontal: headerHPad),
                             child: Divider(
                               color: colors.divider.withValues(alpha: 0.6),
                               height: 1,
@@ -534,7 +609,8 @@ class _DashboardPageState extends State<DashboardPage> {
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             physics: const BouncingScrollPhysics(),
-                            padding: EdgeInsets.fromLTRB(headerHPad, 0, headerHPad, 14),
+                            padding: EdgeInsets.fromLTRB(
+                                headerHPad, 0, headerHPad, 14),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -602,7 +678,8 @@ class _DashboardPageState extends State<DashboardPage> {
                                     setState(() {
                                       _fromDate = null;
                                       if (_toDate == null) {
-                                        _selectedRange = DateRangeFilter.allTime;
+                                        _selectedRange =
+                                            DateRangeFilter.allTime;
                                       }
                                     });
                                   },
@@ -620,14 +697,13 @@ class _DashboardPageState extends State<DashboardPage> {
                                     setState(() {
                                       _toDate = null;
                                       if (_fromDate == null) {
-                                        _selectedRange = DateRangeFilter.allTime;
+                                        _selectedRange =
+                                            DateRangeFilter.allTime;
                                       }
                                     });
                                   },
                                   colors: colors,
                                 ),
-
-
                               ],
                             ),
                           ),
@@ -895,7 +971,8 @@ class _DashboardPageState extends State<DashboardPage> {
               style: TextStyle(
                 fontFamily: AppTheme.activeFontFamily,
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
+                fontWeight:
+                    hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
                 color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),
@@ -980,9 +1057,8 @@ class _DashboardPageState extends State<DashboardPage> {
                       fontSize: 12.5,
                       fontWeight:
                           isItemActive ? FontWeight.w700 : FontWeight.w500,
-                      color: isItemActive
-                          ? colors.aquaLight
-                          : colors.textPrimary,
+                      color:
+                          isItemActive ? colors.aquaLight : colors.textPrimary,
                     ),
                   ),
                 ],
@@ -1000,9 +1076,8 @@ class _DashboardPageState extends State<DashboardPage> {
                 : colors.inputFill,
             borderRadius: AppSpacing.radiusMd,
             border: Border.all(
-              color: isActive
-                  ? colors.aqua
-                  : colors.border.withValues(alpha: 0.9),
+              color:
+                  isActive ? colors.aqua : colors.border.withValues(alpha: 0.9),
               width: 1.2,
             ),
             boxShadow: isActive
@@ -1136,7 +1211,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// Calendar picker for "From" date
-  Future<void> _pickFromDate(BuildContext context, PaidiXColorScheme colors) async {
+  Future<void> _pickFromDate(
+      BuildContext context, PaidiXColorScheme colors) async {
     final now = DateTime.now();
     final initial = _fromDate ?? now;
     final picked = await showDatePicker(
@@ -1144,8 +1220,7 @@ class _DashboardPageState extends State<DashboardPage> {
       initialDate: initial.isAfter(DateTime(2035)) ? now : initial,
       firstDate: DateTime(2020),
       lastDate: DateTime(2035),
-      builder: (context, child) =>
-          buildAppDatePickerTheme(context, child!),
+      builder: (context, child) => buildAppDatePickerTheme(context, child!),
       helpText: 'SELECT FROM DATE',
       confirmText: 'SELECT',
       cancelText: 'CANCEL',
@@ -1161,7 +1236,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   /// Calendar picker for "To" date
-  Future<void> _pickToDate(BuildContext context, PaidiXColorScheme colors) async {
+  Future<void> _pickToDate(
+      BuildContext context, PaidiXColorScheme colors) async {
     final now = DateTime.now();
     final firstDate = _fromDate ?? DateTime(2020);
     final lastDate = DateTime(2035);
@@ -1179,8 +1255,7 @@ class _DashboardPageState extends State<DashboardPage> {
       initialDate: initial,
       firstDate: firstDate,
       lastDate: lastDate,
-      builder: (context, child) =>
-          buildAppDatePickerTheme(context, child!),
+      builder: (context, child) => buildAppDatePickerTheme(context, child!),
       helpText: 'SELECT TO DATE',
       confirmText: 'SELECT',
       cancelText: 'CANCEL',
@@ -1209,8 +1284,7 @@ class _DashboardPageState extends State<DashboardPage> {
               start: DateTime(now.year, now.month, 1),
               end: DateTime(now.year, now.month, now.day),
             ),
-      builder: (context, child) =>
-          buildAppDatePickerTheme(context, child!),
+      builder: (context, child) => buildAppDatePickerTheme(context, child!),
       helpText: 'SELECT DATE RANGE',
       saveText: 'APPLY',
     );
@@ -1392,7 +1466,8 @@ class _DashboardPageState extends State<DashboardPage> {
 
             final card2 = FinancialStatCard(
               title: 'TOTAL TRANSFERRED TO YOU',
-              value: FxDisplayPreferences.formatVolumePkr(summary.totalTransferred),
+              value: FxDisplayPreferences.formatVolumePkr(
+                  summary.totalTransferred),
               subtext: 'Lifetime PKR',
               description:
                   "Everything we've sent to your bank account since joining PaidiX.",
@@ -1469,11 +1544,9 @@ class _DashboardPageState extends State<DashboardPage> {
     final isPendingSelected =
         _selectedStatus == StatusFilterOption.underReview ||
             _selectedStatus == StatusFilterOption.pendingReview;
-    final isAwaitingSelected =
-        _selectedStatus == StatusFilterOption.pkrSent ||
-            _selectedStatus == StatusFilterOption.awaitingPkr;
-    final isCompletedSelected =
-        _selectedStatus == StatusFilterOption.completed;
+    final isAwaitingSelected = _selectedStatus == StatusFilterOption.pkrSent ||
+        _selectedStatus == StatusFilterOption.awaitingPkr;
+    final isCompletedSelected = _selectedStatus == StatusFilterOption.completed;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1502,9 +1575,8 @@ class _DashboardPageState extends State<DashboardPage> {
           icon: Icon(Icons.access_time_rounded,
               color: colors.mintHeroText, size: 16),
           isSelected: isPendingSelected,
-          activeColor: isDark
-              ? const Color(0xFFFBBF24)
-              : const Color(0xFFD97706),
+          activeColor:
+              isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
@@ -1524,9 +1596,8 @@ class _DashboardPageState extends State<DashboardPage> {
           icon: Icon(Icons.arrow_outward_rounded,
               color: colors.mintHeroText, size: 16),
           isSelected: isAwaitingSelected,
-          activeColor: isDark
-              ? const Color(0xFF38BDF8)
-              : const Color(0xFF0284C7),
+          activeColor:
+              isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {
@@ -1546,9 +1617,8 @@ class _DashboardPageState extends State<DashboardPage> {
           icon: Icon(Icons.check_circle_outline,
               color: colors.mintHeroText, size: 16),
           isSelected: isCompletedSelected,
-          activeColor: isDark
-              ? const Color(0xFF34D399)
-              : const Color(0xFF059669),
+          activeColor:
+              isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
           onTap: () {
             HapticFeedback.selectionClick();
             setState(() {

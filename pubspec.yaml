@@ -13,12 +13,14 @@ dependencies:
     sdk: flutter
   http: ^1.2.2
   # Optional: For hardware-encrypted secure storage of JWT tokens
-  flutter_secure_storage: ^9.2.2
+  # Keep v10 as a migration release before v11; v11 removes legacy cipher
+  # support and requires data to be migrated by v10 first.
+  flutter_secure_storage: ^10.3.4
   cupertino_icons: ^2.0.0
-  go_router: ^18.1.3
+  go_router: ^18.1.4
   image_picker: ^1.2.4
   permission_handler: ^13.0.2
-  flutter_local_notifications: ^23.0.0
+  flutter_local_notifications: ^23.0.1
   url_launcher: ^6.3.3
   path_provider: ^2.1.5
   google_fonts: ^9.0.0

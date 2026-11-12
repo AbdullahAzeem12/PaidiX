@@ -230,7 +230,7 @@ class UserProfileRepository {
           user.avatarBytes,
           user.avatarFilePath,
         );
-      } else if (!user.hasCustomAvatar) {
+      } else if (user.avatarFilePath == null) {
         final f = File('${userDir.path}/avatar.jpg');
         if (f.existsSync()) {
           try {
@@ -396,6 +396,8 @@ class UserProfileRepository {
     final updated = current.copyWith(
       hasCompletedKyc: true,
       kycStatus: KycReviewStatus.pendingReview,
+      hasResubmittedKyc: false,
+      clearKycResubmittedAt: true,
       updatedAt: DateTime.now(),
     );
     profileNotifier.value = updated;
@@ -403,12 +405,23 @@ class UserProfileRepository {
   }
 
   /// Clears stale reviewer feedback after a successful resubmission.
-  void markKycResubmitted() {
+  void markKycResubmitted({
+    DateTime? submittedAt,
+    String? selfieUrl,
+    String? cnicFrontUrl,
+    String? cnicBackUrl,
+  }) {
+    final effectiveSubmittedAt = submittedAt ?? DateTime.now();
     final current = profileNotifier.value;
     final updated = current.copyWith(
       hasCompletedKyc: true,
       kycStatus: KycReviewStatus.pendingReview,
-      updatedAt: DateTime.now(),
+      hasResubmittedKyc: true,
+      kycResubmittedAt: effectiveSubmittedAt,
+      selfieUrl: selfieUrl ?? current.selfieUrl,
+      cnicFrontUrl: cnicFrontUrl ?? current.cnicFrontUrl,
+      cnicBackUrl: cnicBackUrl ?? current.cnicBackUrl,
+      updatedAt: effectiveSubmittedAt,
       clearRejection: true,
       clearKycReviewedAt: true,
     );
@@ -477,6 +490,8 @@ class UserProfileRepository {
       // For a brand new user, KYC is not completed yet
       hasCompletedKyc: false,
       kycStatus: KycReviewStatus.notStarted,
+      hasResubmittedKyc: false,
+      clearKycResubmittedAt: true,
       cnicNumber: '',
       city: '',
       address: '',
@@ -587,6 +602,8 @@ class UserProfileRepository {
     final updated = current.copyWith(
       kycStatus: KycReviewStatus.verified,
       hasCompletedKyc: true,
+      hasResubmittedKyc: false,
+      clearKycResubmittedAt: true,
       updatedAt: DateTime.now(),
     );
     profileNotifier.value = updated;
@@ -601,15 +618,24 @@ class UserProfileRepository {
     String? city,
     String? address,
     KycReviewStatus? kycStatus,
+    bool? hasResubmittedKyc,
+    DateTime? kycResubmittedAt,
+    bool clearKycResubmittedAt = false,
     Uint8List? selfieBytes,
     String? selfieFilePath,
+    String? selfieUrl,
     Uint8List? cnicFrontBytes,
     String? cnicFrontFilePath,
+    String? cnicFrontUrl,
     Uint8List? cnicBackBytes,
     String? cnicBackFilePath,
+    String? cnicBackUrl,
     Uint8List? avatarBytes,
     String? avatarFilePath,
+    String? avatarUrl,
     bool clearAvatar = false,
+    bool clearAvatarBytes = false,
+    bool clearKycRejection = false,
   }) {
     final current = profileNotifier.value;
     final updated = current.copyWith(
@@ -625,15 +651,25 @@ class UserProfileRepository {
       city: city != null ? city.trim() : current.city,
       address: address != null ? address.trim() : current.address,
       kycStatus: kycStatus ?? current.kycStatus,
+      hasResubmittedKyc: hasResubmittedKyc ?? current.hasResubmittedKyc,
+      kycResubmittedAt: kycResubmittedAt,
+      clearKycResubmittedAt: clearKycResubmittedAt,
       selfieBytes: selfieBytes ?? current.selfieBytes,
       selfieFilePath: selfieFilePath ?? current.selfieFilePath,
+      selfieUrl: selfieUrl ?? current.selfieUrl,
       cnicFrontBytes: cnicFrontBytes ?? current.cnicFrontBytes,
       cnicFrontFilePath: cnicFrontFilePath ?? current.cnicFrontFilePath,
+      cnicFrontUrl: cnicFrontUrl ?? current.cnicFrontUrl,
       cnicBackBytes: cnicBackBytes ?? current.cnicBackBytes,
       cnicBackFilePath: cnicBackFilePath ?? current.cnicBackFilePath,
+      cnicBackUrl: cnicBackUrl ?? current.cnicBackUrl,
       avatarBytes: avatarBytes,
       avatarFilePath: avatarFilePath,
+      avatarUrl: avatarUrl,
       clearAvatar: clearAvatar,
+      clearAvatarBytes: clearAvatarBytes,
+      clearRejection: clearKycRejection,
+      clearKycReviewedAt: clearKycRejection,
       updatedAt: DateTime.now(),
     );
 
@@ -644,11 +680,13 @@ class UserProfileRepository {
   /// Resets the user profile repository to clean unauthenticated guest state.
   void resetToDefault() {
     _bankAccountsCache.clear();
+    bankAccountsRevision.value++;
     profileNotifier.value = UserProfile.empty();
     activeKycStep = KycStep.personal;
   }
 
   final Map<String, List<BankAccountItem>> _bankAccountsCache = {};
+  final ValueNotifier<int> bankAccountsRevision = ValueNotifier<int>(0);
 
   /// Synchronous retrieval of bank accounts for initial UI render
   List<BankAccountItem> getBankAccountsSync(String email) {
@@ -697,6 +735,7 @@ class UserProfileRepository {
       String email, List<BankAccountItem> accounts) async {
     final key = _normalizeEmailKey(email);
     _bankAccountsCache[key] = List<BankAccountItem>.from(accounts);
+    bankAccountsRevision.value++;
 
     // Sync primary bank account with active profile
     final primary = accounts.firstWhere(

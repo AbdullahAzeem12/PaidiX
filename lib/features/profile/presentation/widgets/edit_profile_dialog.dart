@@ -7,12 +7,16 @@ import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/services/notification_service.dart';
+import '../../../../core/network/api_client.dart';
+import '../../../../core/utils/cnic_formatter.dart';
 import '../../../../core/utils/permission_helper.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../data/user_profile_repository.dart';
 import '../../domain/user_profile.dart';
+import '../../../kyc/data/kyc_image_validation.dart';
+import '../../../kyc/data/kyc_repository.dart';
 
 /// Modal dialog for modifying personal profile details and re-uploading
 /// KYC identity document assets (Selfie, CNIC Front, CNIC Back) from phone gallery.
@@ -105,20 +109,42 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         final rawBytes = await xFile.readAsBytes();
         if (rawBytes.isEmpty) return;
 
+        KycImageValidation.validateMaxFileSize(
+          rawBytes,
+          documentLabel: typeLabel,
+        );
+
         final safeBytes = await PermissionHelper.safeDownscaleBytes(
           rawBytes,
           maxDimension: 1280,
         );
 
+        if (widget.profile.kycStatus == KycReviewStatus.rejected) {
+          KycImageValidation.validateForUpload(
+            safeBytes,
+            documentLabel: typeLabel,
+          );
+        } else {
+          KycImageValidation.validateMaxFileSize(
+            safeBytes,
+            documentLabel: typeLabel,
+          );
+        }
+
         final fileName = xFile.name.isNotEmpty
             ? xFile.name
             : '${typeLabel.toLowerCase().replaceAll(' ', '_')}.jpg';
 
+        if (!mounted) return;
         setState(() {
           onPicked(safeBytes, fileName, xFile.path);
         });
 
         HapticFeedback.selectionClick();
+      }
+    } on FormatException catch (e) {
+      if (mounted) {
+        PaidiXToast.showError(context, e.message);
       }
     } catch (e) {
       debugPrint('EditProfileDialog pick error: $e');
@@ -135,32 +161,122 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   Future<void> _handleSave() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final currentProfile = UserProfileRepository.instance.profile;
+    final isKycResubmission =
+        currentProfile.kycStatus == KycReviewStatus.rejected;
+    if (isKycResubmission &&
+        (_selfieBytes == null ||
+            _cnicFrontBytes == null ||
+            _cnicBackBytes == null)) {
+      PaidiXToast.showError(
+        context,
+        'Re-upload your selfie and both sides of your CNIC before resubmitting.',
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
 
     final hasNewDocs = _selfieBytes != null ||
         _cnicFrontBytes != null ||
         _cnicBackBytes != null;
 
-    UserProfileRepository.instance.updateProfile(
+    final rawCnic = _cnicController.text.trim();
+    final cnicDigits = CnicValidator.clean(rawCnic);
+    final formattedCnic =
+        cnicDigits.length == 13 ? CnicValidator.format(cnicDigits) : rawCnic;
+
+    final editedProfile = currentProfile.copyWith(
       fullName: _nameController.text.trim(),
       phoneNumber: _phoneController.text.trim(),
-      cnicNumber: _cnicController.text.trim(),
+      cnicNumber: formattedCnic,
       city: _cityController.text.trim(),
       address: _addressController.text.trim(),
-      selfieBytes: _selfieBytes,
-      selfieFilePath: _selfiePath,
-      cnicFrontBytes: _cnicFrontBytes,
-      cnicFrontFilePath: _cnicFrontPath,
-      cnicBackBytes: _cnicBackBytes,
-      cnicBackFilePath: _cnicBackPath,
     );
 
-    if (hasNewDocs) {
-      await NotificationService.instance.showNotification(
-        id: 15,
-        title: 'Profile Documents Updated',
-        body: 'New identity documents and photos have been updated on your file.',
+    try {
+      Map<String, dynamic> serverResponse = const {};
+      if (isKycResubmission) {
+        serverResponse = await KycRepository.instance.resubmitEditedProfile(
+          profile: editedProfile,
+          selfieBytes: _selfieBytes,
+          cnicFrontBytes: _cnicFrontBytes,
+          cnicBackBytes: _cnicBackBytes,
+          selfieFileName: _selfieFileName,
+          cnicFrontFileName: _cnicFrontFileName,
+          cnicBackFileName: _cnicBackFileName,
+        );
+      }
+
+      final kycRepo = KycRepository.instance;
+      final serverResubmittedAt = KycRepository.parseResubmittedAt(serverResponse);
+      final serverSelfieUrl = kycRepo.parseDocumentUrl(
+        serverResponse,
+        const ['selfie_url', 'selfieUrl', 'selfie'],
       );
+      final serverFrontUrl = kycRepo.parseDocumentUrl(
+        serverResponse,
+        const ['cnic_front_url', 'cnicFrontUrl', 'cnic_front'],
+      );
+      final serverBackUrl = kycRepo.parseDocumentUrl(
+        serverResponse,
+        const ['cnic_back_url', 'cnicBackUrl', 'cnic_back'],
+      );
+
+      UserProfileRepository.instance.updateProfile(
+        fullName: editedProfile.fullName,
+        phoneNumber: editedProfile.phoneNumber,
+        cnicNumber: editedProfile.cnicNumber,
+        city: editedProfile.city,
+        address: editedProfile.address,
+        kycStatus: isKycResubmission ? KycReviewStatus.pendingReview : null,
+        hasResubmittedKyc: isKycResubmission ? true : null,
+        kycResubmittedAt:
+            isKycResubmission ? (serverResubmittedAt ?? DateTime.now()) : null,
+        clearKycRejection: isKycResubmission,
+        selfieBytes: _selfieBytes,
+        selfieFilePath: _selfiePath,
+        selfieUrl: serverSelfieUrl,
+        cnicFrontBytes: _cnicFrontBytes,
+        cnicFrontFilePath: _cnicFrontPath,
+        cnicFrontUrl: serverFrontUrl,
+        cnicBackBytes: _cnicBackBytes,
+        cnicBackFilePath: _cnicBackPath,
+        cnicBackUrl: serverBackUrl,
+      );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      PaidiXToast.showError(
+        context,
+        'KYC resubmission failed: ${error.message}',
+      );
+      return;
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _isSaving = false);
+      PaidiXToast.showError(
+        context,
+        'Could not save your changes. Please try again.',
+      );
+      debugPrint('EditProfileDialog save error: $error');
+      return;
+    }
+
+    if (hasNewDocs) {
+      try {
+        await NotificationService.instance.showNotification(
+          id: 15,
+          title: isKycResubmission
+              ? 'KYC Resubmitted'
+              : 'Profile Documents Updated',
+          body: isKycResubmission
+              ? 'Your updated identity documents were submitted for review.'
+              : 'New identity documents and photos have been updated on your file.',
+        );
+      } catch (_) {
+        // Notifications must not block saving accepted profile changes.
+      }
     }
 
     if (!mounted) return;
@@ -169,9 +285,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
     PaidiXToast.showSuccess(
       parentContext,
-      hasNewDocs
-          ? 'Profile and documents updated successfully'
-          : 'Profile updated successfully',
+      isKycResubmission
+          ? 'KYC updated and resubmitted for review'
+          : hasNewDocs
+              ? 'Profile and documents updated successfully'
+              : 'Profile updated successfully',
     );
   }
 
@@ -181,6 +299,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     final colors = AppColors.of(context);
     final size = MediaQuery.of(context).size;
     final isNarrow = size.width < 560;
+    final isKycResubmission =
+        widget.profile.kycStatus == KycReviewStatus.rejected;
 
     return Center(
       child: Material(
@@ -242,7 +362,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         ),
                       ),
                       IconButton(
-                        icon: Icon(Icons.close_rounded, color: colors.textMuted),
+                        icon:
+                            Icon(Icons.close_rounded, color: colors.textMuted),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => Navigator.of(context).pop(),
@@ -290,6 +411,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     validator: (val) {
                       if (val == null || val.trim().isEmpty) {
                         return 'CNIC number is required';
+                      }
+                      if (isKycResubmission &&
+                          !RegExp(r'^\d{5}-\d{7}-\d{1}$')
+                              .hasMatch(CnicValidator.format(val.trim()))) {
+                        return 'Enter a valid 13-digit CNIC (e.g. 35202-0450461-5)';
                       }
                       return null;
                     },
@@ -349,13 +475,24 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
                   // Re-Upload Documents Section Header
                   Text(
-                    'RE-UPLOAD DOCUMENTS (OPTIONAL — LEAVE EMPTY TO KEEP CURRENT)',
+                    isKycResubmission
+                        ? 'RE-UPLOAD SELFIE AND BOTH CNIC SIDES TO RESUBMIT'
+                        : 'RE-UPLOAD DOCUMENTS (OPTIONAL — LEAVE EMPTY TO KEEP CURRENT)',
                     style: TextStyle(
                       fontFamily: AppTheme.activeFontFamily,
                       color: colors.textMuted,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 1.1,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Max 5 MB per picture (JPEG, PNG, WebP)',
+                    style: TextStyle(
+                      fontFamily: AppTheme.activeFontFamily,
+                      color: colors.textSecondary,
+                      fontSize: 11,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -470,7 +607,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
-                        onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+                        onPressed: _isSaving
+                            ? null
+                            : () => Navigator.of(context).pop(),
                         child: Text(
                           'Cancel',
                           style: TextStyle(
@@ -648,16 +787,17 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         hintStyle: TextStyle(color: colors.textMuted, fontSize: 13.5),
         filled: true,
         fillColor: colors.inputBackground,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,
-          borderSide:
-              BorderSide(color: colors.border.withValues(alpha: 0.8), width: 1.2),
+          borderSide: BorderSide(
+              color: colors.border.withValues(alpha: 0.8), width: 1.2),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,
-          borderSide:
-              BorderSide(color: colors.border.withValues(alpha: 0.8), width: 1.2),
+          borderSide: BorderSide(
+              color: colors.border.withValues(alpha: 0.8), width: 1.2),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,

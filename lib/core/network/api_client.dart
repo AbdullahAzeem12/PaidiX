@@ -168,10 +168,27 @@ class ApiClient {
   Future<void> initSession() async {
     if (_isTestEnvironment) return;
     try {
-      _authToken = await _secureStorage.read(key: _tokenStorageKey);
-      _refreshToken = await _secureStorage.read(key: _refreshTokenStorageKey);
+      _authToken = await _secureStorage
+          .read(key: _tokenStorageKey)
+          .timeout(const Duration(seconds: 2));
+      _refreshToken = await _secureStorage
+          .read(key: _refreshTokenStorageKey)
+          .timeout(const Duration(seconds: 2));
     } catch (e) {
       debugPrint('[ApiClient] Secure storage read warning: $e');
+      final lower = e.toString().toLowerCase();
+      // Corrupted KeyStore entries on vendor ROMs can throw padding/decryption
+      // errors permanently unless cleared.
+      if (lower.contains('badpadding') ||
+          lower.contains('aeadbadtag') ||
+          lower.contains('decrypt') ||
+          lower.contains('keystore')) {
+        try {
+          await _secureStorage
+              .deleteAll()
+              .timeout(const Duration(seconds: 1));
+        } catch (_) {}
+      }
     }
   }
 
@@ -620,22 +637,26 @@ class ApiClient {
     });
   }
 
-  /// Executes a Multipart Form-Data POST request (for KYC documents and selfies).
-  Future<Map<String, dynamic>> postMultipart(
+  /// Executes a Multipart Form-Data request (POST or PATCH) for documents and images.
+  Future<Map<String, dynamic>> _sendMultipart(
+    String method,
     String path, {
     required Map<String, String> fields,
-    required List<http.MultipartFile> files,
+    List<http.MultipartFile> files = const [],
+    List<http.MultipartFile> Function()? filesBuilder,
     Duration? timeout,
   }) async {
     return _executeWithTokenRefresh(() async {
       final uri = _buildUri(path);
+      final client = _customHttpClient ?? http.Client();
+      final ownsClient = _customHttpClient == null;
       try {
-        final request = http.MultipartRequest('POST', uri);
+        final request = http.MultipartRequest(method, uri);
         request.headers.addAll(_buildHeaders(isMultipart: true));
         request.fields.addAll(fields);
-        request.files.addAll(files);
+        request.files.addAll(filesBuilder != null ? filesBuilder() : files);
 
-        final streamedResponse = await request.send().timeout(
+        final streamedResponse = await client.send(request).timeout(
               timeout ?? AppConfig.uploadTimeoutDuration,
             );
         final response = await http.Response.fromStream(streamedResponse);
@@ -663,9 +684,47 @@ class ApiClient {
           errorCode: 'ERR_BAD_GATEWAY',
           isRetryable: true,
         );
+      } finally {
+        if (ownsClient) {
+          client.close();
+        }
       }
     });
   }
+
+  /// Executes a Multipart Form-Data POST request (for KYC documents and selfies).
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    List<http.MultipartFile> files = const [],
+    List<http.MultipartFile> Function()? filesBuilder,
+    Duration? timeout,
+  }) =>
+      _sendMultipart(
+        'POST',
+        path,
+        fields: fields,
+        files: files,
+        filesBuilder: filesBuilder,
+        timeout: timeout,
+      );
+
+  /// Executes a Multipart Form-Data PATCH request (for KYC profile resubmission).
+  Future<Map<String, dynamic>> patchMultipart(
+    String path, {
+    required Map<String, String> fields,
+    List<http.MultipartFile> files = const [],
+    List<http.MultipartFile> Function()? filesBuilder,
+    Duration? timeout,
+  }) =>
+      _sendMultipart(
+        'PATCH',
+        path,
+        fields: fields,
+        files: files,
+        filesBuilder: filesBuilder,
+        timeout: timeout,
+      );
 
   /// Validates and parses the HTTP response, throwing a structured [ApiException]
   /// for every error status code with precise, user-facing messaging.

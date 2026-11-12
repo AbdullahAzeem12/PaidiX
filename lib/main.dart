@@ -17,10 +17,23 @@ void main() async {
     return true;
   };
 
-  // Restore persisted auth session and user profile
-  await ApiClient.instance.initSession();
-  await UserProfileRepository.instance.init();
-  await KycMediaRecovery.recoverAfterAndroidRestart();
+  // Restore persisted auth session and user profile with bounded timeouts so
+  // keystore or disk stalls after OS process restarts cannot freeze LaunchTheme.
+  try {
+    await Future.wait([
+      ApiClient.instance.initSession(),
+      UserProfileRepository.instance.init(),
+    ]).timeout(const Duration(seconds: 2));
+  } catch (e) {
+    debugPrint('Startup session/profile restore skipped: $e');
+  }
+
+  try {
+    await KycMediaRecovery.recoverAfterAndroidRestart()
+        .timeout(const Duration(milliseconds: 1500));
+  } catch (e) {
+    debugPrint('Startup KYC media recovery skipped: $e');
+  }
 
   runApp(const PaidiXApp());
 }

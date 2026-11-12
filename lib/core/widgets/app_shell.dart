@@ -10,6 +10,7 @@ import '../../app/theme/app_motion.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../app/theme/app_theme.dart';
 import '../../core/config/app_config.dart';
+import '../../core/network/api_client.dart';
 import '../../features/auth/data/auth_repository.dart';
 import '../../features/profile/data/user_profile_repository.dart';
 import '../../features/profile/domain/user_profile.dart';
@@ -18,6 +19,9 @@ import 'brand_logo.dart';
 import 'paidi_x_bottom_nav_bar.dart';
 import 'paidix_toast.dart';
 import 'profile_menu_dialog.dart';
+import 'payments_pin_lock_screen.dart';
+import 'payments_pin_recovery_dialog.dart';
+import 'payments_pin_lock_scope.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -38,6 +42,12 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   bool _isSidebarCollapsed = false;
   Timer? _kycStatusTimer;
   bool _isRefreshingKycStatus = false;
+  bool _paymentsPinStatusChecked = false;
+  bool _paymentsPinStatusLoading = false;
+  bool _serverPaymentsPinIsSet = false;
+  // Dashboard and My Payments share one PIN unlock for this app session.
+  bool _protectedPagesUnlocked = false;
+  String? _paymentsPinStatusError;
   KycReviewStatus _lastObservedKycStatus =
       UserProfileRepository.instance.profile.kycStatus;
 
@@ -53,6 +63,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         UserProfileRepository.instance.profile.kycStatus,
       );
       _refreshKycStatus();
+      _refreshPaymentsPinStatus();
     });
   }
 
@@ -61,6 +72,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       _startKycStatusPolling();
       _refreshKycStatus();
+      _refreshPaymentsPinStatus();
     } else {
       _kycStatusTimer?.cancel();
       _kycStatusTimer = null;
@@ -70,7 +82,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _startKycStatusPolling() {
     if (!AppConfig.hasCustomBackend || _kycStatusTimer != null) return;
     _kycStatusTimer = Timer.periodic(
-      const Duration(seconds: 15),
+      const Duration(seconds: 5),
       (_) => _refreshKycStatus(),
     );
   }
@@ -98,6 +110,14 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
           'Your identity verification is approved. You can now submit new payments.',
           title: 'KYC approved',
         );
+      } else if (status == KycReviewStatus.pendingReview &&
+          UserProfileRepository.instance.profile.hasResubmittedKyc &&
+          _lastObservedKycStatus == KycReviewStatus.rejected) {
+        PaidiXToast.showSuccess(
+          context,
+          'Your updated KYC documents are awaiting admin review.',
+          title: 'KYC resubmitted',
+        );
       }
       _lastObservedKycStatus = status;
       _redirectForKycStatus(status);
@@ -111,7 +131,10 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void _redirectForKycStatus(KycReviewStatus status) {
     if (!mounted) return;
     if (status == KycReviewStatus.rejected &&
-        widget.currentPath != '/app/onboarding') {
+        widget.currentPath != '/app/onboarding' &&
+        !widget.currentPath.startsWith('/app/dashboard') &&
+        !widget.currentPath.startsWith('/app/payments/new') &&
+        !widget.currentPath.startsWith('/app/settings')) {
       context.go('/app/onboarding');
     } else if (status == KycReviewStatus.verified &&
         widget.currentPath.startsWith('/app/onboarding')) {
@@ -125,7 +148,138 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
     super.didUpdateWidget(oldWidget);
     if (widget.currentPath != oldWidget.currentPath) {
       SessionTimeoutService.instance.recordUserActivity();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _refreshPaymentsPinStatus();
+      });
+      if (UserProfileRepository.instance.profile.kycStatus !=
+          KycReviewStatus.verified) {
+        _refreshKycStatus();
+      }
     }
+  }
+
+  Future<void> _refreshPaymentsPinStatus() async {
+    if (!AppConfig.hasCustomBackend) {
+      if (mounted) {
+        setState(() {
+          _paymentsPinStatusChecked = true;
+          _serverPaymentsPinIsSet = false;
+          _paymentsPinStatusError = null;
+        });
+      }
+      return;
+    }
+    if (_paymentsPinStatusLoading) return;
+    if (UserProfileRepository.instance.profile.email.isEmpty) return;
+
+    setState(() {
+      _paymentsPinStatusLoading = true;
+      _paymentsPinStatusError = null;
+    });
+    try {
+      final isSet = await AuthRepository.instance.checkPaymentsPinStatus();
+      if (!mounted) return;
+      setState(() {
+        _serverPaymentsPinIsSet = isSet;
+        _paymentsPinStatusChecked = true;
+        if (!isSet) {
+          _protectedPagesUnlocked = false;
+        }
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _paymentsPinStatusChecked = false;
+        _paymentsPinStatusError =
+            'We could not confirm your Payments PIN with the server.';
+      });
+    } finally {
+      if (mounted) setState(() => _paymentsPinStatusLoading = false);
+    }
+  }
+
+  void _lockDashboard() {
+    if (!mounted || !_serverPaymentsPinIsSet) return;
+    setState(() => _protectedPagesUnlocked = false);
+  }
+
+  void _lockPaymentsPage() {
+    if (!mounted || !_serverPaymentsPinIsSet) return;
+    setState(() => _protectedPagesUnlocked = false);
+  }
+
+  Widget _buildPaymentsPinProtectedBody(BuildContext context) {
+    Widget scopedChild() => PaymentsPinLockScope(
+          isConfigured: _serverPaymentsPinIsSet,
+          onLockDashboard: _lockDashboard,
+          onLockPayments: _lockPaymentsPage,
+          child: widget.child,
+        );
+
+    final isDashboard = widget.currentPath == '/app/dashboard';
+    final isPaymentsPage = widget.currentPath == '/app/payments';
+    if (!AppConfig.hasCustomBackend || (!isDashboard && !isPaymentsPage)) {
+      return scopedChild();
+    }
+    if (_protectedPagesUnlocked) return scopedChild();
+    if (_paymentsPinStatusLoading || !_paymentsPinStatusChecked) {
+      return ColoredBox(
+        color: AppColors.of(context).background,
+        child: Center(
+          child: _paymentsPinStatusError == null
+              ? const CircularProgressIndicator()
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.cloud_off_outlined,
+                            size: 42,
+                            color: AppColors.of(context).statusErrorText),
+                        const SizedBox(height: 16),
+                        Text(
+                          _paymentsPinStatusError!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.of(context).textPrimary,
+                            fontSize: 17,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: _refreshPaymentsPinStatus,
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        ),
+      );
+    }
+    if (!_serverPaymentsPinIsSet) return scopedChild();
+
+    return PaymentsPinLockScreen(
+      title: isPaymentsPage ? 'My payments is locked.' : 'Dashboard is locked.',
+      onUnlock: (pin) async {
+        final ok = await AuthRepository.instance.verifyPaymentsPin(pin: pin);
+        if (ok && mounted) {
+          setState(() => _protectedPagesUnlocked = true);
+        }
+        return ok;
+      },
+      onForgotPin: () {
+        final email = UserProfileRepository.instance.profile.email;
+        showPaymentsPinRecoveryDialog(
+          context: context,
+          email: email,
+          onSend: (address) =>
+              AuthRepository.instance.requestPaymentsPinReset(email: address),
+        );
+      },
+    );
   }
 
   /// Releases resources owned by this object before it is removed.
@@ -215,7 +369,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                       children: [
                         _buildSidebar(userProfile),
                         Expanded(
-                          child: widget.child,
+                          child: _buildPaymentsPinProtectedBody(context),
                         ),
                       ],
                     ),
@@ -304,7 +458,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
                             child: Container(color: colors.border, height: 1),
                           ),
                         ),
-                  body: widget.child,
+                  body: _buildPaymentsPinProtectedBody(context),
                   bottomNavigationBar: isSettings
                       ? null
                       : PaidiXBottomNavBar(
@@ -656,6 +810,24 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             ),
           );
         }
+      }
+      if (userProfile.avatarUrl != null && userProfile.avatarUrl!.isNotEmpty) {
+        return ClipOval(
+          child: Image.network(
+            userProfile.avatarUrl!,
+            headers: ApiClient.instance.imageHeadersFor(userProfile.avatarUrl!),
+            width: 32,
+            height: 32,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+              isSidebar: isSidebar,
+              initial: userProfile.avatarInitial,
+              colors: colors,
+              isDark: isDark,
+            ),
+          ),
+        );
       }
     }
 

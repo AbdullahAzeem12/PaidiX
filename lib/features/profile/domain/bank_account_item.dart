@@ -7,6 +7,7 @@ export 'pakistan_banks.dart';
 @immutable
 class BankAccountItem {
   final String id;
+  final String? bankId;
   final String bankName;
   final String holder;
   final String accountNumber;
@@ -16,6 +17,7 @@ class BankAccountItem {
   /// Creates an immutable account record for persistence and settings UI.
   const BankAccountItem({
     required this.id,
+    this.bankId,
     required this.bankName,
     required this.holder,
     required this.accountNumber,
@@ -45,6 +47,7 @@ class BankAccountItem {
   /// Copies this record while retaining every field not explicitly replaced.
   BankAccountItem copyWith({
     String? id,
+    String? bankId,
     String? bankName,
     String? holder,
     String? accountNumber,
@@ -53,6 +56,7 @@ class BankAccountItem {
   }) {
     return BankAccountItem(
       id: id ?? this.id,
+      bankId: bankId ?? this.bankId,
       bankName: bankName ?? this.bankName,
       holder: holder ?? this.holder,
       accountNumber: accountNumber ?? this.accountNumber,
@@ -64,6 +68,7 @@ class BankAccountItem {
   /// Converts the account to the JSON shape stored by the profile repository.
   Map<String, dynamic> toJson() => {
         'id': id,
+        if (bankId != null) 'bankId': bankId,
         'bankName': bankName,
         'holder': holder,
         'accountNumber': accountNumber,
@@ -71,16 +76,101 @@ class BankAccountItem {
         'isPrimary': isPrimary,
       };
 
-  /// Rebuilds an account from saved JSON, supplying defaults for missing fields.
+  static String? _pickString(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final value = json[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return value.trim();
+      }
+      if (value is num) {
+        return value.toString();
+      }
+    }
+    return null;
+  }
+
+  static bool _parseBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is num) return value != 0;
+    if (value is String) {
+      final lower = value.trim().toLowerCase();
+      return lower == 'true' || lower == '1' || lower == 'yes';
+    }
+    return false;
+  }
+
+  /// Rebuilds an account from local cache JSON or backend REST payload.
   factory BankAccountItem.fromJson(Map<String, dynamic> json) {
+    final rawBank = json['bank'];
+    final bankMap = rawBank is Map
+        ? rawBank.map((k, v) => MapEntry('$k', v))
+        : null;
+    final resolvedBankId = _pickString(
+          bankMap ?? const {},
+          const ['id', 'pk', 'uuid', 'bank_id'],
+        ) ??
+        _pickString(json, const ['bankId', 'bank_id']) ??
+        (rawBank is num ? rawBank.toString() : null);
+
+    final resolvedBankName = _pickString(
+          json,
+          const [
+            'bankName',
+            'bank_name',
+            'bank_display',
+            'bankDisplay',
+            'institution_name',
+            'institutionName',
+            'bank_code',
+            'bankCode',
+            'bank_short_name',
+            'bankShortName',
+          ],
+        ) ??
+        _pickString(
+          bankMap ?? const {},
+          const ['name', 'short_name', 'shortName', 'code', 'title'],
+        ) ??
+        (rawBank is String ? rawBank.trim() : '');
+
+    final last4Suffix = _pickString(json, const ['last4', 'last_4']);
+    final resolvedNumber = _pickString(
+          json,
+          const [
+            'accountNumber',
+            'account_number',
+            'masked_account_number',
+            'maskedAccountNumber',
+            'account_no',
+            'accountNo',
+          ],
+        ) ??
+        (last4Suffix != null ? '••••$last4Suffix' : '');
+
     return BankAccountItem(
-      id: json['id'] as String? ??
+      id: _pickString(json, const ['id', 'uuid', 'pk']) ??
           'bank_${DateTime.now().millisecondsSinceEpoch}',
-      bankName: json['bankName'] as String? ?? '',
-      holder: json['holder'] as String? ?? '',
-      accountNumber: json['accountNumber'] as String? ?? '',
-      iban: json['iban'] as String? ?? '',
-      isPrimary: json['isPrimary'] as bool? ?? false,
+      bankId: resolvedBankId,
+      bankName: resolvedBankName,
+      holder: _pickString(
+            json,
+            const [
+              'holder',
+              'holder_name',
+              'holderName',
+              'account_title',
+              'accountTitle',
+              'beneficiary_name',
+              'beneficiaryName',
+              'title',
+            ],
+          ) ??
+          '',
+      accountNumber: resolvedNumber,
+      iban: _pickString(json, const ['iban', 'iban_number', 'ibanNumber']) ?? '',
+      isPrimary: _parseBool(
+        json['isPrimary'] ?? json['is_primary'] ?? json['primary'],
+      ),
     );
   }
 
@@ -91,6 +181,7 @@ class BankAccountItem {
       other is BankAccountItem &&
           runtimeType == other.runtimeType &&
           id == other.id &&
+          bankId == other.bankId &&
           bankName == other.bankName &&
           holder == other.holder &&
           accountNumber == other.accountNumber &&
@@ -101,6 +192,7 @@ class BankAccountItem {
   @override
   int get hashCode => Object.hash(
         id,
+        bankId,
         bankName,
         holder,
         accountNumber,

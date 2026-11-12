@@ -67,12 +67,14 @@ class AppConfig {
   @visibleForTesting
   static bool? debugOverrideCustomBackend;
 
-  /// Whether a live backend URL has been configured (either in code or via `--dart-define`).
+  /// Whether requests should use the configured backend (either in code or via
+  /// `--dart-define`). Staging is a live backend too; only tests and an
+  /// explicit testing override should use the offline simulation paths.
   static bool get hasCustomBackend =>
       debugOverrideCustomBackend ??
       (!isTestEnvironment &&
-          apiBaseUrl.isNotEmpty &&
-          apiBaseUrl != 'https://api-staging.paidix.com/v1');
+          _rawApiBaseUrl.trim().isNotEmpty &&
+          Uri.tryParse(apiBaseUrl)?.host.isNotEmpty == true);
 
   /// Default timeout duration for standard JSON REST requests.
   static const Duration timeoutDuration = Duration(seconds: 15);

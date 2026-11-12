@@ -465,7 +465,7 @@ void main() {
       expect(find.text('BENEFICIARY ACCOUNT TITLE'), findsOneWidget);
       expect(find.text('ACCOUNT NUMBER'), findsOneWidget);
       expect(find.text('IBAN (OPTIONAL)'), findsOneWidget);
-      expect(find.text('1-LINK & PRISM Real-time Direct Clearing'), findsOneWidget);
+      expect(find.text('1-LINK & PRISM Real-time Direct Clearing'), findsNothing);
     });
 
     testWidgets('KycHeader and KycPage adapt cleanly to narrow 360px and 320px screens with zero overflow', (tester) async {

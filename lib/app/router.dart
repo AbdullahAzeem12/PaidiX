@@ -149,7 +149,9 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
             path: '/app/settings',
             pageBuilder: (context, state) => CustomTransitionPage(
               key: state.pageKey,
-              child: const AccountSettingsPage(),
+              child: AccountSettingsPage(
+                initialSection: state.uri.queryParameters['section'],
+              ),
               transitionDuration: const Duration(milliseconds: 340),
               reverseTransitionDuration: const Duration(milliseconds: 260),
               transitionsBuilder:

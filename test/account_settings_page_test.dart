@@ -705,5 +705,61 @@ void main() {
       expect(find.byType(PaidiXBottomNavBar), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+        'Primary account cannot be removed and dialog enforces 6-50 digit account & PK IBAN rules',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(414.0, 900.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const AccountSettingsPage(initialSection: 'bank-accounts'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Primary account shows 'Primary account' lock indicator and NO 'Remove' button
+      expect(find.text('Primary'), findsOneWidget);
+      expect(find.text('Primary account'), findsOneWidget);
+      expect(find.text('Edit'), findsOneWidget);
+      expect(find.text('Remove'), findsNothing);
+
+      // Open Add account dialog
+      await tester.tap(find.text('Add account'));
+      await tester.pumpAndSettle();
+
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.at(0), 'Abdullah Azeem');
+      await tester.enterText(textFields.at(1), '123456'); // valid 6-digit min
+      await tester.enterText(textFields.at(2), 'US1234567890'); // invalid non-PK IBAN
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Add account').last);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 200));
+
+      expect(find.text('Pakistani IBAN must start with PK.'), findsOneWidget);
+      expect(find.text('Add Pakistani bank account'), findsOneWidget);
+
+      // Let toast dismiss cleanly before valid submit
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // Fix IBAN to start with PK and save 6-digit account
+      await tester.enterText(textFields.at(2), 'PK36SCBL0000001234567801');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Add account').last);
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // Additional account shows 'Remove', primary still shows 'Primary account'
+      expect(find.text('Primary account'), findsOneWidget);
+      expect(find.text('Remove'), findsOneWidget);
+      expect(find.text('•••• •••• 3456'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

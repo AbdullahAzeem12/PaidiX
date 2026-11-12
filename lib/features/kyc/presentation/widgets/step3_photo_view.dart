@@ -13,6 +13,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
+import '../../data/kyc_image_validation.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
 import 'kyc_media_access.dart';
@@ -103,7 +104,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
   Future<void> _applyPickedPhoto(XFile xFile, {required bool isCamera}) async {
     try {
       final sourceBytes = await xFile.readAsBytes();
-      final bytes = await KycMediaAccess.validateImage(sourceBytes);
+      final bytes = await KycMediaAccess.validateImage(
+        sourceBytes,
+        documentLabel: 'Selfie',
+      );
       if (!mounted) return;
 
       final fileName = xFile.name.isNotEmpty
@@ -123,7 +127,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
     } catch (e) {
       debugPrint('Failed to apply picked photo: $e');
       if (mounted) {
-        PaidiXToast.showError(context, 'Error processing photo: $e');
+        final message = e is FormatException
+            ? KycImageValidation.errorMessage(e)
+            : 'Error processing photo: $e';
+        PaidiXToast.showError(context, message);
       }
     }
   }
