@@ -1,6 +1,6 @@
 /// Defines fx converter studio in the settings feature's presentation layer.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/paidix_toast.dart';

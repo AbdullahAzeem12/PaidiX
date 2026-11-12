@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -133,7 +133,7 @@ class DocumentPreviewTile extends StatelessWidget {
         bytes!,
         fit: BoxFit.cover,
         alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
-        errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
+        errorBuilder: (_, _, _) => _buildFallbackGraphic(colors, isDark),
       );
     }
 
@@ -145,7 +145,7 @@ class DocumentPreviewTile extends StatelessWidget {
           file,
           fit: BoxFit.cover,
           alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
-          errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
+          errorBuilder: (_, _, _) => _buildFallbackGraphic(colors, isDark),
         );
       }
     }
@@ -156,7 +156,7 @@ class DocumentPreviewTile extends StatelessWidget {
         headers: ApiClient.instance.imageHeadersFor(imageUrl!),
         fit: BoxFit.cover,
         alignment: isSelfie ? const Alignment(0.0, -0.22) : Alignment.center,
-        errorBuilder: (_, __, ___) => _buildFallbackGraphic(colors, isDark),
+        errorBuilder: (_, _, _) => _buildFallbackGraphic(colors, isDark),
       );
     }
 

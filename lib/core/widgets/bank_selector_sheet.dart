@@ -1,6 +1,6 @@
 /// Defines bank selector sheet in the application core utilities and reusable widgets.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_theme.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
@@ -255,7 +255,7 @@ class _BankSelectorSheetState extends State<BankSelectorSheet> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
                       itemCount: banks.length,
-                      separatorBuilder: (_, __) => Divider(
+                      separatorBuilder: (_, _) => Divider(
                         color: c.border.withValues(alpha: 0.35),
                         height: 1,
                       ),

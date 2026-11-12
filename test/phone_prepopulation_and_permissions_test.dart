@@ -1,7 +1,7 @@
 /// Tests phone pre-population logic, phone parsing, and safe image permissions handling.
 
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/core/utils/permission_helper.dart';
 import 'package:paidix/core/utils/phone_formatter.dart';

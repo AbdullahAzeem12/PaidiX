@@ -1,6 +1,6 @@
 /// Defines pakistan banks in the profile feature's domain layer.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Semantic categories for Pakistani banking and payment institutions.
 enum BankCategory {

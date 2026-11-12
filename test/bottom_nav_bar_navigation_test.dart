@@ -1,6 +1,6 @@
 /// Tests the bottom nav bar navigation test behavior and guards its key user-facing and domain expectations.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/widgets/paidi_x_bottom_nav_bar.dart';

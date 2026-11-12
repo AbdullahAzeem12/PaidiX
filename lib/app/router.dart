@@ -1,6 +1,6 @@
 /// Defines application routes, page transitions, and shared route-level dependencies.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import '../core/widgets/app_shell.dart';
 import '../core/widgets/server_error_page.dart';

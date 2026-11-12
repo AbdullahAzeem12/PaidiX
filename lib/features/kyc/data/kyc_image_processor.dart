@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class EnhancementResult {
   final Uint8List? processedBytes;

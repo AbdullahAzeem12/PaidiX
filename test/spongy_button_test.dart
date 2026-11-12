@@ -1,6 +1,6 @@
 /// Tests the spongy button test behavior and guards its key user-facing and domain expectations.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/widgets/app_button.dart';

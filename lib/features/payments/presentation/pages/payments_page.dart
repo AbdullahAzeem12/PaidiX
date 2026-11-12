@@ -1,6 +1,6 @@
 /// Defines payments page in the payments feature's presentation layer.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../app/theme/app_colors.dart';

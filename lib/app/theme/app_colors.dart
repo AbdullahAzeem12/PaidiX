@@ -1,6 +1,6 @@
 /// Defines app colors in the application theme system.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'app_theme.dart';
 
 /// Semantic design tokens for PaidiX extracted directly from the Tailwind

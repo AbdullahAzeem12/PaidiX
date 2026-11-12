@@ -1,6 +1,6 @@
 /// Defines app motion in the application theme system.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class AppMotion {
   AppMotion._();

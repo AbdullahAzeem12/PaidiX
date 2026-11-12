@@ -3,7 +3,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1417,7 +1417,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
               p.avatarBytes!,
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   _avatarInitialText(c, p.avatarInitial, size),
             ),
           ),
@@ -1432,7 +1432,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                 file,
                 fit: BoxFit.cover,
                 alignment: Alignment.center,
-                errorBuilder: (_, __, ___) =>
+                errorBuilder: (_, _, _) =>
                     _avatarInitialText(c, p.avatarInitial, size),
               ),
             ),
@@ -1447,7 +1447,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
               headers: ApiClient.instance.imageHeadersFor(p.avatarUrl!),
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (_, __, ___) =>
+              errorBuilder: (_, _, _) =>
                   _avatarInitialText(c, p.avatarInitial, size),
             ),
           ),

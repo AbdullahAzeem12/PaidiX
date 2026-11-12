@@ -1,6 +1,6 @@
 /// Defines auth text field in the application core utilities and reusable widgets.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';

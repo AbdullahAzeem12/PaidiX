@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -1023,7 +1023,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.cover,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarPlaceholder(colors),
       );
     }
     if (widget.photoInfo.bytes != null) {
@@ -1031,7 +1031,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         widget.photoInfo.bytes!,
         fit: BoxFit.cover,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarPlaceholder(colors),
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -1041,7 +1041,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         File(widget.photoInfo.filePath!),
         fit: BoxFit.cover,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarPlaceholder(colors),
       );
     }
 
@@ -1085,7 +1085,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         widget.photoInfo.enhancedBytes!,
         fit: BoxFit.contain,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarFullPlaceholder(colors),
       );
     }
     if (widget.photoInfo.bytes != null) {
@@ -1093,7 +1093,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         widget.photoInfo.bytes!,
         fit: BoxFit.contain,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarFullPlaceholder(colors),
       );
     }
     if (widget.photoInfo.filePath != null &&
@@ -1103,7 +1103,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         File(widget.photoInfo.filePath!),
         fit: BoxFit.contain,
         cacheWidth: 800,
-        errorBuilder: (_, __, ___) => _buildAvatarFullPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildAvatarFullPlaceholder(colors),
       );
     }
 

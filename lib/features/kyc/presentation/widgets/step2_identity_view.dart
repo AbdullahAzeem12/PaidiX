@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -1215,7 +1215,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         height: double.infinity,
         cacheWidth: 1080,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => _buildCnicPlaceholder(isBack, colors),
+        errorBuilder: (_, _, _) => _buildCnicPlaceholder(isBack, colors),
       );
     }
     if (filePath != null && !kIsWeb && File(filePath).existsSync()) {
@@ -1226,7 +1226,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         height: double.infinity,
         cacheWidth: 1080,
         gaplessPlayback: true,
-        errorBuilder: (_, __, ___) => _buildCnicPlaceholder(isBack, colors),
+        errorBuilder: (_, _, _) => _buildCnicPlaceholder(isBack, colors),
       );
     }
 

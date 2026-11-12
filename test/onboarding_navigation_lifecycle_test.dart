@@ -1,7 +1,7 @@
 /// Tests the dynamic visibility and retirement of the Onboarding navigation tab
 /// across unverified/pending KYC vs server-verified states.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:paidix/app/router.dart';
 import 'package:paidix/app/theme/app_theme.dart';

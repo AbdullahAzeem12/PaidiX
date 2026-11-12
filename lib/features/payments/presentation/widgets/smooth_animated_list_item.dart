@@ -1,6 +1,6 @@
 /// Defines smooth animated list item in the payments feature's presentation layer.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 

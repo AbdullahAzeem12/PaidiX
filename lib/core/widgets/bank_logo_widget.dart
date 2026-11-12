@@ -1,6 +1,6 @@
 /// Defines bank logo widget in the application core utilities and reusable widgets.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../features/profile/domain/pakistan_banks.dart';
 
 /// Semantic bank icon for Pakistani banks and digital payment systems.

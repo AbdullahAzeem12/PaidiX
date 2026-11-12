@@ -848,7 +848,7 @@ class KycRepository {
     final cleanIban = account.iban.trim().toUpperCase();
 
     return <String, dynamic>{
-      if (serverBankId != null) 'bank': serverBankId,
+      'bank': ?serverBankId,
       'holder_name': account.holder.trim(),
       'account_number': cleanAccountNumber,
       if (cleanIban.isNotEmpty) 'iban': cleanIban,

@@ -1,6 +1,6 @@
 /// Defines edit profile dialog in the profile feature's presentation layer.
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../../app/theme/app_colors.dart';

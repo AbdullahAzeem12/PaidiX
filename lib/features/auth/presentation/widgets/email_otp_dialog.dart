@@ -1,7 +1,7 @@
 /// Modal dialog for 6-digit email OTP verification with live countdown and auto-paste support.
 
 import 'dart:async';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';

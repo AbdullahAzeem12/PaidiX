@@ -51,7 +51,7 @@ When you change behavior, **update this file in the same change** (routes, formu
 
 | Layer | Choice |
 | :--- | :--- |
-| UI | Flutter Material 3, `MaterialApp.router` |
+| UI | Flutter Material 3 via standalone `material_ui` `^1.11.0`, `MaterialApp.router` |
 | Routing | `go_router` `^18.1.4` |
 | State | Widget local `setState` + one shared `ValueNotifier` on payments |
 | Network & HTTP | `http` `^1.2.2`, `ApiClient` (`lib/core/network/api_client.dart`) with Bearer auth token injection & multipart upload |
@@ -62,7 +62,7 @@ When you change behavior, **update this file in the same change** (routes, formu
 | Notifications | `flutter_local_notifications` `^23.0.1` (Android channel `paidix_kyc_channel`) |
 | Icons | `cupertino_icons` `^2.0.0` |
 | Fonts | `google_fonts` `^9.0.0` |
-| SDK | Dart `>=3.0.0 <4.0.0`, Flutter `>=3.10.0` |
+| SDK | Dart `>=3.13.0 <4.0.0`, Flutter `>=3.47.0` (required by standalone `material_ui`) |
 | Lint | `flutter_lints` `^6.0.0` via `package:lints/recommended.yaml` |
 | Analyzer excludes | `build/**`, `android/**`, `ios/**`, `web/**`, `windows/**`, `macos/**`, `linux/**` |
 

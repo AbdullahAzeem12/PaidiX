@@ -2,7 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -198,7 +198,7 @@ class DocumentViewerDialog extends StatelessWidget {
       return Image.memory(
         bytes!,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildPlaceholder(colors),
       );
     }
     if (filePath != null && filePath!.isNotEmpty && !kIsWeb) {
@@ -207,7 +207,7 @@ class DocumentViewerDialog extends StatelessWidget {
         return Image.file(
           f,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+          errorBuilder: (_, _, _) => _buildPlaceholder(colors),
         );
       }
     }
@@ -217,7 +217,7 @@ class DocumentViewerDialog extends StatelessWidget {
         imageUrl!,
         headers: ApiClient.instance.imageHeadersFor(imageUrl!),
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => _buildPlaceholder(colors),
+        errorBuilder: (_, _, _) => _buildPlaceholder(colors),
       );
     }
 

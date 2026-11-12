@@ -3,7 +3,7 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_motion.dart';
@@ -781,7 +781,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             height: 32,
             fit: BoxFit.cover,
             alignment: Alignment.center,
-            errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+            errorBuilder: (_, _, _) => _buildFallbackAvatar(
               isSidebar: isSidebar,
               initial: userProfile.avatarInitial,
               colors: colors,
@@ -801,7 +801,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
               height: 32,
               fit: BoxFit.cover,
               alignment: Alignment.center,
-              errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+              errorBuilder: (_, _, _) => _buildFallbackAvatar(
                 isSidebar: isSidebar,
                 initial: userProfile.avatarInitial,
                 colors: colors,
@@ -820,7 +820,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
             height: 32,
             fit: BoxFit.cover,
             alignment: Alignment.center,
-            errorBuilder: (_, __, ___) => _buildFallbackAvatar(
+            errorBuilder: (_, _, _) => _buildFallbackAvatar(
               isSidebar: isSidebar,
               initial: userProfile.avatarInitial,
               colors: colors,

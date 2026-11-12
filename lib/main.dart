@@ -1,7 +1,7 @@
 /// Application entry point: initializes Flutter error handling and starts PaidiX.
 
 import 'dart:ui';
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import 'app/app.dart';
 import 'core/network/api_client.dart';
 import 'features/kyc/data/kyc_media_recovery.dart';

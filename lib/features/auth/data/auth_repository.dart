@@ -1315,8 +1315,8 @@ class AuthRepository {
           ? fileName.trim()
           : 'avatar.$ext';
       final fields = <String, String>{
-        if (fullName != null) 'full_name': fullName,
-        if (phone != null) 'phone': phone,
+        'full_name': ?fullName,
+        'phone': ?phone,
       };
       List<http.MultipartFile> buildFiles() => [
             http.MultipartFile.fromBytes(
@@ -1355,8 +1355,8 @@ class AuthRepository {
       return response;
     } else {
       final body = <String, dynamic>{
-        if (fullName != null) 'full_name': fullName,
-        if (phone != null) 'phone': phone,
+        'full_name': ?fullName,
+        'phone': ?phone,
         if (clearProfilePicture) 'profile_picture': null,
       };
       response = await _client.patch('/auth/me/', body: body);
