@@ -137,11 +137,7 @@ also declares `INTERNET`, which is required by release APKs for HTTPS API access
 
 **Splash & Brand Colors:** light `#EFF3F0`, night `#031415`, icon background `#022F32` (`values/colors.xml`, `values-night/colors.xml`). Launch drawables exist for both.
 
-**Release APK Builds (`release/` & `build/app/outputs/flutter-apk/`):**
-- **Universal Fat APK:** `PaidiX-v1.0.0-Universal.apk` (51.8 MB) — works on 100% of Android devices.
-- **Arm64 Lightweight APK:** `PaidiX-v1.0.0-arm64-v8a.apk` (18.0 MB) — 65% smaller, high-performance for all modern Android phones.
-- **Armeabi-v7a APK:** `PaidiX-v1.0.0-armeabi-v7a.apk` (15.7 MB) — for older 32-bit Android phones.
-- **x86_64 APK:** `PaidiX-v1.0.0-x86_64.apk` (19.5 MB) — for Android emulators and ChromeOS.
+**Android Release APK:** `release/PaidiX.apk` is the tracked universal release artifact (version `1.0.1+2`; latest build approximately 56.5 MB). `.github/workflows/build_android.yml` builds it on pushes to `main`, uploads it as a workflow artifact, and publishes it as a GitHub Release asset. Release builds currently use the debug signing key and are not production-signing-ready. The iOS project source remains in `ios/`; automated iOS IPA publishing is disabled.
 
 **TODOs still in Gradle:** unique applicationId comment (ID is already `com.paidix.paidix`); release signing config.
 
@@ -561,7 +557,7 @@ Run from **`PaidiX/`**: `flutter test` then `flutter analyze`.
 - No backend, no secure storage, passwords stay in memory of the form only.
 - Auth “success” is a timer.
 - KYC enhancement and CNIC registry are simulated.
-- iOS privacy usage strings configured in Info.plist (NSCameraUsageDescription & NSPhotoLibraryUsageDescription); automated iOS IPA cloud builds via GitHub Actions (.github/workflows/build_ios.yml).
+- iOS privacy usage strings configured in Info.plist (`NSCameraUsageDescription` and `NSPhotoLibraryUsageDescription`); no automated iOS IPA release workflow is active.
 - Release APK signed with debug keystore.
 - `CurrencyFilter` unused in `filterPayments`.
 - Dashboard PKR received / transferred stay 0 after completed payments.

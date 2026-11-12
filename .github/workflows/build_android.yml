@@ -1,0 +1,74 @@
+# Builds and publishes the Android APK on pushes to main or manual dispatch.
+name: Build Android App (APK)
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: Publish a GitHub Release with the APK
+        required: false
+        type: boolean
+        default: true
+  push:
+    branches:
+      - main
+    paths:
+      - 'lib/**'
+      - 'android/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/build_android.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Analyze Flutter app
+        run: flutter analyze
+
+      - name: Build release APK
+        run: flutter build apk --release
+
+      - name: Stage APK release artifact
+        run: cp build/app/outputs/flutter-apk/app-release.apk release/PaidiX.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PaidiX-Android-APK
+          path: release/PaidiX.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish Android GitHub Release
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.create_release == true) || github.event_name == 'push' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: paidix-android-${{ github.run_id }}-${{ github.run_attempt }}
+          name: "PaidiX Android Release #${{ github.run_number }}"
+          generate_release_notes: true
+          body: |
+            Android release APK for PaidiX.
+
+            Download `PaidiX.apk` and install it on a compatible Android device.
+          files: release/PaidiX.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
