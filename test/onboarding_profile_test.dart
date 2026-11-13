@@ -2,6 +2,7 @@
 
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
@@ -11,7 +12,34 @@ import 'package:paidix/features/profile/domain/user_profile.dart';
 import 'package:paidix/features/profile/presentation/pages/onboarding_profile_page.dart';
 import 'package:paidix/features/profile/presentation/widgets/document_viewer_dialog.dart';
 import 'package:paidix/features/profile/presentation/widgets/edit_profile_dialog.dart';
+import 'package:paidix/core/widgets/spongy_tap.dart';
 import 'test_fixtures.dart';
+
+final Uint8List _validPickerPng = Uint8List.fromList([
+  0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
+  0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+  0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+  0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4, 0x89,
+  0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54,
+  0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01,
+  0x0D, 0x0A, 0x2D, 0xB4,
+  0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44,
+  0xAE, 0x42, 0x60, 0x82,
+]);
+
+Future<void> _tapPicker(WidgetTester tester, Finder picker) async {
+  debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+  try {
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
+}
 
 class MockImagePickerPlatform extends ImagePickerPlatform {
   /// Returns the test image-picker result for the requested source.
@@ -21,7 +49,7 @@ class MockImagePickerPlatform extends ImagePickerPlatform {
     ImagePickerOptions options = const ImagePickerOptions(),
   }) async {
     return XFile.fromData(
-      Uint8List.fromList([1, 2, 3, 4, 5]),
+      _validPickerPng,
       name: 'mock_uploaded_doc.jpg',
       path: '/mock/path/mock_uploaded_doc.jpg',
     );
@@ -186,15 +214,18 @@ void main() {
       expect(find.text('Choose file'), findsNWidgets(3));
 
       // Re-upload selfie document
-      await tester.tap(find.text('Choose file').first);
-      await tester.pumpAndSettle();
+      final dialogPickers = find.descendant(
+        of: find.byType(EditProfileDialog),
+        matching: find.byType(SpongyTap),
+      );
+      await _tapPicker(tester, dialogPickers.first);
 
       // Enter new name and city
-      final nameField = find.widgetWithText(TextFormField, 'Abdullah Azeem');
+      final nameField = find.byType(TextFormField).at(0);
       expect(nameField, findsOneWidget);
       await tester.enterText(nameField, 'Hamza Tariq');
 
-      final cityField = find.widgetWithText(TextFormField, 'لاہور');
+      final cityField = find.byType(TextFormField).at(3);
       expect(cityField, findsOneWidget);
       await tester.enterText(cityField, 'Karachi');
 

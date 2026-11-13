@@ -21,6 +21,12 @@ import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
 import 'test_fixtures.dart';
 
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var frame = 0; frame < 40 && !condition(); frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
+}
+
 GoRouter _buildAuthTestRouter({
   required void Function(String) onNavigate,
 }) {
@@ -556,6 +562,13 @@ void main() {
     testWidgets(
         'Unverified user triggers OTP email, resends cleanly, verifies OTP once, and routes to /kyc',
         (tester) async {
+      setupTestState(
+        profile: createTestProfile(
+          email: 'unverified@example.com',
+          kycStatus: KycReviewStatus.notStarted,
+          hasCompletedKyc: false,
+        ),
+      );
       String destination = '';
       bool emailVerifiedOnServer = false;
       String? capturedVerifyCode;
@@ -644,7 +657,14 @@ void main() {
         matching: find.byType(TextField),
       );
       await tester.enterText(otpField, '654321');
-      await tester.pumpAndSettle();
+      // The OTP dialog owns a periodic countdown timer, so the route never
+      // becomes fully idle for pumpAndSettle. Let verification futures and
+      // their resulting frame complete without waiting for the timer.
+      await _pumpUntil(
+        tester,
+        () => destination == '/kyc',
+      );
+      await tester.pump(const Duration(milliseconds: 500));
 
       expect(capturedVerifyCode, equals('654321'));
       expect(emailVerifiedOnServer, isTrue);
@@ -786,6 +806,13 @@ void main() {
     testWidgets(
         'SignUp OTP flow (performSignInOnVerified: true) verifies OTP, stores JWT tokens, then invokes onVerified',
         (tester) async {
+      setupTestState(
+        profile: createTestProfile(
+          email: 'signup@example.com',
+          kycStatus: KycReviewStatus.notStarted,
+          hasCompletedKyc: false,
+        ),
+      );
       bool onVerifiedCalled = false;
       int loginCalls = 0;
 
@@ -841,6 +868,8 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), '481920');
+      // Keep this finite because the OTP dialog countdown timer is periodic.
+      await _pumpUntil(tester, () => onVerifiedCalled);
       await tester.pumpAndSettle();
 
       expect(loginCalls, equals(1));

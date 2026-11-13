@@ -1,5 +1,6 @@
 /// Defines new payment page in the payments feature's presentation layer.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -41,7 +42,8 @@ class NewPaymentPage extends StatefulWidget {
   State<NewPaymentPage> createState() => _NewPaymentPageState();
 }
 
-class _NewPaymentPageState extends State<NewPaymentPage> {
+class _NewPaymentPageState extends State<NewPaymentPage>
+    with WidgetsBindingObserver {
   final _formKey = GlobalKey<FormState>();
 
   final _senderNameController = TextEditingController();
@@ -51,6 +53,9 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   final _dateController = TextEditingController();
 
   final _picker = ImagePicker();
+  final List<PaymentMethodOption> _paymentMethods = [];
+  Future<bool>? _paymentMethodsRefresh;
+  Timer? _paymentMethodsRefreshTimer;
   DateTime? _selectedDate;
   String? _selectedMethodId;
   String? _selectedFileName;
@@ -61,6 +66,10 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   bool _isDiscardDialogOpen = false;
   bool _isDatePickerOpen = false;
   bool _isCheckingKycStatus = false;
+  bool _isLoadingPaymentMethods = true;
+  bool _hasLoadedPaymentMethods = false;
+  bool _paymentMethodsLoadFailed = false;
+  bool _isAppForeground = true;
   KycReviewStatus? _serverKycStatus;
   double _feePercentage = 12.0;
 
@@ -74,7 +83,18 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadFee();
+    unawaited(_refreshPaymentMethods(showLoading: true));
+    _paymentMethodsRefreshTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) {
+        if (!mounted || !_isAppForeground) return;
+        final route = ModalRoute.of(context);
+        if (route != null && !route.isCurrent) return;
+        unawaited(_refreshPaymentMethods());
+      },
+    );
     _checkLostData();
     final profile = UserProfileRepository.instance.profile;
     final alreadyVerified = _isProfileVerifiedForSession(profile);
@@ -99,6 +119,85 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
     if (AppConfig.hasCustomBackend) {
       _refreshKycStatus(background: alreadyVerified);
     }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isAppForeground = state == AppLifecycleState.resumed;
+    if (_isAppForeground) unawaited(_refreshPaymentMethods());
+  }
+
+  Future<bool> _refreshPaymentMethods({bool showLoading = false}) {
+    final inFlight = _paymentMethodsRefresh;
+    if (inFlight != null) return inFlight;
+
+    final request = _loadPaymentMethods(showLoading: showLoading);
+    _paymentMethodsRefresh = request;
+    return request.whenComplete(() {
+      if (identical(_paymentMethodsRefresh, request)) {
+        _paymentMethodsRefresh = null;
+      }
+    });
+  }
+
+  Future<bool> _loadPaymentMethods({bool showLoading = false}) async {
+    if (showLoading && mounted) {
+      setState(() => _isLoadingPaymentMethods = true);
+    }
+    try {
+      final methods = await widget.paymentsRepository.getPaymentMethods();
+      if (!mounted) return false;
+
+      final previousSelection = _selectedMethodId;
+      final sameMethods = _samePaymentMethods(_paymentMethods, methods);
+      setState(() {
+        if (!sameMethods) {
+          _paymentMethods
+            ..clear()
+            ..addAll(methods);
+        }
+        _paymentMethodsLoadFailed = false;
+        _isLoadingPaymentMethods = false;
+        if (previousSelection == null && !_hasLoadedPaymentMethods) {
+          _selectedMethodId = methods.isEmpty ? null : methods.first.id;
+        } else if (!methods.any((method) => method.id == previousSelection)) {
+          // Clear a method as soon as the server revokes it. Never silently
+          // switch a customer's in-progress payment to another method.
+          _selectedMethodId = null;
+        }
+        _hasLoadedPaymentMethods = true;
+      });
+      return true;
+    } catch (error) {
+      debugPrint('[NewPaymentPage] Payment methods refresh failed: $error');
+      if (!mounted) return false;
+
+      // Fail closed. A stale method must not remain selectable after its
+      // permission can no longer be confirmed by the backend.
+      setState(() {
+        _paymentMethods.clear();
+        _selectedMethodId = null;
+        _paymentMethodsLoadFailed = true;
+        _isLoadingPaymentMethods = false;
+        _hasLoadedPaymentMethods = true;
+      });
+      return false;
+    }
+  }
+
+  bool _samePaymentMethods(
+    List<PaymentMethodOption> current,
+    List<PaymentMethodOption> next,
+  ) {
+    if (current.length != next.length) return false;
+    for (var index = 0; index < current.length; index++) {
+      if (current[index].id != next[index].id ||
+          current[index].name != next[index].name ||
+          current[index].iconKey != next[index].iconKey) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _handleProfileKycStatusChanged() {
@@ -180,11 +279,14 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   }
 
   Future<void> _refreshKycForPull() async {
-    final refreshed = await _refreshKycStatus(background: true);
-    if (!refreshed && mounted) {
+    final results = await Future.wait([
+      _refreshKycStatus(background: true),
+      _refreshPaymentMethods(),
+    ]);
+    if (results.any((refreshed) => !refreshed) && mounted) {
       PaidiXToast.showError(
         context,
-        'Could not confirm your KYC status. Please try again.',
+        'Some account details could not be refreshed. Please try again.',
       );
     }
   }
@@ -241,6 +343,8 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
   /// Releases resources owned by this object before it is removed.
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _paymentMethodsRefreshTimer?.cancel();
     UserProfileRepository.instance.profileNotifier.removeListener(
       _handleProfileKycStatusChanged,
     );
@@ -409,9 +513,28 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
       return;
     }
 
+    // Recheck the user-scoped list at the moment of submission. The server
+    // remains authoritative if an admin changed method access while this form
+    // was open.
+    final methodsConfirmed = await _refreshPaymentMethods();
+    if (!mounted) return;
+    if (!methodsConfirmed) {
+      PaidiXToast.showWarning(
+        context,
+        'Could not confirm available payment methods. Please try again.',
+      );
+      return;
+    }
+
     // Validate method
-    if (_selectedMethodId == null) {
-      PaidiXToast.showWarning(context, 'Please select a payment method.');
+    if (_selectedMethodId == null ||
+        !_paymentMethods.any((method) => method.id == _selectedMethodId)) {
+      PaidiXToast.showWarning(
+        context,
+        _paymentMethods.isEmpty
+            ? 'No payment methods are currently enabled for your account.'
+            : 'Please select an available payment method.',
+      );
       return;
     }
 
@@ -864,67 +987,186 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
 
   /// Builds the payment method tiles section of this interface.
   Widget _buildPaymentMethodTiles() {
-    final tile1 = SelectableTile(
-      title: 'Freight Flow Cashapp',
-      isSelected: _selectedMethodId == 'cashapp_1',
-      icon: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: const Color(0xFF00D632),
-          borderRadius: AppSpacing.radiusSm,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          '\$',
-          style: TextStyle(
-            fontFamily: AppTheme.activeFontFamily,
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
-          ),
-        ),
-      ),
-      onTap: () => setState(() => _selectedMethodId = 'cashapp_1'),
-    );
-
-    final tile2 = SelectableTile(
-      title: 'UB Zelle',
-      isSelected: _selectedMethodId == 'zelle_1',
-      icon: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: const Color(0xFF7414CA),
-          borderRadius: AppSpacing.radiusSm,
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          'Z',
-          style: TextStyle(
-            fontFamily: AppTheme.activeFontFamily,
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
-      ),
-      onTap: () => setState(() => _selectedMethodId = 'zelle_1'),
-    );
-
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= 540) {
-          return Row(
-            children: [
-              Expanded(child: tile1),
-              const SizedBox(width: 14),
-              Expanded(child: tile2),
-            ],
+        final colors = AppColors.of(context);
+        if (_isLoadingPaymentMethods && !_hasLoadedPaymentMethods) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 18),
+            child: Center(
+              child: Column(
+                children: [
+                  SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: colors.aqua,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Loading available payment methods',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         }
-        return Column(children: [tile1, const SizedBox(height: 10), tile2]);
+
+        if (_paymentMethodsLoadFailed) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colors.cardHighlight,
+              borderRadius: AppSpacing.radiusLg,
+              border: Border.all(color: colors.border),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.wifi_off_rounded, color: colors.textSecondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Payment methods could not be loaded. Retry to check what is enabled for your account.',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _isLoadingPaymentMethods
+                      ? null
+                      : () => _refreshPaymentMethods(showLoading: true),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
+        if (_paymentMethods.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: colors.cardHighlight,
+              borderRadius: AppSpacing.radiusLg,
+              border: Border.all(color: colors.border),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.lock_outline_rounded, color: colors.textSecondary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No payment methods are enabled for your account yet.',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Refresh payment methods',
+                  onPressed: _isLoadingPaymentMethods
+                      ? null
+                      : () => _refreshPaymentMethods(showLoading: true),
+                  icon: const Icon(Icons.refresh_rounded),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final tiles = _paymentMethods.map((method) {
+          return SelectableTile(
+            title: method.name,
+            isSelected: _selectedMethodId == method.id,
+            icon: _paymentMethodIcon(method, colors),
+            onTap: () => setState(() => _selectedMethodId = method.id),
+          );
+        }).toList(growable: false);
+
+        if (constraints.maxWidth >= 540) {
+          const spacing = 14.0;
+          final tileWidth = (constraints.maxWidth - spacing) / 2;
+          return Wrap(
+            spacing: spacing,
+            runSpacing: 10,
+            children: tiles
+                .map((tile) => SizedBox(width: tileWidth, child: tile))
+                .toList(growable: false),
+          );
+        }
+        return Column(
+          children: [
+            for (var index = 0; index < tiles.length; index++) ...[
+              if (index > 0) const SizedBox(height: 10),
+              tiles[index],
+            ],
+          ],
+        );
       },
+    );
+  }
+
+  Widget _paymentMethodIcon(
+    PaymentMethodOption method,
+    PaidiXColorScheme colors,
+  ) {
+    final key = method.iconKey.toLowerCase();
+    final isCashApp = key.contains('cashapp') || key.contains('cash_app');
+    final isZelle = key.contains('zelle');
+    final background = isCashApp
+        ? const Color(0xFF00D632)
+        : isZelle
+        ? const Color(0xFF7414CA)
+        : colors.aqua;
+    final foreground = Colors.white;
+    final child = isCashApp
+        ? Text(
+            '\$',
+            style: TextStyle(
+              fontFamily: AppTheme.activeFontFamily,
+              color: foreground,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+          )
+        : isZelle
+        ? Text(
+            'Z',
+            style: TextStyle(
+              fontFamily: AppTheme.activeFontFamily,
+              color: foreground,
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          )
+        : Icon(
+            Icons.account_balance_wallet_outlined,
+            color: foreground,
+            size: 20,
+          );
+
+    return Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: AppSpacing.radiusSm,
+      ),
+      alignment: Alignment.center,
+      child: child,
     );
   }
 
@@ -1136,7 +1378,9 @@ class _NewPaymentPageState extends State<NewPaymentPage> {
           icon: Icon(Icons.check, size: 18, color: colors.primaryButtonText),
           isLoading: _isSubmitting,
           variant: AppButtonVariant.primary,
-          onPressed: _handleSubmit,
+          onPressed: _isSubmitting || _selectedMethodId == null
+              ? null
+              : _handleSubmit,
         ),
       ],
     );

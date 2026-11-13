@@ -1,6 +1,7 @@
 /// Tests the kyc auth routing test behavior and guards its key user-facing and domain expectations.
 
 import 'dart:typed_data';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:paidix/features/auth/presentation/pages/sign_in_page.dart';
 import 'package:paidix/features/kyc/domain/kyc_models.dart';
 import 'package:paidix/features/profile/data/user_profile_repository.dart';
 import 'package:paidix/features/profile/domain/user_profile.dart';
+
 import 'test_fixtures.dart';
 
 /// Configures and launches the application or test suite.
@@ -20,36 +22,47 @@ void main() {
 
   group('One-Time KYC Verification Routing & Persistence Suite', () {
     testWidgets(
-        'Onboarding navigation stays visible until the profile is verified',
-        (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
+      'Onboarding navigation stays visible until the profile is verified',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.lightTheme,
-          home: const AppShell(
-            currentPath: '/app/dashboard',
-            child: Scaffold(body: Text('Dashboard')),
+        final shellRouter = GoRouter(
+          initialLocation: '/app/dashboard',
+          routes: [
+            GoRoute(
+              path: '/app/dashboard',
+              builder: (context, state) => const AppShell(
+                currentPath: '/app/dashboard',
+                child: Scaffold(body: Text('Dashboard')),
+              ),
+            ),
+          ],
+        );
+        addTearDown(shellRouter.dispose);
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: AppTheme.lightTheme,
+            routerConfig: shellRouter,
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Onboarding'), findsOneWidget);
+        expect(find.text('Onboarding'), findsOneWidget);
 
-      UserProfileRepository.instance.setActiveUser(
-        UserProfileRepository.instance.profile.copyWith(
-          hasCompletedKyc: true,
-          kycStatus: KycReviewStatus.verified,
-        ),
-      );
-      await tester.pumpAndSettle();
+        UserProfileRepository.instance.setActiveUser(
+          UserProfileRepository.instance.profile.copyWith(
+            hasCompletedKyc: true,
+            kycStatus: KycReviewStatus.verified,
+          ),
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Onboarding'), findsNothing);
-    });
+        expect(find.text('Onboarding'), findsNothing);
+      },
+    );
 
     test('Default user has completed KYC and is registered in memory', () {
       final repo = UserProfileRepository.instance;
@@ -65,9 +78,7 @@ void main() {
       expect(alias!.hasCompletedKyc, isTrue);
     });
 
-    test(
-        'New user registration sets hasCompletedKyc = false and stores in registry',
-        () {
+    test('New user registration sets hasCompletedKyc = false and stores in registry', () {
       final repo = UserProfileRepository.instance;
       repo.syncFromSignUp(
         fullName: 'Zainab Tariq',
@@ -86,9 +97,7 @@ void main() {
       expect(savedUser!.hasCompletedKyc, isFalse);
     });
 
-    test(
-        'syncFromKyc with submission marks hasCompletedKyc = true and saves all details permanently',
-        () {
+    test('syncFromKyc with submission marks hasCompletedKyc = true and saves all details permanently', () {
       final repo = UserProfileRepository.instance;
       repo.syncFromSignUp(
         fullName: 'Zainab Tariq',
@@ -112,9 +121,7 @@ void main() {
           frontFileName: 'cnic_f.jpg',
           backFileName: 'cnic_b.jpg',
         ),
-        photo: const PhotoDocInfo(
-          fileName: 'selfie.jpg',
-        ),
+        photo: const PhotoDocInfo(fileName: 'selfie.jpg'),
         bank: const BankInfo(
           bankName: 'Habib Bank Limited',
           beneficiaryTitle: 'Zainab Tariq',
@@ -140,57 +147,61 @@ void main() {
     });
 
     testWidgets(
-        'SignIn routes already verified user directly to /app/dashboard',
-        (tester) async {
-      String navigatedLocation = '';
-      final testRouter = GoRouter(
-        initialLocation: '/signin',
-        routes: [
-          GoRoute(
-            path: '/signin',
-            builder: (context, state) => const SignInPage(),
+      'SignIn routes already verified user directly to /app/dashboard',
+      (tester) async {
+        String navigatedLocation = '';
+        final testRouter = GoRouter(
+          initialLocation: '/signin',
+          routes: [
+            GoRoute(
+              path: '/signin',
+              builder: (context, state) => const SignInPage(),
+            ),
+            GoRoute(
+              path: '/kyc',
+              builder: (context, state) {
+                navigatedLocation = '/kyc';
+                return const Scaffold(body: Text('KYC Page'));
+              },
+            ),
+            GoRoute(
+              path: '/app/dashboard',
+              builder: (context, state) {
+                navigatedLocation = '/app/dashboard';
+                return const Scaffold(body: Text('Dashboard Page'));
+              },
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: AppTheme.darkTheme,
+            routerConfig: testRouter,
           ),
-          GoRoute(
-            path: '/kyc',
-            builder: (context, state) {
-              navigatedLocation = '/kyc';
-              return const Scaffold(body: Text('KYC Page'));
-            },
-          ),
-          GoRoute(
-            path: '/app/dashboard',
-            builder: (context, state) {
-              navigatedLocation = '/app/dashboard';
-              return const Scaffold(body: Text('Dashboard Page'));
-            },
-          ),
-        ],
-      );
+        );
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          theme: AppTheme.darkTheme,
-          routerConfig: testRouter,
-        ),
-      );
-      await tester.pumpAndSettle();
+        // Enter Abdullah Azeem's email (already completed KYC)
+        await tester.enterText(
+          find.byType(TextFormField).at(0),
+          'kherool66@gmail.com',
+        );
+        await tester.enterText(find.byType(TextFormField).at(1), 'password123');
+        await tester.pumpAndSettle();
 
-      // Enter Abdullah Azeem's email (already completed KYC)
-      await tester.enterText(
-          find.byType(TextFormField).at(0), 'kherool66@gmail.com');
-      await tester.enterText(find.byType(TextFormField).at(1), 'password123');
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Sign in'));
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign in'));
-      await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
+        // Must navigate straight to /app/dashboard, NOT /kyc
+        expect(navigatedLocation, equals('/app/dashboard'));
+      },
+    );
 
-      // Must navigate straight to /app/dashboard, NOT /kyc
-      expect(navigatedLocation, equals('/app/dashboard'));
-    });
-
-    testWidgets('SignIn routes newly registered unverified user to /kyc',
-        (tester) async {
+    testWidgets('SignIn routes newly registered unverified user to /kyc', (
+      tester,
+    ) async {
       // Register new user first
       UserProfileRepository.instance.syncFromSignUp(
         fullName: 'New Customer',
@@ -224,15 +235,14 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp.router(
-          theme: AppTheme.darkTheme,
-          routerConfig: testRouter,
-        ),
+        MaterialApp.router(theme: AppTheme.darkTheme, routerConfig: testRouter),
       );
       await tester.pumpAndSettle();
 
       await tester.enterText(
-          find.byType(TextFormField).at(0), 'newbie@gmail.com');
+        find.byType(TextFormField).at(0),
+        'newbie@gmail.com',
+      );
       await tester.enterText(find.byType(TextFormField).at(1), 'password123');
       await tester.pumpAndSettle();
 
@@ -245,67 +255,68 @@ void main() {
     });
 
     testWidgets(
-        'After completing KYC, user login routes straight to /app/dashboard without re-applying',
-        (tester) async {
-      final repo = UserProfileRepository.instance;
-      repo.syncFromSignUp(
-        fullName: 'Bilal Ahmad',
-        email: 'bilal@gmail.com',
-        phoneNumber: '03219876543',
-      );
+      'After completing KYC, user login routes straight to /app/dashboard without re-applying',
+      (tester) async {
+        final repo = UserProfileRepository.instance;
+        repo.syncFromSignUp(
+          fullName: 'Bilal Ahmad',
+          email: 'bilal@gmail.com',
+          phoneNumber: '03219876543',
+        );
 
-      // User completes KYC
-      repo.markKycCompleted();
+        // User completes KYC
+        repo.markKycCompleted();
 
-      String navigatedLocation = '';
-      final testRouter = GoRouter(
-        initialLocation: '/signin',
-        routes: [
-          GoRoute(
-            path: '/signin',
-            builder: (context, state) => const SignInPage(),
+        String navigatedLocation = '';
+        final testRouter = GoRouter(
+          initialLocation: '/signin',
+          routes: [
+            GoRoute(
+              path: '/signin',
+              builder: (context, state) => const SignInPage(),
+            ),
+            GoRoute(
+              path: '/kyc',
+              builder: (context, state) {
+                navigatedLocation = '/kyc';
+                return const Scaffold(body: Text('KYC Page'));
+              },
+            ),
+            GoRoute(
+              path: '/app/dashboard',
+              builder: (context, state) {
+                navigatedLocation = '/app/dashboard';
+                return const Scaffold(body: Text('Dashboard Page'));
+              },
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: AppTheme.darkTheme,
+            routerConfig: testRouter,
           ),
-          GoRoute(
-            path: '/kyc',
-            builder: (context, state) {
-              navigatedLocation = '/kyc';
-              return const Scaffold(body: Text('KYC Page'));
-            },
-          ),
-          GoRoute(
-            path: '/app/dashboard',
-            builder: (context, state) {
-              navigatedLocation = '/app/dashboard';
-              return const Scaffold(body: Text('Dashboard Page'));
-            },
-          ),
-        ],
-      );
+        );
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          theme: AppTheme.darkTheme,
-          routerConfig: testRouter,
-        ),
-      );
-      await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextFormField).at(0),
+          'bilal@gmail.com',
+        );
+        await tester.enterText(find.byType(TextFormField).at(1), 'password123');
+        await tester.pumpAndSettle();
 
-      await tester.enterText(
-          find.byType(TextFormField).at(0), 'bilal@gmail.com');
-      await tester.enterText(find.byType(TextFormField).at(1), 'password123');
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Sign in'));
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign in'));
-      await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
+        // Must navigate straight to /app/dashboard
+        expect(navigatedLocation, equals('/app/dashboard'));
+      },
+    );
 
-      // Must navigate straight to /app/dashboard
-      expect(navigatedLocation, equals('/app/dashboard'));
-    });
-
-    test(
-        'Updating profile details, documents, and avatar persists in registry and syncs across aliases',
-        () {
+    test('Updating profile details, documents, and avatar persists in registry and syncs across aliases', () {
       final repo = UserProfileRepository.instance;
       final dummyAvatar = Uint8List.fromList([10, 20, 30]);
       final dummySelfie = Uint8List.fromList([40, 50, 60]);
@@ -342,83 +353,84 @@ void main() {
     });
 
     testWidgets(
-        'Re-login with kherool66@gmail.com restores all updated details, documents and routes to /app/dashboard',
-        (tester) async {
-      final repo = UserProfileRepository.instance;
-      final dummyAvatar = Uint8List.fromList([1, 2, 3]);
-      final dummySelfie = Uint8List.fromList([4, 5, 6]);
+      'Re-login with kherool66@gmail.com restores all updated details, documents and routes to /app/dashboard',
+      (tester) async {
+        final repo = UserProfileRepository.instance;
+        final dummyAvatar = Uint8List.fromList([1, 2, 3]);
+        final dummySelfie = Uint8List.fromList([4, 5, 6]);
 
-      repo.updateProfile(
-        fullName: 'Abdullah Azeem (Verified Pro)',
-        phoneNumber: '+923217649976',
-        cnicNumber: '35202-04504615',
-        city: 'Lahore Cantt',
-        address: 'Phase 5 DHA',
-        avatarBytes: dummyAvatar,
-        selfieBytes: dummySelfie,
-      );
+        repo.updateProfile(
+          fullName: 'Abdullah Azeem (Verified Pro)',
+          phoneNumber: '+923217649976',
+          cnicNumber: '35202-04504615',
+          city: 'Lahore Cantt',
+          address: 'Phase 5 DHA',
+          avatarBytes: dummyAvatar,
+          selfieBytes: dummySelfie,
+        );
 
-      // Simulate logout: reset active profile to default blank/canonical
-      repo.resetToDefault();
+        // Simulate logout: reset active profile to default blank/canonical
+        repo.resetToDefault();
 
-      String navigatedLocation = '';
-      final testRouter = GoRouter(
-        initialLocation: '/signin',
-        routes: [
-          GoRoute(
-            path: '/signin',
-            builder: (context, state) => const SignInPage(),
+        String navigatedLocation = '';
+        final testRouter = GoRouter(
+          initialLocation: '/signin',
+          routes: [
+            GoRoute(
+              path: '/signin',
+              builder: (context, state) => const SignInPage(),
+            ),
+            GoRoute(
+              path: '/kyc',
+              builder: (context, state) {
+                navigatedLocation = '/kyc';
+                return const Scaffold(body: Text('KYC Page'));
+              },
+            ),
+            GoRoute(
+              path: '/app/dashboard',
+              builder: (context, state) {
+                navigatedLocation = '/app/dashboard';
+                return const Scaffold(body: Text('Dashboard Page'));
+              },
+            ),
+          ],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: AppTheme.darkTheme,
+            routerConfig: testRouter,
           ),
-          GoRoute(
-            path: '/kyc',
-            builder: (context, state) {
-              navigatedLocation = '/kyc';
-              return const Scaffold(body: Text('KYC Page'));
-            },
-          ),
-          GoRoute(
-            path: '/app/dashboard',
-            builder: (context, state) {
-              navigatedLocation = '/app/dashboard';
-              return const Scaffold(body: Text('Dashboard Page'));
-            },
-          ),
-        ],
-      );
+        );
+        await tester.pumpAndSettle();
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          theme: AppTheme.darkTheme,
-          routerConfig: testRouter,
-        ),
-      );
-      await tester.pumpAndSettle();
+        // Enter kherool66@gmail.com and sign in
+        await tester.enterText(
+          find.byType(TextFormField).at(0),
+          'kherool66@gmail.com',
+        );
+        await tester.enterText(find.byType(TextFormField).at(1), 'password123');
+        await tester.pumpAndSettle();
 
-      // Enter kherool66@gmail.com and sign in
-      await tester.enterText(
-          find.byType(TextFormField).at(0), 'kherool66@gmail.com');
-      await tester.enterText(find.byType(TextFormField).at(1), 'password123');
-      await tester.pumpAndSettle();
+        await tester.tap(find.text('Sign in'));
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Sign in'));
-      await tester.pump(const Duration(milliseconds: 700));
-      await tester.pumpAndSettle();
+        // Must navigate straight to /app/dashboard without re-applying KYC
+        expect(navigatedLocation, equals('/app/dashboard'));
 
-      // Must navigate straight to /app/dashboard without re-applying KYC
-      expect(navigatedLocation, equals('/app/dashboard'));
+        // Active profile must restore all saved details and documents
+        expect(repo.profile.fullName, equals('Abdullah Azeem (Verified Pro)'));
+        expect(repo.profile.city, equals('Lahore Cantt'));
+        expect(repo.profile.address, equals('Phase 5 DHA'));
+        expect(repo.profile.avatarBytes, equals(dummyAvatar));
+        expect(repo.profile.selfieBytes, equals(dummySelfie));
+        expect(repo.profile.hasCompletedKyc, isTrue);
+      },
+    );
 
-      // Active profile must restore all saved details and documents
-      expect(repo.profile.fullName, equals('Abdullah Azeem (Verified Pro)'));
-      expect(repo.profile.city, equals('Lahore Cantt'));
-      expect(repo.profile.address, equals('Phase 5 DHA'));
-      expect(repo.profile.avatarBytes, equals(dummyAvatar));
-      expect(repo.profile.selfieBytes, equals(dummySelfie));
-      expect(repo.profile.hasCompletedKyc, isTrue);
-    });
-
-    test(
-        'UserProfile toJson and fromJson serialization roundtrip preserves all fields',
-        () {
+    test('UserProfile toJson and fromJson serialization roundtrip preserves all fields', () {
       final now = DateTime.now();
       final original = UserProfile(
         fullName: 'Abdullah Azeem',
@@ -433,14 +445,10 @@ void main() {
         kycStatus: KycReviewStatus.verified,
         hasCompletedKyc: true,
         smsConsent: true,
-        selfieFilePath:
-            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/selfie.jpg',
-        cnicFrontFilePath:
-            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_front.jpg',
-        cnicBackFilePath:
-            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_back.jpg',
-        avatarFilePath:
-            '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/avatar.jpg',
+        selfieFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/selfie.jpg',
+        cnicFrontFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_front.jpg',
+        cnicBackFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/cnic_back.jpg',
+        avatarFilePath: '/data/user/0/com.paidix.paidix/users/kheroali66_gmail_com/avatar.jpg',
         bankName: 'Meezan Bank Limited',
         bankIban: 'PK00MEZN0000000000000000',
         bankBeneficiary: 'Abdullah Azeem',

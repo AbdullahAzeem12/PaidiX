@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -10,6 +11,7 @@ import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/core/config/app_config.dart';
 import 'package:paidix/core/network/api_client.dart';
 import 'package:paidix/core/widgets/paidix_toast.dart';
+import 'package:paidix/core/widgets/spongy_tap.dart';
 import 'package:paidix/features/auth/data/auth_repository.dart';
 import 'package:paidix/features/auth/domain/auth_models.dart';
 import 'package:paidix/features/kyc/data/kyc_image_validation.dart';
@@ -39,6 +41,20 @@ Uint8List _oversizedJpegBytes() {
   bytes[1] = 0xD8;
   bytes[2] = 0xFF;
   return bytes;
+}
+
+Future<void> _tapPicker(WidgetTester tester, Finder picker) async {
+  debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+  try {
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+  } finally {
+    debugDefaultTargetPlatformOverride = null;
+  }
 }
 
 class _ConfigurableImagePickerPlatform extends ImagePickerPlatform {
@@ -504,9 +520,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // 1. Oversized (> 5 MB) pick must be rejected without choosing the file
-      await tester.ensureVisible(find.text('Choose file').at(0));
-      await tester.tap(find.text('Choose file').at(0));
-      await tester.pumpAndSettle();
+      final dialogPickers = find.descendant(
+        of: find.byType(EditProfileDialog),
+        matching: find.byType(SpongyTap),
+      );
+      await _tapPicker(tester, dialogPickers.at(0));
       expect(picker.calls, equals(1));
       expect(find.text('huge_photo.jpg'), findsNothing);
       expect(find.textContaining('must be 5 MB or smaller'), findsOneWidget);
@@ -517,9 +535,7 @@ void main() {
       picker.nextBytes = _validPngBytes;
       picker.nextName = 'valid_doc.png';
       for (var i = 0; i < 3; i++) {
-        await tester.ensureVisible(find.text('Choose file').at(i));
-        await tester.tap(find.text('Choose file').at(i));
-        await tester.pumpAndSettle();
+        await _tapPicker(tester, dialogPickers.at(i));
       }
 
       expect(picker.calls, equals(4));

@@ -55,9 +55,11 @@ class AppTextField extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
-              label.toUpperCase(),
-              style: AppTypography.label.copyWith(color: colors.textLabel),
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: AppTypography.label.copyWith(color: colors.textLabel),
+              ),
             ),
             if (isRequired) ...[
               const SizedBox(width: 4),

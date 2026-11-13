@@ -17,6 +17,7 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
   final ValueNotifier<PaymentsServerSummary?> _serverSummaryNotifier =
       ValueNotifier<PaymentsServerSummary?>(null);
   Future<bool>? _refreshInFlight;
+  Future<List<PaymentMethodOption>>? _paymentMethodsInFlight;
   Timer? _pollTimer;
   int _pollSubscribers = 0;
   bool _hasLoadedFromServer = false;
@@ -301,17 +302,111 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
 
   int _referenceCounter = 1334;
 
-  /// Returns the payment methods currently offered by the in-memory repository.
+  /// Returns the payment methods the authenticated server currently allows this
+  /// customer to use. The `for_me=true` scope is authoritative: production
+  /// must never fall back to locally listed methods when the request fails or
+  /// the server returns an empty list.
   @override
-  Future<List<PaymentMethodOption>> getPaymentMethods() async {
-    return const [
-      PaymentMethodOption(
-        id: 'cashapp_1',
-        name: 'Freight Flow Cashapp',
-        iconKey: 'cashapp',
-      ),
-      PaymentMethodOption(id: 'zelle_1', name: 'UB Zelle', iconKey: 'zelle'),
-    ];
+  Future<List<PaymentMethodOption>> getPaymentMethods() {
+    if (!AppConfig.hasCustomBackend) {
+      // Offline/test fixture only. Live accounts always use the scoped API.
+      return Future.value(const [
+        PaymentMethodOption(
+          id: 'cashapp_1',
+          name: 'Freight Flow Cashapp',
+          iconKey: 'cashapp',
+        ),
+        PaymentMethodOption(id: 'zelle_1', name: 'UB Zelle', iconKey: 'zelle'),
+      ]);
+    }
+
+    final inFlight = _paymentMethodsInFlight;
+    if (inFlight != null) return inFlight;
+
+    final request = _fetchPaymentMethodsForCurrentUser();
+    _paymentMethodsInFlight = request;
+    return request.whenComplete(() {
+      if (identical(_paymentMethodsInFlight, request)) {
+        _paymentMethodsInFlight = null;
+      }
+    });
+  }
+
+  Future<List<PaymentMethodOption>> _fetchPaymentMethodsForCurrentUser() async {
+    final response = await _apiClient.get(
+      '/core/payment-methods/?active_only=true&for_me=true',
+    );
+    final records = _paymentMethodRecords(response);
+    final methods = <({int order, PaymentMethodOption method})>[];
+
+    for (final record in records) {
+      final code = '${record['code'] ?? ''}'.trim();
+      // `active_only=true` is also enforced by the API, but require its
+      // explicit active flag here so malformed or partial records fail closed.
+      if (code.isEmpty || record['is_active'] != true) continue;
+      if (record['is_allowed'] == false || record['allowed'] == false) {
+        continue;
+      }
+
+      final methodType = '${record['method_type'] ?? code}'.toLowerCase();
+      final orderValue = record['sort_order'];
+      methods.add((
+        order: orderValue is num
+            ? orderValue.toInt()
+            : int.tryParse('$orderValue') ?? 0,
+        method: PaymentMethodOption(
+          // Keep the exact backend code. This is the value submitted to the
+          // payment endpoint; labels and icon names are presentation only.
+          id: code,
+          name: '${record['label'] ?? code}'.trim(),
+          iconKey: methodType,
+        ),
+      ));
+    }
+
+    methods.sort((left, right) => left.order.compareTo(right.order));
+    return List<PaymentMethodOption>.unmodifiable(
+      methods.map((entry) => entry.method),
+    );
+  }
+
+  List<Map<String, dynamic>> _paymentMethodRecords(
+    Map<String, dynamic> response,
+  ) {
+    dynamic payload = response;
+    for (var depth = 0; depth < 5; depth++) {
+      if (payload is List) {
+        return payload
+            .whereType<Map>()
+            .map((record) => Map<String, dynamic>.from(record))
+            .toList(growable: false);
+      }
+      if (payload is! Map) break;
+
+      final map = Map<String, dynamic>.from(payload);
+      if (map.containsKey('code')) return [map];
+
+      dynamic nested;
+      for (final key in const [
+        'results',
+        'payment_methods',
+        'methods',
+        'items',
+        'data',
+        'result',
+      ]) {
+        if (map.containsKey(key) && map[key] != null) {
+          nested = map[key];
+          break;
+        }
+      }
+      if (nested == null) break;
+      payload = nested;
+    }
+
+    throw const FormatException(
+      'The payment methods endpoint returned an unexpected response shape.',
+    );
   }
 
   /// Returns the legacy offline/test fee estimate.
@@ -366,9 +461,8 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
   Future<PaymentItem> _submitPaymentToServer(
     PaymentSubmission submission,
   ) async {
-    final methodCode = submission.methodId.replaceFirst(RegExp(r'_\d+$'), '');
     final fields = <String, String>{
-      'payment_method': methodCode,
+      'payment_method': submission.methodId,
       'amount': submission.amount.toString(),
       'sender_company': submission.senderCompany,
       'currency': submission.currencyCode,

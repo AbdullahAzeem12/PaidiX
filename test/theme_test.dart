@@ -2,6 +2,7 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:paidix/app/theme/app_colors.dart';
 import 'package:paidix/app/theme/app_theme.dart';
 import 'package:paidix/app/theme/app_typography.dart';
@@ -121,10 +122,7 @@ void main() {
           theme: AppTheme.lightTheme,
           themeMode: ThemeMode.light,
           home: Scaffold(
-            body: AppButton(
-              text: 'Submit',
-              onPressed: () {},
-            ),
+            body: AppButton(text: 'Submit', onPressed: () {}),
           ),
         ),
       );
@@ -138,10 +136,7 @@ void main() {
           darkTheme: AppTheme.darkTheme,
           themeMode: ThemeMode.dark,
           home: Scaffold(
-            body: AppButton(
-              text: 'Submit',
-              onPressed: () {},
-            ),
+            body: AppButton(text: 'Submit', onPressed: () {}),
           ),
         ),
       );
@@ -149,7 +144,9 @@ void main() {
       expect(find.text('Submit'), findsOneWidget);
     });
 
-    testWidgets('StatusBadge renders appropriate colors in both themes', (tester) async {
+    testWidgets('StatusBadge renders appropriate colors in both themes', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme,
@@ -164,93 +161,25 @@ void main() {
       expect(find.text('Completed'), findsOneWidget);
     });
 
-    testWidgets('PaidiXBottomNavBar renders and responds to touches with bounce animation', (tester) async {
-      int tappedIndex = -1;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.light,
-          home: Scaffold(
-            bottomNavigationBar: PaidiXBottomNavBar(
-              selectedIndex: 0,
-              onItemSelected: (idx) => tappedIndex = idx,
-              items: const [
-                PaidiXBottomNavItem(
-                  icon: Icons.grid_view_outlined,
-                  activeIcon: Icons.grid_view_rounded,
-                  label: 'Dashboard',
-                ),
-                PaidiXBottomNavItem(
-                  icon: Icons.receipt_long_outlined,
-                  activeIcon: Icons.receipt_long_rounded,
-                  label: 'My Payments',
-                ),
-                PaidiXBottomNavItem(
-                  icon: Icons.add_circle_outline_rounded,
-                  activeIcon: Icons.add_circle_rounded,
-                  label: 'New Payment',
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-
-      expect(find.text('Dashboard'), findsOneWidget);
-      expect(find.text('My Payments'), findsOneWidget);
-      expect(find.text('New Payment'), findsOneWidget);
-
-      // Tap on 'My Payments' tab
-      await tester.tap(find.text('My Payments'));
-      await tester.pumpAndSettle();
-
-      expect(tappedIndex, 1);
-    });
-
-    testWidgets('AppShell renders adaptive top bar and bottom navbar in light and dark mode', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.light,
-          home: const AppShell(
-            currentPath: '/app/dashboard',
-            child: Text('Content'),
-          ),
-        ),
-      );
-
-      expect(find.text('BASIC PLAN'), findsNothing);
-      expect(find.text('Dashboard'), findsWidgets);
-      expect(find.text('Content'), findsOneWidget);
-    });
-
-    testWidgets('PaidiXBottomNavBar renders full labels across 320px, 360px, and 414px with zero overflow', (tester) async {
-      for (final width in [320.0, 360.0, 414.0]) {
-        tester.view.physicalSize = Size(width, 700);
-        tester.view.devicePixelRatio = 1.0;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
+    testWidgets(
+      'PaidiXBottomNavBar renders and responds to touches with bounce animation',
+      (tester) async {
+        int tappedIndex = -1;
 
         await tester.pumpWidget(
           MaterialApp(
-            theme: AppTheme.darkTheme,
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.light,
             home: Scaffold(
               bottomNavigationBar: PaidiXBottomNavBar(
                 selectedIndex: 0,
-                onItemSelected: (_) {},
+                onItemSelected: (idx) => tappedIndex = idx,
                 items: const [
                   PaidiXBottomNavItem(
                     icon: Icons.grid_view_outlined,
                     activeIcon: Icons.grid_view_rounded,
                     label: 'Dashboard',
-                  ),
-                  PaidiXBottomNavItem(
-                    icon: Icons.badge_outlined,
-                    activeIcon: Icons.badge,
-                    label: 'Onboarding',
                   ),
                   PaidiXBottomNavItem(
                     icon: Icons.receipt_long_outlined,
@@ -267,30 +196,121 @@ void main() {
             ),
           ),
         );
-        await tester.pumpAndSettle();
 
         expect(find.text('Dashboard'), findsOneWidget);
-        expect(find.text('Onboarding'), findsOneWidget);
         expect(find.text('My Payments'), findsOneWidget);
         expect(find.text('New Payment'), findsOneWidget);
-        expect(tester.takeException(), isNull);
-      }
-    });
+
+        // Tap on 'My Payments' tab
+        await tester.tap(find.text('My Payments'));
+        await tester.pumpAndSettle();
+
+        expect(tappedIndex, 1);
+      },
+    );
+
+    testWidgets(
+      'AppShell renders adaptive top bar and bottom navbar in light and dark mode',
+      (tester) async {
+        final router = GoRouter(
+          initialLocation: '/app/dashboard',
+          routes: [
+            GoRoute(
+              path: '/app/dashboard',
+              builder: (context, state) => const AppShell(
+                currentPath: '/app/dashboard',
+                child: Text('Content'),
+              ),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+
+        await tester.pumpWidget(
+          MaterialApp.router(
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: ThemeMode.light,
+            routerConfig: router,
+          ),
+        );
+
+        expect(find.text('BASIC PLAN'), findsNothing);
+        expect(find.text('Dashboard'), findsWidgets);
+        expect(find.text('Content'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'PaidiXBottomNavBar renders full labels across 320px, 360px, and 414px with zero overflow',
+      (tester) async {
+        for (final width in [320.0, 360.0, 414.0]) {
+          tester.view.physicalSize = Size(width, 700);
+          tester.view.devicePixelRatio = 1.0;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.darkTheme,
+              home: Scaffold(
+                bottomNavigationBar: PaidiXBottomNavBar(
+                  selectedIndex: 0,
+                  onItemSelected: (_) {},
+                  items: const [
+                    PaidiXBottomNavItem(
+                      icon: Icons.grid_view_outlined,
+                      activeIcon: Icons.grid_view_rounded,
+                      label: 'Dashboard',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.badge_outlined,
+                      activeIcon: Icons.badge,
+                      label: 'Onboarding',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.receipt_long_outlined,
+                      activeIcon: Icons.receipt_long_rounded,
+                      label: 'My Payments',
+                    ),
+                    PaidiXBottomNavItem(
+                      icon: Icons.add_circle_outline_rounded,
+                      activeIcon: Icons.add_circle_rounded,
+                      label: 'New Payment',
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          expect(find.text('Dashboard'), findsOneWidget);
+          expect(find.text('Onboarding'), findsOneWidget);
+          expect(find.text('My Payments'), findsOneWidget);
+          expect(find.text('New Payment'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
 
     test('Typography Font Selection & Text Scale Suite: Global reactivity and styling', () {
       expect(AppTheme.availableFonts.length, 10);
-      expect(AppTheme.availableFonts, containsAll([
-        'System default',
-        'Inter',
-        'Roboto',
-        'Poppins',
-        'Lato',
-        'Nunito',
-        'Open Sans',
-        'DM Sans',
-        'Source Sans 3',
-        'IBM Plex Sans',
-      ]));
+      expect(
+        AppTheme.availableFonts,
+        containsAll([
+          'System default',
+          'Inter',
+          'Roboto',
+          'Poppins',
+          'Lato',
+          'Nunito',
+          'Open Sans',
+          'DM Sans',
+          'Source Sans 3',
+          'IBM Plex Sans',
+        ]),
+      );
 
       // Select Inter
       AppTheme.setFontFamily('Inter');
