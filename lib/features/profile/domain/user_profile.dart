@@ -9,6 +9,7 @@ enum KycReviewStatus {
   notStarted('Not Started'),
   inProgress('In Progress'),
   pendingReview('Pending Review'),
+  awaitingCustomer('Update Required'),
   verified('Verified'),
   rejected('Verification Rejected');
 
@@ -18,6 +19,8 @@ enum KycReviewStatus {
   bool get isPending => this == KycReviewStatus.pendingReview;
   bool get isVerified => this == KycReviewStatus.verified;
   bool get isRejected => this == KycReviewStatus.rejected;
+  bool get requiresCustomerAction =>
+      this == KycReviewStatus.awaitingCustomer || isRejected;
 }
 
 /// Domain entity representing the active user's synchronized profile
@@ -138,19 +141,42 @@ class UserProfile {
     );
   }
 
-  /// Returns the dynamic message from the server side or default status label.
-  String get effectiveKycMessage {
-    if (kycStatus == KycReviewStatus.rejected) {
-      if (kycRejectionReason != null && kycRejectionReason!.trim().isNotEmpty) {
-        return kycRejectionReason!.trim();
-      }
-      if (kycObjections.isNotEmpty) {
-        return kycObjections.join('\n');
-      }
-      return 'Verification Rejected';
+  /// Reviewer-provided rejection detail from the backend, when available.
+  String? get effectiveKycReason {
+    if (!kycStatus.requiresCustomerAction) return null;
+
+    final reason = kycRejectionReason?.trim();
+    final feedback = kycObjections
+        .map((objection) => objection.trim())
+        .where(
+          (objection) =>
+              objection.isNotEmpty && !_isGenericRejectionMessage(objection),
+        )
+        .toList();
+    if (reason != null &&
+        reason.isNotEmpty &&
+        !_isGenericRejectionMessage(reason) &&
+        !feedback.contains(reason)) {
+      feedback.add(reason);
     }
-    return kycStatus.label;
+    return feedback.isEmpty ? null : feedback.join('\n');
   }
+
+  /// Returns reviewer feedback or a generic status label for older callers.
+  String get effectiveKycMessage =>
+      effectiveKycReason ??
+      (kycStatus == KycReviewStatus.rejected
+          ? 'Verification Rejected'
+          : kycStatus == KycReviewStatus.awaitingCustomer
+          ? 'Update Required'
+          : kycStatus.label);
+
+  static bool _isGenericRejectionMessage(String message) => const {
+    'rejected',
+    'kyc rejected',
+    'verification rejected',
+    'kyc submission rejected',
+  }.contains(message.trim().toLowerCase());
 
   /// First name for greetings.
   String get firstName {

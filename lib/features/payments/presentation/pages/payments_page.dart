@@ -12,6 +12,7 @@ import '../../../../core/widgets/app_text_field.dart';
 import '../../../../core/widgets/empty_state.dart';
 import '../../../../core/widgets/payments_pin_lock_scope.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/widgets/paidix_smooth_scroll_physics.dart';
 import '../../data/payments_repository_impl.dart';
 import '../../domain/payment_models.dart';
 // import '../widgets/bulk_add_payments_dialog.dart';
@@ -143,9 +144,7 @@ class _PaymentsPageState extends State<PaymentsPage>
               backgroundColor: colors.card,
               onRefresh: _refreshPayments,
               child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
+                physics: paidiXRefreshScrollPhysics,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 24,
@@ -385,6 +384,7 @@ class _PaymentsPageState extends State<PaymentsPage>
               const SizedBox(height: 16),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                physics: paidiXSmoothScrollPhysics,
                 child: actions,
               ),
             ],

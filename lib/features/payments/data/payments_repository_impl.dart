@@ -646,6 +646,9 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
       case 'under_review':
       case 'underreview':
         return PaymentStatusType.underReview;
+      case 'pending_review':
+      case 'pendingreview':
+        return PaymentStatusType.pendingReview;
       case 'verified':
         return PaymentStatusType.verified;
       case 'pkr_sent':
@@ -734,6 +737,19 @@ class PaymentsRepositoryImpl implements PaymentsRepository {
   @override
   List<PaymentItem> filterPayments(PaymentFilter filter) {
     var result = List<PaymentItem>.from(_paymentsNotifier.value);
+
+    // Dashboard workflow groups share their status membership with the
+    // dashboard counts. Exact status filtering below remains available.
+    switch (filter.statusGroup) {
+      case PaymentStatusGroup.pendingReview:
+        result = result.where((item) => item.status.isPendingReview).toList();
+        break;
+      case PaymentStatusGroup.awaitingPkr:
+        result = result.where((item) => item.status.isAwaitingPkr).toList();
+        break;
+      case null:
+        break;
+    }
 
     // Search query filter
     if (filter.searchQuery.trim().isNotEmpty) {

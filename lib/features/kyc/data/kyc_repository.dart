@@ -382,8 +382,7 @@ class KycRepository {
     void Function(double progress, String statusLabel)? onProgress,
   }) async {
     final isResubmission =
-        UserProfileRepository.instance.profile.kycStatus ==
-        KycReviewStatus.rejected;
+        UserProfileRepository.instance.profile.kycStatus.requiresCustomerAction;
     var resubmissionMarkedLocally = false;
     onProgress?.call(0.10, 'Preparing verification package...');
     if (AppConfig.hasCustomBackend) {
@@ -770,7 +769,7 @@ class KycRepository {
   static String _normalizeBankLookup(String value) {
     return value
         .toLowerCase()
-        .replaceAll(RegExp(r'[\(\)\.,\-]'), ' ')
+        .replaceAll(RegExp(r'[\(\)\. ,\-]'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }

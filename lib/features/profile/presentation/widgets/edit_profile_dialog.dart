@@ -1,8 +1,10 @@
 /// Defines edit profile dialog in the profile feature's presentation layer.
 
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -16,6 +18,7 @@ import '../../../../core/widgets/spongy_tap.dart';
 import '../../data/user_profile_repository.dart';
 import '../../domain/user_profile.dart';
 import '../../../kyc/data/kyc_image_validation.dart';
+import '../../../kyc/data/kyc_media_recovery.dart';
 import '../../../kyc/data/kyc_repository.dart';
 
 /// Modal dialog for modifying personal profile details and re-uploading
@@ -73,6 +76,33 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     _cnicController = TextEditingController(text: widget.profile.cnicNumber);
     _cityController = TextEditingController(text: widget.profile.city);
     _addressController = TextEditingController(text: widget.profile.address);
+
+    final repository = UserProfileRepository.instance;
+    final recoveredSide = repository.consumeRecoveredPickSideFor(const {
+      'selfie',
+      'cnic_front',
+      'cnic_back',
+    });
+    if (recoveredSide != null) {
+      final profile = repository.profile;
+      switch (recoveredSide) {
+        case 'selfie':
+          _selfieBytes = profile.selfieBytes;
+          _selfiePath = profile.selfieFilePath;
+          _selfieFileName = 'selfie.jpg';
+          break;
+        case 'cnic_front':
+          _cnicFrontBytes = profile.cnicFrontBytes;
+          _cnicFrontPath = profile.cnicFrontFilePath;
+          _cnicFrontFileName = 'cnic_front.jpg';
+          break;
+        case 'cnic_back':
+          _cnicBackBytes = profile.cnicBackBytes;
+          _cnicBackPath = profile.cnicBackFilePath;
+          _cnicBackFileName = 'cnic_back.jpg';
+          break;
+      }
+    }
   }
 
   /// Releases resources owned by this object before it is removed.
@@ -93,17 +123,36 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
   }) async {
     HapticFeedback.lightImpact();
 
-    final hasPerm =
-        await PermissionHelper.requestStorageOrPhotosPermission(context);
-    if (!hasPerm) return;
+    final normalizedLabel = typeLabel.toLowerCase();
+    final targetSide = normalizedLabel.contains('selfie')
+        ? 'selfie'
+        : normalizedLabel.contains('front')
+        ? 'cnic_front'
+        : normalizedLabel.contains('back')
+        ? 'cnic_back'
+        : null;
+
+    final hasPerm = await PermissionHelper.requestStorageOrPhotosPermission(
+      context,
+    );
+    if (!hasPerm || targetSide == null) return;
 
     try {
-      final xFile = await _picker.pickImage(
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await UserProfileRepository.instance.setPendingPickSide(targetSide);
+      }
+      XFile? xFile = await _picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1024,
         maxHeight: 1024,
         imageQuality: 80,
       );
+
+      if (xFile == null &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.android) {
+        xFile = await KycMediaRecovery.retrieveLostFileFor(targetSide);
+      }
 
       if (xFile != null) {
         final rawBytes = await xFile.readAsBytes();
@@ -119,7 +168,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           maxDimension: 1280,
         );
 
-        if (widget.profile.kycStatus == KycReviewStatus.rejected) {
+        if (widget.profile.kycStatus.requiresCustomerAction) {
           KycImageValidation.validateForUpload(
             safeBytes,
             documentLabel: typeLabel,
@@ -134,10 +183,11 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         final fileName = xFile.name.isNotEmpty
             ? xFile.name
             : '${typeLabel.toLowerCase().replaceAll(' ', '_')}.jpg';
+        final filePath = xFile.path;
 
         if (!mounted) return;
         setState(() {
-          onPicked(safeBytes, fileName, xFile.path);
+          onPicked(safeBytes, fileName, filePath);
         });
 
         HapticFeedback.selectionClick();
@@ -154,6 +204,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
           'Could not load image from gallery. Please check permissions.',
         );
       }
+    } finally {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await UserProfileRepository.instance.setPendingPickSide(null);
+      }
     }
   }
 
@@ -162,8 +216,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     final currentProfile = UserProfileRepository.instance.profile;
-    final isKycResubmission =
-        currentProfile.kycStatus == KycReviewStatus.rejected;
+    final isKycResubmission = currentProfile.kycStatus.requiresCustomerAction;
     if (isKycResubmission &&
         (_selfieBytes == null ||
             _cnicFrontBytes == null ||
@@ -177,14 +230,16 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
 
     setState(() => _isSaving = true);
 
-    final hasNewDocs = _selfieBytes != null ||
+    final hasNewDocs =
+        _selfieBytes != null ||
         _cnicFrontBytes != null ||
         _cnicBackBytes != null;
 
     final rawCnic = _cnicController.text.trim();
     final cnicDigits = CnicValidator.clean(rawCnic);
-    final formattedCnic =
-        cnicDigits.length == 13 ? CnicValidator.format(cnicDigits) : rawCnic;
+    final formattedCnic = cnicDigits.length == 13
+        ? CnicValidator.format(cnicDigits)
+        : rawCnic;
 
     final editedProfile = currentProfile.copyWith(
       fullName: _nameController.text.trim(),
@@ -209,19 +264,24 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       }
 
       final kycRepo = KycRepository.instance;
-      final serverResubmittedAt = KycRepository.parseResubmittedAt(serverResponse);
-      final serverSelfieUrl = kycRepo.parseDocumentUrl(
+      final serverResubmittedAt = KycRepository.parseResubmittedAt(
         serverResponse,
-        const ['selfie_url', 'selfieUrl', 'selfie'],
       );
-      final serverFrontUrl = kycRepo.parseDocumentUrl(
-        serverResponse,
-        const ['cnic_front_url', 'cnicFrontUrl', 'cnic_front'],
-      );
-      final serverBackUrl = kycRepo.parseDocumentUrl(
-        serverResponse,
-        const ['cnic_back_url', 'cnicBackUrl', 'cnic_back'],
-      );
+      final serverSelfieUrl = kycRepo.parseDocumentUrl(serverResponse, const [
+        'selfie_url',
+        'selfieUrl',
+        'selfie',
+      ]);
+      final serverFrontUrl = kycRepo.parseDocumentUrl(serverResponse, const [
+        'cnic_front_url',
+        'cnicFrontUrl',
+        'cnic_front',
+      ]);
+      final serverBackUrl = kycRepo.parseDocumentUrl(serverResponse, const [
+        'cnic_back_url',
+        'cnicBackUrl',
+        'cnic_back',
+      ]);
 
       UserProfileRepository.instance.updateProfile(
         fullName: editedProfile.fullName,
@@ -231,8 +291,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         address: editedProfile.address,
         kycStatus: isKycResubmission ? KycReviewStatus.pendingReview : null,
         hasResubmittedKyc: isKycResubmission ? true : null,
-        kycResubmittedAt:
-            isKycResubmission ? (serverResubmittedAt ?? DateTime.now()) : null,
+        kycResubmittedAt: isKycResubmission
+            ? (serverResubmittedAt ?? DateTime.now())
+            : null,
         clearKycRejection: isKycResubmission,
         selfieBytes: _selfieBytes,
         selfieFilePath: _selfiePath,
@@ -288,8 +349,8 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
       isKycResubmission
           ? 'KYC updated and resubmitted for review'
           : hasNewDocs
-              ? 'Profile and documents updated successfully'
-              : 'Profile updated successfully',
+          ? 'Profile and documents updated successfully'
+          : 'Profile updated successfully',
     );
   }
 
@@ -299,8 +360,7 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
     final colors = AppColors.of(context);
     final size = MediaQuery.of(context).size;
     final isNarrow = size.width < 560;
-    final isKycResubmission =
-        widget.profile.kycStatus == KycReviewStatus.rejected;
+    final isKycResubmission = widget.profile.kycStatus.requiresCustomerAction;
 
     return Center(
       child: Material(
@@ -362,8 +422,10 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                         ),
                       ),
                       IconButton(
-                        icon:
-                            Icon(Icons.close_rounded, color: colors.textMuted),
+                        icon: Icon(
+                          Icons.close_rounded,
+                          color: colors.textMuted,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: () => Navigator.of(context).pop(),
@@ -680,15 +742,14 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                 onTap: onTap,
                 pressScale: 0.94,
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 9, vertical: 5.5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5.5,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.cardDark,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: colors.borderSubtle,
-                      width: 1,
-                    ),
+                    border: Border.all(color: colors.borderSubtle, width: 1),
                   ),
                   child: Text(
                     'Choose file',
@@ -719,8 +780,9 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
                       style: TextStyle(
                         color: hasChosen ? colors.emerald : colors.textMuted,
                         fontSize: 11,
-                        fontWeight:
-                            hasChosen ? FontWeight.w600 : FontWeight.w400,
+                        fontWeight: hasChosen
+                            ? FontWeight.w600
+                            : FontWeight.w400,
                       ),
                       overflow: TextOverflow.ellipsis,
                       maxLines: 1,
@@ -787,17 +849,23 @@ class _EditProfileDialogState extends State<EditProfileDialog> {
         hintStyle: TextStyle(color: colors.textMuted, fontSize: 13.5),
         filled: true,
         fillColor: colors.inputBackground,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,
           borderSide: BorderSide(
-              color: colors.border.withValues(alpha: 0.8), width: 1.2),
+            color: colors.border.withValues(alpha: 0.8),
+            width: 1.2,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,
           borderSide: BorderSide(
-              color: colors.border.withValues(alpha: 0.8), width: 1.2),
+            color: colors.border.withValues(alpha: 0.8),
+            width: 1.2,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: AppSpacing.radiusMd,

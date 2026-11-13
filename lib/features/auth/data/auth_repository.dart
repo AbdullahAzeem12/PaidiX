@@ -75,6 +75,51 @@ class AuthRepository {
   KycReviewStatus? _serverConfirmedKycStatus;
   Future<KycReviewStatus?>? _kycStatusRefreshInFlight;
 
+  static const _kycRejectionReasonKeys = [
+    'kyc_rejection_reason',
+    'kycRejectionReason',
+    'rejection_reason',
+    'rejectionReason',
+    'objection_reason',
+    'objectionReason',
+    'kyc_review_reason',
+    'kycReviewReason',
+    'kyc_rejection_message',
+    'kycRejectionMessage',
+    'rejection_message',
+    'rejectionMessage',
+    'kyc_review_notes',
+    'kycReviewNotes',
+    'kyc_rejection_comment',
+    'kycRejectionComment',
+    'kyc_review_comment',
+    'kycReviewComment',
+    'reviewer_comment',
+    'reviewerComment',
+    'review_comment',
+    'reviewComment',
+    'review_notes',
+    'reviewNotes',
+    'rejection_notes',
+    'rejectionNotes',
+    'admin_comment',
+    'adminComment',
+    'admin_reason',
+    'adminReason',
+    'admin_note',
+    'adminNote',
+    'rejection_note',
+    'rejectionNote',
+    'rejection_comment',
+    'rejectionComment',
+    'kyc_notes',
+    'kycNotes',
+    'reviewer_note',
+    'reviewerNote',
+    'comment',
+    'reason',
+  ];
+
   /// Broadcasts live server-confirmed KYC review status transitions in the active session.
   final ValueNotifier<KycReviewStatus?> serverKycStatusNotifier =
       ValueNotifier<KycReviewStatus?>(null);
@@ -354,6 +399,12 @@ class AuthRepository {
       'kyc_profile',
       'kycProfile',
       'review',
+      'kyc_review',
+      'kycReview',
+      'review_details',
+      'reviewDetails',
+      'admin_review',
+      'adminReview',
       'verification',
     };
 
@@ -414,6 +465,28 @@ class AuthRepository {
           case 'submitted':
           case 'resubmitted':
             return KycReviewStatus.pendingReview;
+          case 'awaitingcustomer':
+          case 'awaitingcustomerreview':
+          case 'awaitingcustomerresponse':
+          case 'awaitingcustomerupdate':
+          case 'awaitinguser':
+          case 'awaitingupdate':
+          case 'awaitingcustomeraction':
+          case 'waitingforcustomer':
+          case 'waitingoncustomer':
+          case 'actionrequired':
+          case 'customeractionrequired':
+          case 'needsaction':
+          case 'changesrequested':
+          case 'returnedforcorrection':
+          case 'returnedtocustomer':
+          case 'objectionraised':
+          case 'objectionsraised':
+          case 'objection':
+          case 'objections':
+          case 'objectionpending':
+          case 'needsupdate':
+            return KycReviewStatus.awaitingCustomer;
           case 'rejected':
           case 'declined':
           case 'verificationrejected':
@@ -583,6 +656,214 @@ class AuthRepository {
       }
     }
     return null;
+  }
+
+  /// Reads reviewer objections from the account response without exposing raw
+  /// map/list serialization in the UI. `null` means the endpoint omitted the
+  /// field; an empty list means the server explicitly cleared all objections.
+  static List<String>? _firstKycObjections(List<Map<String, dynamic>> sources) {
+    const keys = [
+      'kyc_objections',
+      'kycObjections',
+      'objections',
+      'review_objections',
+      'reviewObjections',
+      'kyc_objection_details',
+      'kycObjectionDetails',
+      'objection_details',
+      'objectionDetails',
+      'field_objections',
+      'fieldObjections',
+      'requested_changes',
+      'requestedChanges',
+      'objection_list',
+      'objectionList',
+      'kyc_objection',
+      'kycObjection',
+    ];
+    const objectionFieldKeys = [
+      'field',
+      'field_name',
+      'fieldName',
+      'field_key',
+      'fieldKey',
+      'field_label',
+      'fieldLabel',
+      'document',
+      'document_type',
+      'documentType',
+      'section',
+      'target',
+      'name',
+    ];
+    const objectionDetailKeys = [
+      'reason',
+      'comment',
+      'message',
+      'note',
+      'description',
+      'objection',
+      'issue',
+      'objection_text',
+      'objectionText',
+      'text',
+      'value',
+    ];
+
+    for (final source in sources) {
+      for (final key in keys) {
+        if (!source.containsKey(key)) continue;
+        final raw = source[key];
+        if (raw == null) return const <String>[];
+        if (raw is String) {
+          final value = raw.trim();
+          return value.isEmpty ? const <String>[] : [value];
+        }
+        final rawMap = _asStringMap(raw);
+        final isSingleObjection =
+            rawMap != null &&
+            (objectionFieldKeys.any(rawMap.containsKey) ||
+                objectionDetailKeys.any(rawMap.containsKey));
+        final items = rawMap != null && isSingleObjection
+            ? [rawMap]
+            : rawMap != null
+            ? rawMap.entries.map(
+                (entry) => <String, dynamic>{
+                  'field': entry.key,
+                  if (entry.value is Map)
+                    ...(entry.value as Map).map(
+                      (key, value) => MapEntry('$key', value),
+                    )
+                  else
+                    'reason': entry.value,
+                },
+              )
+            : raw is Iterable
+            ? raw
+            : const <dynamic>[];
+
+        final objections = <String>[];
+        for (final item in items) {
+          final formatted = _formatKycObjection(item);
+          if (formatted != null && !objections.contains(formatted)) {
+            objections.add(formatted);
+          }
+        }
+        return objections;
+      }
+    }
+    return null;
+  }
+
+  static String? _formatKycObjection(dynamic value) {
+    if (value is String) {
+      final text = value.trim();
+      return text.isEmpty ? null : text;
+    }
+    if (value is! Map) return null;
+
+    final objection = value.map((key, value) => MapEntry('$key', value));
+    const fieldKeys = [
+      'field',
+      'field_name',
+      'fieldName',
+      'field_key',
+      'fieldKey',
+      'field_label',
+      'fieldLabel',
+      'document',
+      'document_type',
+      'documentType',
+      'section',
+      'target',
+      'name',
+    ];
+    const detailKeys = [
+      'reason',
+      'comment',
+      'message',
+      'note',
+      'description',
+      'objection',
+      'issue',
+      'objection_text',
+      'objectionText',
+      'text',
+      'value',
+    ];
+    final field = _firstNonEmptyString([objection], fieldKeys);
+    var detail = _firstNonEmptyString([objection], detailKeys);
+    if (detail == null) {
+      for (final nested in objection.values.whereType<Map>()) {
+        final nestedMap = nested.map((key, value) => MapEntry('$key', value));
+        detail = _firstNonEmptyString([nestedMap], detailKeys);
+        if (detail != null) break;
+      }
+    }
+
+    // Support compact payloads such as {"cnic_front": "Blurry"} as well as
+    // structured records such as {"field": "cnic_front", "reason": "..."}.
+    if (field == null && detail == null) {
+      const fieldNames = {
+        'selfie',
+        'cnic_front',
+        'cnic_back',
+        'full_name',
+        'phone',
+        'cnic_number',
+        'city',
+        'address',
+        'bank_account',
+      };
+      for (final entry in objection.entries) {
+        if (!fieldNames.contains(entry.key.toLowerCase())) continue;
+        final nested = entry.value;
+        if (nested is String && nested.trim().isNotEmpty) {
+          return '${_humanizeKycField(entry.key)}: ${nested.trim()}';
+        }
+        if (nested is Map) {
+          final nestedMap = nested.map((key, value) => MapEntry('$key', value));
+          detail = _firstNonEmptyString([nestedMap], detailKeys);
+          if (detail != null) {
+            return '${_humanizeKycField(entry.key)}: $detail';
+          }
+        }
+      }
+    }
+
+    if (field == null) return detail;
+    final label = _humanizeKycField(field);
+    if (detail == null || detail.isEmpty) return label;
+    return '$label: $detail';
+  }
+
+  static String _humanizeKycField(String field) {
+    final normalized = field
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    const labels = {
+      'selfie': 'Selfie',
+      'selfie_photo': 'Selfie',
+      'cnic_front': 'CNIC front',
+      'cnic_back': 'CNIC back',
+      'cnic_number': 'CNIC number',
+      'full_name': 'Full name',
+      'phone': 'Phone',
+      'phone_number': 'Phone',
+      'city': 'City',
+      'address': 'Address',
+      'bank_account': 'Bank account',
+      'bank_details': 'Bank details',
+    };
+    final knownLabel = labels[normalized];
+    if (knownLabel != null) return knownLabel;
+    return normalized
+        .split('_')
+        .where((part) => part.isNotEmpty)
+        .map((part) => '${part[0].toUpperCase()}${part.substring(1)}')
+        .join(' ');
   }
 
   static double? _firstNumber(
@@ -924,7 +1205,7 @@ class AuthRepository {
         ? savedProfile?.hasCompletedKyc ?? false
         : (kycStatus == KycReviewStatus.verified ||
               kycStatus == KycReviewStatus.pendingReview ||
-              kycStatus == KycReviewStatus.rejected ||
+              kycStatus.requiresCustomerAction ||
               (serverSubmissionFlag ?? false));
 
     final serverName = _firstNonEmptyString(remoteSources, const [
@@ -993,32 +1274,19 @@ class AuthRepository {
                   ? null
                   : DateTime.tryParse(resubmittedAtValue)) ??
               savedProfile?.kycResubmittedAt;
-    final rejectionReason = kycStatus == KycReviewStatus.rejected
-        ? (_firstNonEmptyString(remoteSources, const [
-                'kyc_rejection_reason',
-                'rejection_reason',
-                'rejectionReason',
-                'objection_reason',
-                'kyc_notes',
-                'kycNotes',
-                'review_notes',
-                'rejection_notes',
-                'admin_comment',
-              ]) ??
-              savedProfile?.kycRejectionReason)
+    final preservesCurrentFeedback = savedProfile?.kycStatus == kycStatus;
+    final rejectionReason = kycStatus.requiresCustomerAction
+        ? (_firstNonEmptyString(remoteSources, _kycRejectionReasonKeys) ??
+              (preservesCurrentFeedback
+                  ? savedProfile?.kycRejectionReason
+                  : null))
         : null;
-    List? rawObjections;
-    for (final source in remoteSources) {
-      final value = source['kyc_objections'] ?? source['objections'];
-      if (value is List) {
-        rawObjections = value;
-        break;
-      }
-    }
-    final kycObjections = kycStatus == KycReviewStatus.rejected
-        ? (rawObjections == null
-              ? savedProfile?.kycObjections ?? const <String>[]
-              : rawObjections.map((value) => '$value').toList())
+    final remoteObjections = _firstKycObjections(remoteSources);
+    final kycObjections = kycStatus.requiresCustomerAction
+        ? (remoteObjections ??
+              (preservesCurrentFeedback
+                  ? savedProfile?.kycObjections ?? const <String>[]
+                  : const <String>[]))
         : const <String>[];
     final reviewedAtValue = _firstNonEmptyString(remoteSources, const [
       'kyc_reviewed_at',
@@ -1329,30 +1597,8 @@ class AuthRepository {
     }
 
     final serverReportsResubmission = _hasServerResubmittedKyc(response);
-    final reason = _firstNonEmptyString(sources, const [
-      'kyc_rejection_reason',
-      'rejection_reason',
-      'rejectionReason',
-      'objection_reason',
-      'kyc_notes',
-      'kycNotes',
-      'review_notes',
-      'rejection_notes',
-      'admin_comment',
-      'admin_note',
-      'rejection_note',
-      'kyc_rejection_message',
-      'rejection_message',
-    ]);
-    List? rawObjections;
-    for (final source in sources) {
-      final value = source['kyc_objections'] ?? source['objections'];
-      if (value is List) {
-        rawObjections = value;
-        break;
-      }
-    }
-    final objections = rawObjections?.map((value) => '$value').toList();
+    final reason = _firstNonEmptyString(sources, _kycRejectionReasonKeys);
+    final objections = _firstKycObjections(sources);
     final reviewedAtValue = _firstNonEmptyString(sources, const [
       'kyc_reviewed_at',
       'reviewed_at',
@@ -1366,7 +1612,7 @@ class AuthRepository {
         ? null
         : DateTime.tryParse(reviewedAtValue);
     final latestResubmissionAt = current.kycResubmittedAt;
-    if (status == KycReviewStatus.rejected &&
+    if (status.requiresCustomerAction &&
         current.hasResubmittedKyc &&
         latestResubmissionAt != null &&
         serverReviewedAt != null &&
@@ -1379,11 +1625,16 @@ class AuthRepository {
     final reviewedAt = reviewedAtValue == null
         ? current.kycReviewedAt
         : serverReviewedAt ?? current.kycReviewedAt;
-    final nextReason = status == KycReviewStatus.rejected
-        ? reason ?? current.kycRejectionReason
+    final preservesCurrentFeedback = status == current.kycStatus;
+    final nextReason = status.requiresCustomerAction
+        ? reason ??
+              (preservesCurrentFeedback ? current.kycRejectionReason : null)
         : null;
-    final nextObjections = status == KycReviewStatus.rejected
-        ? objections ?? current.kycObjections
+    final nextObjections = status.requiresCustomerAction
+        ? objections ??
+              (preservesCurrentFeedback
+                  ? current.kycObjections
+                  : const <String>[])
         : const <String>[];
     final hasResubmittedKyc =
         status == KycReviewStatus.pendingReview &&
@@ -1456,7 +1707,7 @@ class AuthRepository {
       kycRejectionReason: nextReason,
       kycObjections: nextObjections,
       kycReviewedAt: reviewedAt,
-      clearRejection: status != KycReviewStatus.rejected,
+      clearRejection: !status.requiresCustomerAction,
       ratingScore: ratingScore ?? current.ratingScore,
       ratingTier: ratingTier ?? current.ratingTier,
       ratingGrade: ratingGrade ?? current.ratingGrade,

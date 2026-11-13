@@ -168,6 +168,21 @@ class PaymentItem {
   };
 }
 
+/// Dashboard groups combine server statuses that represent one workflow stage.
+/// Exact status filters continue to use [StatusFilterOption].
+enum PaymentStatusGroup { pendingReview, awaitingPkr }
+
+extension PaymentStatusGroupMembership on PaymentStatusType {
+  bool get isPendingReview =>
+      this == PaymentStatusType.submitted ||
+      this == PaymentStatusType.underReview ||
+      this == PaymentStatusType.pendingReview;
+
+  bool get isAwaitingPkr =>
+      this == PaymentStatusType.verified ||
+      this == PaymentStatusType.awaitingPkr;
+}
+
 /// A server-recorded payment status transition used by the detail timeline.
 class PaymentStatusHistoryItem {
   final String? fromStatus;
@@ -247,6 +262,7 @@ class PaymentFilter {
   final DateRangeFilter dateRange;
   final CurrencyFilter currency;
   final StatusFilterOption status;
+  final PaymentStatusGroup? statusGroup;
   final String searchQuery;
   final bool isBitnexWeek;
   final DateTime? fromDate;
@@ -256,6 +272,7 @@ class PaymentFilter {
     this.dateRange = DateRangeFilter.allTime,
     this.currency = CurrencyFilter.all,
     this.status = StatusFilterOption.all,
+    this.statusGroup,
     this.searchQuery = '',
     this.isBitnexWeek = false,
     this.fromDate,
@@ -267,16 +284,19 @@ class PaymentFilter {
     DateRangeFilter? dateRange,
     CurrencyFilter? currency,
     StatusFilterOption? status,
+    PaymentStatusGroup? statusGroup,
     String? searchQuery,
     bool? isBitnexWeek,
     DateTime? fromDate,
     DateTime? toDate,
     bool clearDates = false,
+    bool clearStatusGroup = false,
   }) {
     return PaymentFilter(
       dateRange: dateRange ?? this.dateRange,
       currency: currency ?? this.currency,
       status: status ?? this.status,
+      statusGroup: clearStatusGroup ? null : (statusGroup ?? this.statusGroup),
       searchQuery: searchQuery ?? this.searchQuery,
       isBitnexWeek: isBitnexWeek ?? this.isBitnexWeek,
       fromDate: clearDates ? null : (fromDate ?? this.fromDate),
@@ -289,6 +309,7 @@ class PaymentFilter {
       dateRange == DateRangeFilter.allTime &&
       currency == CurrencyFilter.all &&
       status == StatusFilterOption.all &&
+      statusGroup == null &&
       fromDate == null &&
       toDate == null &&
       searchQuery.trim().isEmpty;
@@ -303,6 +324,7 @@ class PaymentFilter {
     if (fromDate != null || toDate != null) count++;
     if (currency != CurrencyFilter.all) count++;
     if (status != StatusFilterOption.all) count++;
+    if (statusGroup != null) count++;
     if (searchQuery.trim().isNotEmpty) count++;
     return count;
   }

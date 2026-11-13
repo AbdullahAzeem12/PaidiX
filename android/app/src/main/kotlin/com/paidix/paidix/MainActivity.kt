@@ -23,6 +23,8 @@ class MainActivity : FlutterActivity() {
     private var isResumedState = false
     private var wasStoppedInBackground = false
     private var returnedFromActivityResult = false
+    private var recoveringPickerReturn = false
+    private var pickerRecoveryRetries = 0
     private var isUiDisplayed = false
     private var hasDisplayedFlutterUi = false
     private var watchdogGeneration = 0
@@ -98,6 +100,8 @@ class MainActivity : FlutterActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         returnedFromActivityResult = true
+        recoveringPickerReturn = true
+        pickerRecoveryRetries = 0
         super.onActivityResult(requestCode, resultCode, data)
     }
 
@@ -112,6 +116,8 @@ class MainActivity : FlutterActivity() {
         super.onFlutterUiDisplayed()
         isUiDisplayed = true
         hasDisplayedFlutterUi = true
+        recoveringPickerReturn = false
+        pickerRecoveryRetries = 0
         if (!wasStoppedInBackground) {
             cancelRenderWatchdog()
         }
@@ -121,7 +127,12 @@ class MainActivity : FlutterActivity() {
         super.onFlutterUiNoLongerDisplayed()
         isUiDisplayed = false
         if (isResumedState && !isFinishing && !isDestroyed) {
-            scheduleResumeVerification(RESUME_RENDER_GRACE_MS)
+            val graceMs = if (recoveringPickerReturn || returnedFromActivityResult) {
+                PICKER_RETURN_RENDER_GRACE_MS
+            } else {
+                RESUME_RENDER_GRACE_MS
+            }
+            scheduleResumeVerification(graceMs)
         }
     }
 
@@ -139,7 +150,14 @@ class MainActivity : FlutterActivity() {
         }
 
         if (!wasStoppedInBackground) {
+            val returnedFromPicker = returnedFromActivityResult
             returnedFromActivityResult = false
+            if (returnedFromPicker) {
+                recoveringPickerReturn = true
+                pickerRecoveryRetries = 0
+                scheduleResumeVerification(PICKER_RETURN_RENDER_GRACE_MS)
+                return
+            }
             if (!isUiDisplayed && !engine.renderer.isDisplayingFlutterUi) {
                 armColdStartWatchdog()
             }
@@ -191,7 +209,18 @@ class MainActivity : FlutterActivity() {
             val engineAlive = engine != null && engine.dartExecutor.isExecutingDart
             val rendererDisplaying = engine?.renderer?.isDisplayingFlutterUi == true
             if (!engineAlive || !rendererDisplaying || !isSurfaceTreeHealthy() || !dartFrameConfirmed) {
-                restartActivityImmediately()
+                if (recoveringPickerReturn && engineAlive &&
+                    pickerRecoveryRetries < MAX_PICKER_RECOVERY_RETRIES
+                ) {
+                    pickerRecoveryRetries++
+                    ensureFlutterViewVisible()
+                    scheduleResumeVerification(PICKER_RECOVERY_RETRY_GRACE_MS)
+                } else {
+                    restartActivityImmediately()
+                }
+            } else {
+                recoveringPickerReturn = false
+                pickerRecoveryRetries = 0
             }
         }
         pendingWatchdog = deadlineRunnable
@@ -326,6 +355,31 @@ class MainActivity : FlutterActivity() {
         val withinIntentCooldown =
             intentRestartAt > 0L && (now - intentRestartAt) < RESTART_COOLDOWN_MS
         if (withinProcessCooldown || withinIntentCooldown) {
+            val processRemaining = if (lastProcessAutoRestartMs > 0L) {
+                (RESTART_COOLDOWN_MS - (now - lastProcessAutoRestartMs)).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+            val intentRemaining = if (intentRestartAt > 0L) {
+                (RESTART_COOLDOWN_MS - (now - intentRestartAt)).coerceAtLeast(0L)
+            } else {
+                0L
+            }
+            val retry = Runnable {
+                pendingWatchdog = null
+                if (!isResumedState || isFinishing || isDestroyed) return@Runnable
+                val renderer = flutterEngine?.renderer
+                if (!isUiDisplayed || renderer?.isDisplayingFlutterUi != true ||
+                    !isSurfaceTreeHealthy()
+                ) {
+                    restartActivityImmediately()
+                }
+            }
+            pendingWatchdog = retry
+            mainHandler.postDelayed(
+                retry,
+                maxOf(processRemaining, intentRemaining) + RESTART_RETRY_BUFFER_MS
+            )
             return
         }
         lastProcessAutoRestartMs = now
@@ -353,8 +407,11 @@ class MainActivity : FlutterActivity() {
         private const val LIFECYCLE_CHANNEL = "com.paidix.paidix/lifecycle"
         private const val EXTRA_AUTO_RESTARTED_AT = "paidix_auto_restarted_at"
         private const val RESTART_COOLDOWN_MS = 8_000L
+        private const val RESTART_RETRY_BUFFER_MS = 250L
         private const val RESUME_RENDER_GRACE_MS = 600L
-        private const val PICKER_RETURN_RENDER_GRACE_MS = 1_600L
+        private const val PICKER_RETURN_RENDER_GRACE_MS = 12_000L
+        private const val PICKER_RECOVERY_RETRY_GRACE_MS = 5_000L
+        private const val MAX_PICKER_RECOVERY_RETRIES = 2
         private const val COLD_START_RENDER_GRACE_MS = 10_000L
         private var lastProcessAutoRestartMs = 0L
     }

@@ -10,11 +10,47 @@ import 'kyc_image_validation.dart';
 class KycMediaRecovery {
   const KycMediaRecovery._();
 
-  static Future<void> recoverAfterAndroidRestart() async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  static bool _retrievalInFlight = false;
+
+  /// Retrieves Android's lost picker result once, for the persisted target.
+  /// Competing screens cannot consume or misroute the same result.
+  static Future<XFile?> retrieveLostFileFor(String expectedSide) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return null;
 
     final repository = UserProfileRepository.instance;
+    if (repository.pendingPickSide != expectedSide || _retrievalInFlight) {
+      return null;
+    }
+
+    _retrievalInFlight = true;
+    try {
+      final response = await ImagePicker().retrieveLostData();
+      if (response.exception != null) throw response.exception!;
+      return response.file;
+    } finally {
+      _retrievalInFlight = false;
+    }
+  }
+
+  static Future<void> recoverAfterAndroidRestart() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+    if (_retrievalInFlight) return;
+
+    final repository = UserProfileRepository.instance;
+    // Do not consume Android's single lost-result slot unless the app recorded
+    // an interrupted KYC/profile picker. Other features (such as payment proof
+    // upload) use the same platform slot and recover their own results.
+    if (!const {
+      'avatar',
+      'cnic_front',
+      'cnic_back',
+      'selfie',
+    }.contains(repository.pendingPickSide)) {
+      return;
+    }
+
     final picker = ImagePicker();
+    _retrievalInFlight = true;
     try {
       final response = await picker.retrieveLostData();
       if (response.exception != null) {
@@ -48,6 +84,8 @@ class KycMediaRecovery {
       debugPrint('[KycMediaRecovery] Could not restore picked image: $e');
       debugPrintStack(stackTrace: stackTrace);
       await repository.setPendingPickSide(null);
+    } finally {
+      _retrievalInFlight = false;
     }
   }
 
@@ -56,6 +94,7 @@ class KycMediaRecovery {
       case 'cnic_front':
       case 'cnic_back':
       case 'selfie':
+      case 'avatar':
         return repository.pendingPickSide;
     }
 

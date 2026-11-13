@@ -1,12 +1,15 @@
 /// Defines pagination controls in the payments feature's presentation layer.
 
 import 'dart:math';
+
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
+import '../../../../core/widgets/paidix_smooth_scroll_physics.dart';
 
 /// State-of-the-art interactive pagination footer matching production screenshots.
 /// Features:
@@ -124,8 +127,10 @@ class PaginationControls extends StatelessWidget {
               onTap: () => _showPageJumpDialog(context, totalPages),
               pressScale: 0.94,
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isDark ? colors.cardDark : colors.cardHighlight,
                   borderRadius: BorderRadius.circular(6),
@@ -192,6 +197,7 @@ class PaginationControls extends StatelessWidget {
                   showingText,
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
+                    physics: paidiXSmoothScrollPhysics,
                     child: rowsSelector,
                   ),
                 ],
@@ -200,7 +206,7 @@ class PaginationControls extends StatelessWidget {
               Center(
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  physics: const BouncingScrollPhysics(),
+                  physics: paidiXSmoothScrollPhysics,
                   child: pageNavControls,
                 ),
               ),
@@ -213,11 +219,7 @@ class PaginationControls extends StatelessWidget {
           crossAxisAlignment: WrapCrossAlignment.center,
           spacing: 12,
           runSpacing: 10,
-          children: [
-            showingText,
-            rowsSelector,
-            pageNavControls,
-          ],
+          children: [showingText, rowsSelector, pageNavControls],
         );
       },
     );
@@ -359,8 +361,10 @@ class PaginationControls extends StatelessWidget {
                     onPageSizeChanged(size);
                   },
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.cardDark,
                       borderRadius: BorderRadius.circular(6),
@@ -501,10 +505,7 @@ class PaginationControls extends StatelessWidget {
               children: [
                 Text(
                   'Select any page from 1 to $totalPages:',
-                  style: TextStyle(
-                    fontSize: 12.5,
-                    color: colors.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 12.5, color: colors.textSecondary),
                 ),
                 const SizedBox(height: 14),
                 ConstrainedBox(
@@ -512,7 +513,7 @@ class PaginationControls extends StatelessWidget {
                     maxHeight: min(220.0, availableContentHeight),
                   ),
                   child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
+                    physics: paidiXSmoothScrollPhysics,
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,

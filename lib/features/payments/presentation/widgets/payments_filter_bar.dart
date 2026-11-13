@@ -1,10 +1,12 @@
 /// Defines payments filter bar in the payments feature's presentation layer.
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
 import '../../../../core/widgets/spongy_tap.dart';
+import '../../../../core/widgets/paidix_smooth_scroll_physics.dart';
 import '../../domain/payment_models.dart';
 
 /// A sleek, responsive, and animated filter bar for Payments.
@@ -90,7 +92,9 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                         const SizedBox(width: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 5, vertical: 1.5),
+                            horizontal: 5,
+                            vertical: 1.5,
+                          ),
                           decoration: BoxDecoration(
                             color: colors.aquaDark,
                             shape: BoxShape.circle,
@@ -107,7 +111,12 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                       ],
                       const Spacer(),
                       // "Bitnex week" button at the most right side, just beside the toggle chevron
-                      _buildHeaderResetButton(context, colors, isDark, isMobile),
+                      _buildHeaderResetButton(
+                        context,
+                        colors,
+                        isDark,
+                        isMobile,
+                      ),
                       const SizedBox(width: 5),
                       AnimatedRotation(
                         turns: _isExpanded ? 0.5 : 0.0,
@@ -133,15 +142,16 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding:
-                                EdgeInsets.symmetric(horizontal: headerHPad),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: headerHPad,
+                            ),
                             child: Divider(color: colors.divider, height: 1),
                           ),
                           const SizedBox(height: 12),
                           // Smooth horizontal slider: side-by-side chips that never stack downwards
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
+                            physics: paidiXSmoothScrollPhysics,
                             padding: EdgeInsets.fromLTRB(
                               headerHPad,
                               0,
@@ -161,9 +171,7 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                                   itemLabel: (v) => v.label,
                                   onChanged: (val) {
                                     widget.onFilterChanged(
-                                      widget.filter.copyWith(
-                                        dateRange: val,
-                                      ),
+                                      widget.filter.copyWith(dateRange: val),
                                     );
                                   },
                                 ),
@@ -199,8 +207,6 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                                     );
                                   },
                                 ),
-
-
                               ],
                             ),
                           ),
@@ -238,8 +244,8 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
         decoration: BoxDecoration(
           color: hasActiveFilters
               ? (isDark
-                  ? colors.aquaDark.withValues(alpha: 0.35)
-                  : colors.cardHighlight)
+                    ? colors.aquaDark.withValues(alpha: 0.35)
+                    : colors.cardHighlight)
               : (isDark ? colors.cardDark : colors.cardHighlight),
           borderRadius: AppSpacing.radiusPill,
           border: Border.all(
@@ -270,7 +276,9 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
               style: TextStyle(
                 fontFamily: AppTheme.activeFontFamily,
                 fontSize: isMobile ? 10 : 11,
-                fontWeight: hasActiveFilters ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: hasActiveFilters
+                    ? FontWeight.w700
+                    : FontWeight.w500,
                 color: hasActiveFilters ? colors.aqua : colors.textSecondary,
                 letterSpacing: 0.2,
               ),
@@ -353,8 +361,9 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
                     itemLabel(item),
                     style: TextStyle(
                       fontSize: 12.5,
-                      fontWeight:
-                          isItemActive ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: isItemActive
+                          ? FontWeight.w700
+                          : FontWeight.w500,
                       color: isItemActive
                           ? colors.aquaLight
                           : colors.textPrimary,
@@ -370,8 +379,8 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
           decoration: BoxDecoration(
             color: isActive
                 ? (isDark
-                    ? colors.aquaDark.withValues(alpha: 0.3)
-                    : colors.cardHighlight)
+                      ? colors.aquaDark.withValues(alpha: 0.3)
+                      : colors.cardHighlight)
                 : colors.inputFill,
             borderRadius: AppSpacing.radiusMd,
             border: Border.all(
@@ -421,5 +430,4 @@ class _PaymentsFilterBarState extends State<PaymentsFilterBar> {
       ),
     );
   }
-
 }

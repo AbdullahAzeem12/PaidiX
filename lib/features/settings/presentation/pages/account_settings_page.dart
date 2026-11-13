@@ -19,6 +19,7 @@ import '../../../../core/widgets/paidix_toast.dart';
 import '../../../../core/widgets/payments_pin_recovery_dialog.dart';
 import '../../../../core/widgets/spongy_tap.dart';
 import '../../../kyc/data/kyc_image_processor.dart';
+import '../../../kyc/data/kyc_media_recovery.dart';
 import '../../../kyc/data/kyc_image_validation.dart';
 import '../../../kyc/data/kyc_repository.dart';
 import '../../../profile/presentation/widgets/document_viewer_dialog.dart';
@@ -653,12 +654,26 @@ class _ProfileSectionState extends State<_ProfileSection> {
   /// Recovers an image-picker result after activity recreation and applies it to the profile.
   Future<void> _checkAndRetrieveLostImage() async {
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      final repository = UserProfileRepository.instance;
+      final side = repository.pendingPickSide;
+      if (side == null ||
+          !const {
+            'avatar',
+            'selfie',
+            'cnic_front',
+            'cnic_back',
+          }.contains(side)) {
+        return;
+      }
       try {
-        final picker = ImagePicker();
-        final response = await picker.retrieveLostData();
-        if (!response.isEmpty && response.file != null) {
-          final file = response.file!;
-          await _processPickedFile(file, isAvatar: true);
+        final file = await KycMediaRecovery.retrieveLostFileFor(side);
+        if (file != null) {
+          await _processPickedFile(
+            file,
+            isAvatar: side == 'avatar',
+            documentType: side == 'avatar' ? null : side,
+          );
+          await repository.setPendingPickSide(null);
         }
       } catch (e) {
         debugPrint('retrieveLostData error: $e');
@@ -756,34 +771,39 @@ class _ProfileSectionState extends State<_ProfileSection> {
     Uint8List rawBytes, {
     int maxDimension = 512,
   }) async {
+    ui.Codec? codec;
+    ui.Image? image;
     try {
-      final probeCodec = await ui.instantiateImageCodec(rawBytes);
-      final probeFrame = await probeCodec.getNextFrame();
-      final origW = probeFrame.image.width;
-      final origH = probeFrame.image.height;
-      probeFrame.image.dispose();
-      probeCodec.dispose();
-
-      if (origW <= maxDimension && origH <= maxDimension) {
+      // Ask the codec for a bounded frame directly. Decoding a full-resolution
+      // Huawei gallery image just to inspect its dimensions can allocate over
+      // 200 MB for a 48 MP photo and terminate the Android process.
+      codec = await ui.instantiateImageCodec(
+        rawBytes,
+        targetWidth: maxDimension,
+        targetHeight: maxDimension,
+        allowUpscaling: false,
+      );
+      image = (await codec.getNextFrame()).image;
+      if (image.width <= maxDimension && image.height <= maxDimension) {
         return rawBytes;
       }
 
-      final codec = await ui.instantiateImageCodec(
-        rawBytes,
-        targetWidth: origW >= origH ? maxDimension : null,
-        targetHeight: origH > origW ? maxDimension : null,
-      );
-      final frameInfo = await codec.getNextFrame();
-      final image = frameInfo.image;
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      // Explicitly dispose native Skia GPU texture handles to prevent memory leaks on Huawei
-      image.dispose();
-      codec.dispose();
       if (byteData != null) {
-        return byteData.buffer.asUint8List();
+        final scaled = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
+        if (scaled.lengthInBytes <= KycImageValidation.maxFileSizeBytes ||
+            rawBytes.lengthInBytes > KycImageValidation.maxFileSizeBytes) {
+          return scaled;
+        }
       }
     } catch (e) {
       debugPrint('Downscale fallback: $e');
+    } finally {
+      image?.dispose();
+      codec?.dispose();
     }
     return rawBytes;
   }
@@ -1305,6 +1325,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
     String? documentType,
   }) async {
     final c = widget.colors;
+    final pickerTarget = isAvatar ? 'avatar' : documentType;
     try {
       // 1. Huawei & Android runtime permissions check
       if (!kIsWeb && (Platform.isAndroid || Platform.isIOS)) {
@@ -1329,6 +1350,15 @@ class _ProfileSectionState extends State<_ProfileSection> {
         }
       }
 
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        if (pickerTarget == null) {
+          throw StateError(
+            'A document type is required to recover this image.',
+          );
+        }
+        await UserProfileRepository.instance.setPendingPickSide(pickerTarget);
+      }
+
       if (mounted) setState(() => _isUploadingPhoto = true);
 
       // 2. Pick image without aggressive native constraints to avoid native Java OOM on Huawei 48MP/64MP images
@@ -1350,9 +1380,8 @@ class _ProfileSectionState extends State<_ProfileSection> {
           !kIsWeb &&
           defaultTargetPlatform == TargetPlatform.android) {
         try {
-          final lostData = await picker.retrieveLostData();
-          if (!lostData.isEmpty && lostData.file != null) {
-            picked = lostData.file;
+          if (pickerTarget != null) {
+            picked = await KycMediaRecovery.retrieveLostFileFor(pickerTarget);
           }
         } catch (_) {}
       }
@@ -1375,6 +1404,9 @@ class _ProfileSectionState extends State<_ProfileSection> {
         isError: true,
       );
     } finally {
+      if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+        await UserProfileRepository.instance.setPendingPickSide(null);
+      }
       if (mounted) {
         setState(() => _isUploadingPhoto = false);
       }
@@ -2502,6 +2534,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
                     ],
 
                     // Save button
+                    const SizedBox(height: 16),
                     Align(
                       alignment: Alignment.centerRight,
                       child: _SettingsButton(
@@ -2510,6 +2543,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                         icon: Icons.check_rounded,
                         loading: _saving,
                         onTap: _saveProfile,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 18,
+                          vertical: 13,
+                        ),
                       ),
                     ),
                   ],
@@ -4972,6 +5009,7 @@ class _SettingsButton extends StatefulWidget {
   final bool loading;
   final VoidCallback onTap;
   final bool isDestructive;
+  final EdgeInsetsGeometry padding;
 
   const _SettingsButton({
     required this.colors,
@@ -4980,6 +5018,7 @@ class _SettingsButton extends StatefulWidget {
     required this.loading,
     required this.onTap,
     this.isDestructive = false,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
   });
 
   /// Creates the mutable state object that backs this stateful widget.
@@ -5027,54 +5066,61 @@ class _SettingsButtonState extends State<_SettingsButton>
         : null;
 
     return GestureDetector(
-      onTapDown: (_) {
-        setState(() => _pressed = true);
-        _scaleCtrl.reverse();
-      },
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        _scaleCtrl.forward().then((_) => widget.onTap());
-      },
-      onTapCancel: () {
-        setState(() => _pressed = false);
-        _scaleCtrl.forward();
-      },
+      onTapDown: widget.loading
+          ? null
+          : (_) {
+              setState(() => _pressed = true);
+              _scaleCtrl.reverse();
+            },
+      onTapUp: widget.loading
+          ? null
+          : (_) {
+              setState(() => _pressed = false);
+              _scaleCtrl.forward().then((_) => widget.onTap());
+            },
+      onTapCancel: widget.loading
+          ? null
+          : () {
+              setState(() => _pressed = false);
+              _scaleCtrl.forward();
+            },
       child: ScaleTransition(
         scale: _scaleCtrl,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
+          padding: widget.padding,
           decoration: BoxDecoration(
             color: _pressed ? bg.withValues(alpha: 0.8) : bg,
             borderRadius: BorderRadius.circular(12),
             border: border,
           ),
-          child: widget.loading
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.loading)
+                SizedBox(
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2, color: fg),
                 )
-              : Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(widget.icon, size: 16, color: fg),
-                    const SizedBox(width: 8),
-                    Flexible(
-                      child: Text(
-                        widget.label,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w700,
-                          color: fg,
-                          letterSpacing: -0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+              else
+                Icon(widget.icon, size: 16, color: fg),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  widget.label,
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: fg,
+                    letterSpacing: -0.1,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
+              ),
+            ],
+          ),
         ),
       ),
     );

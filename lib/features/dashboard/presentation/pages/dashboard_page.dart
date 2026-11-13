@@ -12,6 +12,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/widgets/paidix_smooth_scroll_physics.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_date_picker_theme.dart';
 import '../../../../core/widgets/payments_pin_lock_scope.dart';
@@ -57,6 +58,7 @@ class _DashboardPageState extends State<DashboardPage>
   DateRangeFilter _selectedRange = DateRangeFilter.allTime;
   CurrencyFilter _selectedCurrency = CurrencyFilter.all;
   StatusFilterOption _selectedStatus = StatusFilterOption.all;
+  PaymentStatusGroup? _selectedStatusGroup;
   DateTime? _fromDate;
   DateTime? _toDate;
 
@@ -217,6 +219,7 @@ class _DashboardPageState extends State<DashboardPage>
     dateRange: _selectedRange,
     currency: _selectedCurrency,
     status: _selectedStatus,
+    statusGroup: _selectedStatusGroup,
     fromDate: _fromDate,
     toDate: _toDate,
   );
@@ -253,7 +256,10 @@ class _DashboardPageState extends State<DashboardPage>
                 // Unfiltered by status for category metrics cards
                 final statusUnfilteredPayments = widget.paymentsRepository
                     .filterPayments(
-                      _currentFilter.copyWith(status: StatusFilterOption.all),
+                      _currentFilter.copyWith(
+                        status: StatusFilterOption.all,
+                        clearStatusGroup: true,
+                      ),
                     );
                 final summary = _computeSummary(statusUnfilteredPayments);
 
@@ -276,9 +282,7 @@ class _DashboardPageState extends State<DashboardPage>
                       backgroundColor: colors.card,
                       onRefresh: _refreshDashboard,
                       child: SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(
-                          parent: BouncingScrollPhysics(),
-                        ),
+                        physics: paidiXRefreshScrollPhysics,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 20,
                           vertical: 24,
@@ -355,7 +359,8 @@ class _DashboardPageState extends State<DashboardPage>
                               const SizedBox(height: 14),
 
                               // Active Filter Notification Banner
-                              if (_selectedStatus != StatusFilterOption.all)
+                              if (_selectedStatus != StatusFilterOption.all ||
+                                  _selectedStatusGroup != null)
                                 _buildActiveStatusFilterBanner(
                                   colors,
                                   Theme.of(context).brightness ==
@@ -373,7 +378,7 @@ class _DashboardPageState extends State<DashboardPage>
                                   switchOutCurve: Curves.easeInCubic,
                                   child: KeyedSubtree(
                                     key: ValueKey(
-                                      'recent_${_selectedStatus.name}_${filteredPayments.length}',
+                                      'recent_${_selectedStatus.name}_${_selectedStatusGroup?.name}_${filteredPayments.length}',
                                     ),
                                     child: LayoutBuilder(
                                       builder: (context, constraints) {
@@ -547,29 +552,38 @@ class _DashboardPageState extends State<DashboardPage>
     PaidiXColorScheme colors,
   ) {
     final isRejected = userProfile.kycStatus == KycReviewStatus.rejected;
+    final isAwaitingCustomer =
+        userProfile.kycStatus == KycReviewStatus.awaitingCustomer;
+    final isActionRequired = userProfile.kycStatus.requiresCustomerAction;
     final isResubmitted =
         userProfile.hasResubmittedKyc &&
         userProfile.kycStatus == KycReviewStatus.pendingReview;
     const resubmittedColor = Color(0xFF3B82F6);
+    const updateRequiredColor = Color(0xFFB7791F);
     final accent = isRejected
         ? colors.ruby
+        : isAwaitingCustomer
+        ? updateRequiredColor
         : isResubmitted
         ? resubmittedColor
         : colors.gold;
-    final backgroundColor = isRejected || isResubmitted
+    final backgroundColor = isActionRequired || isResubmitted
         ? accent.withValues(alpha: 0.08)
         : colors.cardDark;
-    final borderColor = isRejected || isResubmitted
+    final borderColor = isActionRequired || isResubmitted
         ? accent.withValues(alpha: 0.35)
         : colors.border.withValues(alpha: 0.9);
     final statusIcon = isRejected
         ? Icons.error_outline_rounded
+        : isAwaitingCustomer
+        ? Icons.edit_note_rounded
         : isResubmitted
         ? Icons.sync_rounded
         : Icons.warning_amber_rounded;
     final statusMessage = switch (userProfile.kycStatus) {
       KycReviewStatus.rejected =>
         'You can update your information and resubmit.',
+      KycReviewStatus.awaitingCustomer => 'The reviewer requested updates. Correct the listed items and resubmit your KYC.',
       KycReviewStatus.pendingReview =>
         isResubmitted
             ? 'New payments stay locked until approval. You wll see another update here if the reviewer raises objections or approves your account.'
@@ -603,6 +617,8 @@ class _DashboardPageState extends State<DashboardPage>
                 Text(
                   isRejected
                       ? 'Your KYC submission was rejected.'
+                      : isAwaitingCustomer
+                      ? 'The reviewer requested updates to your KYC.'
                       : isResubmitted
                       ? 'Thanks, your updated information is awaiting review.'
                       : 'New payments are locked until your profile is approved.',
@@ -621,11 +637,24 @@ class _DashboardPageState extends State<DashboardPage>
                     color: colors.textSecondary,
                   ),
                 ),
-                if (isRejected &&
-                    userProfile.kycRejectionReason?.isNotEmpty == true) ...[
+                if (isActionRequired &&
+                    userProfile.effectiveKycReason != null) ...[
                   const SizedBox(height: 4),
-                  Text(
-                    userProfile.kycRejectionReason!,
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(
+                          text: isAwaitingCustomer
+                              ? 'Requested updates: '
+                              : 'Reason: ',
+                          style: TextStyle(
+                            color: colors.textPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        TextSpan(text: userProfile.effectiveKycReason!),
+                      ],
+                    ),
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.4,
@@ -760,7 +789,7 @@ class _DashboardPageState extends State<DashboardPage>
                           const SizedBox(height: 12),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
-                            physics: const BouncingScrollPhysics(),
+                            physics: paidiXSmoothScrollPhysics,
                             padding: EdgeInsets.fromLTRB(
                               headerHPad,
                               0,
@@ -816,9 +845,20 @@ class _DashboardPageState extends State<DashboardPage>
                                   items: StatusFilterOption.values,
                                   labelPrefix: 'Status: ',
                                   itemLabel: (v) => v.label,
+                                  displayValue: switch (_selectedStatusGroup) {
+                                    PaymentStatusGroup.pendingReview =>
+                                      'Pending Review',
+                                    PaymentStatusGroup.awaitingPkr =>
+                                      'Awaiting PKR',
+                                    null => null,
+                                  },
+                                  isActiveOverride:
+                                      _selectedStatusGroup != null ||
+                                      _selectedStatus != StatusFilterOption.all,
                                   onChanged: (val) {
                                     setState(() {
                                       _selectedStatus = val;
+                                      _selectedStatusGroup = null;
                                     });
                                   },
                                 ),
@@ -883,39 +923,55 @@ class _DashboardPageState extends State<DashboardPage>
     String statusLabel = 'Filtered';
     Color chipColor = colors.aqua;
 
-    switch (_selectedStatus) {
-      case StatusFilterOption.submitted:
-        statusLabel = 'Submitted';
-        chipColor = const Color(0xFF38BDF8);
-        break;
-      case StatusFilterOption.underReview:
-        statusLabel = 'Pending Review';
-        chipColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
-        break;
-      case StatusFilterOption.verified:
-        statusLabel = 'Verified';
-        chipColor = colors.aqua;
-        break;
-      case StatusFilterOption.pkrSent:
-        statusLabel = 'Awaiting PKR';
-        chipColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
-        break;
-      case StatusFilterOption.completed:
-        statusLabel = 'Completed';
-        chipColor = isDark ? const Color(0xFF34D399) : const Color(0xFF059669);
-        break;
-      case StatusFilterOption.onHold:
-        statusLabel = 'On Hold';
-        chipColor = isDark ? const Color(0xFFFB923C) : const Color(0xFFEA580C);
-        break;
-      case StatusFilterOption.rejected:
-        statusLabel = 'Rejected';
-        chipColor = colors.statusErrorDot;
-        break;
-      case StatusFilterOption.all:
-        statusLabel = 'All';
-        chipColor = colors.aqua;
-        break;
+    if (_selectedStatusGroup == PaymentStatusGroup.pendingReview) {
+      statusLabel = 'Pending Review';
+      chipColor = isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706);
+    } else if (_selectedStatusGroup == PaymentStatusGroup.awaitingPkr) {
+      statusLabel = 'Awaiting PKR';
+      chipColor = isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7);
+    } else {
+      switch (_selectedStatus) {
+        case StatusFilterOption.submitted:
+          statusLabel = 'Submitted';
+          chipColor = const Color(0xFF38BDF8);
+          break;
+        case StatusFilterOption.underReview:
+          statusLabel = 'Under Review';
+          chipColor = isDark
+              ? const Color(0xFFFBBF24)
+              : const Color(0xFFD97706);
+          break;
+        case StatusFilterOption.verified:
+          statusLabel = 'Verified';
+          chipColor = colors.aqua;
+          break;
+        case StatusFilterOption.pkrSent:
+          statusLabel = 'PKR Sent';
+          chipColor = isDark
+              ? const Color(0xFF38BDF8)
+              : const Color(0xFF0284C7);
+          break;
+        case StatusFilterOption.completed:
+          statusLabel = 'Completed';
+          chipColor = isDark
+              ? const Color(0xFF34D399)
+              : const Color(0xFF059669);
+          break;
+        case StatusFilterOption.onHold:
+          statusLabel = 'On Hold';
+          chipColor = isDark
+              ? const Color(0xFFFB923C)
+              : const Color(0xFFEA580C);
+          break;
+        case StatusFilterOption.rejected:
+          statusLabel = 'Rejected';
+          chipColor = colors.statusErrorDot;
+          break;
+        case StatusFilterOption.all:
+          statusLabel = 'All';
+          chipColor = colors.aqua;
+          break;
+      }
     }
 
     return Container(
@@ -961,6 +1017,7 @@ class _DashboardPageState extends State<DashboardPage>
               HapticFeedback.lightImpact();
               setState(() {
                 _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = null;
               });
             },
             pressScale: 0.90,
@@ -1035,6 +1092,7 @@ class _DashboardPageState extends State<DashboardPage>
               HapticFeedback.lightImpact();
               setState(() {
                 _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = null;
                 _selectedRange = DateRangeFilter.allTime;
                 _selectedCurrency = CurrencyFilter.all;
                 _fromDate = null;
@@ -1079,6 +1137,7 @@ class _DashboardPageState extends State<DashboardPage>
           _selectedRange = DateRangeFilter.allTime;
           _selectedCurrency = CurrencyFilter.all;
           _selectedStatus = StatusFilterOption.all;
+          _selectedStatusGroup = null;
           _fromDate = null;
           _toDate = null;
         });
@@ -1649,11 +1708,14 @@ class _DashboardPageState extends State<DashboardPage>
                   : () {
                       HapticFeedback.selectionClick();
                       setState(() {
-                        if (_selectedStatus == StatusFilterOption.underReview ||
-                            _selectedStatus == StatusFilterOption.pkrSent) {
+                        if (_selectedStatusGroup ==
+                            PaymentStatusGroup.pendingReview) {
                           _selectedStatus = StatusFilterOption.all;
+                          _selectedStatusGroup = null;
                         } else {
-                          _selectedStatus = StatusFilterOption.underReview;
+                          _selectedStatus = StatusFilterOption.all;
+                          _selectedStatusGroup =
+                              PaymentStatusGroup.pendingReview;
                         }
                       });
                     },
@@ -1695,14 +1757,21 @@ class _DashboardPageState extends State<DashboardPage>
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final isAllSelected = _selectedStatus == StatusFilterOption.all;
+    final isAllSelected =
+        _selectedStatus == StatusFilterOption.all &&
+        _selectedStatusGroup == null;
     final isPendingSelected =
-        _selectedStatus == StatusFilterOption.underReview ||
-        _selectedStatus == StatusFilterOption.pendingReview;
+        _selectedStatusGroup == PaymentStatusGroup.pendingReview ||
+        (_selectedStatusGroup == null &&
+            (_selectedStatus == StatusFilterOption.submitted ||
+                _selectedStatus == StatusFilterOption.underReview));
     final isAwaitingSelected =
-        _selectedStatus == StatusFilterOption.pkrSent ||
-        _selectedStatus == StatusFilterOption.awaitingPkr;
-    final isCompletedSelected = _selectedStatus == StatusFilterOption.completed;
+        _selectedStatusGroup == PaymentStatusGroup.awaitingPkr ||
+        (_selectedStatusGroup == null &&
+            _selectedStatus == StatusFilterOption.verified);
+    final isCompletedSelected =
+        _selectedStatusGroup == null &&
+        _selectedStatus == StatusFilterOption.completed;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -1723,6 +1792,7 @@ class _DashboardPageState extends State<DashboardPage>
             HapticFeedback.selectionClick();
             setState(() {
               _selectedStatus = StatusFilterOption.all;
+              _selectedStatusGroup = null;
             });
           },
         );
@@ -1745,8 +1815,10 @@ class _DashboardPageState extends State<DashboardPage>
             setState(() {
               if (isPendingSelected) {
                 _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = null;
               } else {
-                _selectedStatus = StatusFilterOption.underReview;
+                _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = PaymentStatusGroup.pendingReview;
               }
             });
           },
@@ -1770,8 +1842,10 @@ class _DashboardPageState extends State<DashboardPage>
             setState(() {
               if (isAwaitingSelected) {
                 _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = null;
               } else {
-                _selectedStatus = StatusFilterOption.pkrSent;
+                _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = PaymentStatusGroup.awaitingPkr;
               }
             });
           },
@@ -1795,8 +1869,10 @@ class _DashboardPageState extends State<DashboardPage>
             setState(() {
               if (isCompletedSelected) {
                 _selectedStatus = StatusFilterOption.all;
+                _selectedStatusGroup = null;
               } else {
                 _selectedStatus = StatusFilterOption.completed;
+                _selectedStatusGroup = null;
               }
             });
           },

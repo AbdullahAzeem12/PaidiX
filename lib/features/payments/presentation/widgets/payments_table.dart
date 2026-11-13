@@ -8,6 +8,7 @@ import '../../../../app/theme/app_theme.dart';
 import '../../../../app/theme/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/status_badge.dart';
+import '../../../../core/widgets/paidix_smooth_scroll_physics.dart';
 import '../../domain/payment_models.dart';
 
 class PaymentsTable extends StatelessWidget {
@@ -31,6 +32,7 @@ class PaymentsTable extends StatelessWidget {
         borderRadius: AppSpacing.radiusLg,
         child: SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          physics: paidiXSmoothScrollPhysics,
           child: DataTable(
             horizontalMargin: 20,
             columnSpacing: 24,

@@ -24,6 +24,7 @@ import 'profile_menu_dialog.dart';
 import 'payments_pin_lock_screen.dart';
 import 'payments_pin_recovery_dialog.dart';
 import 'payments_pin_lock_scope.dart';
+import 'app_back_navigation.dart';
 
 class AppShell extends StatefulWidget {
   final Widget child;
@@ -46,6 +47,9 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   // Dashboard and My Payments share one PIN unlock for this app session.
   bool _protectedPagesUnlocked = false;
   String? _paymentsPinStatusError;
+  final List<String> _appBackStack = <String>[];
+  String? _settingsReturnPath;
+  bool _ignoreNextBackTransition = false;
   KycReviewStatus _lastObservedKycStatus =
       UserProfileRepository.instance.profile.kycStatus;
 
@@ -90,13 +94,20 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
     _isRefreshingKycStatus = true;
     try {
+      final profileBeforeRefresh = UserProfileRepository.instance.profile;
+      final feedbackBeforeRefresh = profileBeforeRefresh.effectiveKycReason;
       final status = await AuthRepository.instance.refreshKycReviewStatus();
       if (!mounted || status == null) return;
-      if (status == KycReviewStatus.rejected &&
-          _lastObservedKycStatus != KycReviewStatus.rejected) {
+      final profileAfterRefresh = UserProfileRepository.instance.profile;
+      final feedbackChanged =
+          feedbackBeforeRefresh != profileAfterRefresh.effectiveKycReason;
+      if (status.requiresCustomerAction &&
+          (_lastObservedKycStatus != status || feedbackChanged)) {
         PaidiXToast.showWarning(
           context,
-          'Your KYC was rejected. Review the feedback and resubmit your documents.',
+          status == KycReviewStatus.awaitingCustomer
+              ? 'The reviewer requested KYC updates. Review the requested items and resubmit.'
+              : 'Your KYC was rejected. Review the feedback and resubmit your documents.',
           title: 'KYC review update',
         );
       } else if (status == KycReviewStatus.verified &&
@@ -108,7 +119,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         );
       } else if (status == KycReviewStatus.pendingReview &&
           UserProfileRepository.instance.profile.hasResubmittedKyc &&
-          _lastObservedKycStatus == KycReviewStatus.rejected) {
+          _lastObservedKycStatus.requiresCustomerAction) {
         PaidiXToast.showSuccess(
           context,
           'Your updated KYC documents are awaiting admin review.',
@@ -126,7 +137,7 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
 
   void _redirectForKycStatus(KycReviewStatus status) {
     if (!mounted) return;
-    if (status == KycReviewStatus.rejected &&
+    if (status.requiresCustomerAction &&
         widget.currentPath != '/app/onboarding' &&
         !widget.currentPath.startsWith('/app/dashboard') &&
         !widget.currentPath.startsWith('/app/payments/new') &&
@@ -143,6 +154,11 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   void didUpdateWidget(covariant AppShell oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.currentPath != oldWidget.currentPath) {
+      if (_ignoreNextBackTransition) {
+        _ignoreNextBackTransition = false;
+      } else {
+        _recordAppNavigation(oldWidget.currentPath, widget.currentPath);
+      }
       SessionTimeoutService.instance.recordUserActivity();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _refreshPaymentsPinStatus();
@@ -152,6 +168,93 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
         _refreshKycStatus();
       }
     }
+  }
+
+  String? _appDestinationFor(String path) {
+    if (path.startsWith('/app/dashboard')) return '/app/dashboard';
+    if (path.startsWith('/app/onboarding')) return '/app/onboarding';
+    if (path.startsWith('/app/payments')) return '/app/payments';
+    return null;
+  }
+
+  void _recordAppNavigation(String oldPath, String newPath) {
+    final oldDestination = _appDestinationFor(oldPath);
+    final newDestination = _appDestinationFor(newPath);
+
+    if (newPath.startsWith('/app/settings')) {
+      _settingsReturnPath = oldDestination ?? _settingsReturnPath;
+      return;
+    }
+
+    if (oldPath.startsWith('/app/settings') ||
+        oldDestination == null ||
+        newDestination == null ||
+        oldDestination == newDestination) {
+      return;
+    }
+
+    if (_appBackStack.isEmpty || _appBackStack.last != oldDestination) {
+      _appBackStack.add(oldDestination);
+    }
+  }
+
+  String? _takePreviousDestination(String currentDestination) {
+    while (_appBackStack.isNotEmpty) {
+      final previous = _appBackStack.removeLast();
+      if (previous != currentDestination) return previous;
+    }
+    return null;
+  }
+
+  void _goBackTo(String location) {
+    _ignoreNextBackTransition = true;
+    context.go(location);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ignoreNextBackTransition = false;
+    });
+  }
+
+  Future<bool> _handleAndroidBack() async {
+    if (!mounted) return true;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+
+    final path = widget.currentPath;
+    // NewPaymentPage owns its unsaved-form confirmation and handles this route.
+    if (path == '/app/payments/new') return false;
+
+    if (path.startsWith('/app/payments/') && path != '/app/payments/new') {
+      final router = GoRouter.of(context);
+      if (router.canPop()) {
+        router.pop();
+      } else {
+        router.go('/app/payments');
+      }
+      return true;
+    }
+
+    if (path.startsWith('/app/settings')) {
+      final destination = _settingsReturnPath ?? '/app/dashboard';
+      _settingsReturnPath = null;
+      _goBackTo(destination);
+      return true;
+    }
+
+    final currentDestination = _appDestinationFor(path);
+    final previous = currentDestination == null
+        ? null
+        : _takePreviousDestination(currentDestination);
+    if (previous != null) {
+      _goBackTo(previous);
+      return true;
+    }
+
+    if (path == '/app/dashboard') {
+      await showAppExitConfirmation(context);
+      return true;
+    }
+
+    _goBackTo('/app/dashboard');
+    return true;
   }
 
   Future<void> _refreshPaymentsPinStatus() async {
@@ -343,135 +446,141 @@ class _AppShellState extends State<AppShell> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
 
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => SessionTimeoutService.instance.recordUserActivity(),
-      onPointerMove: (_) => SessionTimeoutService.instance.recordUserActivity(),
-      onPointerHover: (_) =>
-          SessionTimeoutService.instance.recordUserActivity(),
-      child: Focus(
-        onKeyEvent: (node, event) {
-          SessionTimeoutService.instance.recordUserActivity();
-          return KeyEventResult.ignored;
-        },
-        child: ValueListenableBuilder<UserProfile>(
-          valueListenable: UserProfileRepository.instance.profileNotifier,
-          builder: (context, userProfile, _) {
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final isWide =
-                    constraints.maxWidth >= 768 && constraints.maxHeight >= 520;
+    return BackButtonListener(
+      onBackButtonPressed: _handleAndroidBack,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) =>
+            SessionTimeoutService.instance.recordUserActivity(),
+        onPointerMove: (_) =>
+            SessionTimeoutService.instance.recordUserActivity(),
+        onPointerHover: (_) =>
+            SessionTimeoutService.instance.recordUserActivity(),
+        child: Focus(
+          onKeyEvent: (node, event) {
+            SessionTimeoutService.instance.recordUserActivity();
+            return KeyEventResult.ignored;
+          },
+          child: ValueListenableBuilder<UserProfile>(
+            valueListenable: UserProfileRepository.instance.profileNotifier,
+            builder: (context, userProfile, _) {
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide =
+                      constraints.maxWidth >= 768 &&
+                      constraints.maxHeight >= 520;
 
-                if (isWide) {
+                  if (isWide) {
+                    return Scaffold(
+                      backgroundColor: colors.background,
+                      body: Row(
+                        children: [
+                          _buildSidebar(userProfile),
+                          Expanded(
+                            child: _buildPaymentsPinProtectedBody(context),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  // Mobile layout
+                  final showOnboarding =
+                      userProfile.kycStatus != KycReviewStatus.verified;
+                  final selectedIndex = _calculateSelectedIndex(showOnboarding);
+                  final isNarrowPhone = constraints.maxWidth < 360;
+                  final isSettings = widget.currentPath.startsWith(
+                    '/app/settings',
+                  );
+
+                  final navItems = showOnboarding
+                      ? const [
+                          PaidiXBottomNavItem(
+                            icon: Icons.grid_view_outlined,
+                            activeIcon: Icons.grid_view_rounded,
+                            label: 'Dashboard',
+                          ),
+                          PaidiXBottomNavItem(
+                            icon: Icons.badge_outlined,
+                            activeIcon: Icons.badge,
+                            label: 'Onboarding',
+                          ),
+                          PaidiXBottomNavItem(
+                            icon: Icons.receipt_long_outlined,
+                            activeIcon: Icons.receipt_long_rounded,
+                            label: 'My Payments',
+                          ),
+                          PaidiXBottomNavItem(
+                            icon: Icons.add_circle_outline_rounded,
+                            activeIcon: Icons.add_circle_rounded,
+                            label: 'New Payment',
+                          ),
+                        ]
+                      : const [
+                          PaidiXBottomNavItem(
+                            icon: Icons.grid_view_outlined,
+                            activeIcon: Icons.grid_view_rounded,
+                            label: 'Dashboard',
+                          ),
+                          PaidiXBottomNavItem(
+                            icon: Icons.receipt_long_outlined,
+                            activeIcon: Icons.receipt_long_rounded,
+                            label: 'My Payments',
+                          ),
+                          PaidiXBottomNavItem(
+                            icon: Icons.add_circle_outline_rounded,
+                            activeIcon: Icons.add_circle_rounded,
+                            label: 'New Payment',
+                          ),
+                        ];
+
                   return Scaffold(
                     backgroundColor: colors.background,
-                    body: Row(
-                      children: [
-                        _buildSidebar(userProfile),
-                        Expanded(
-                          child: _buildPaymentsPinProtectedBody(context),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Mobile layout
-                final showOnboarding =
-                    userProfile.kycStatus != KycReviewStatus.verified;
-                final selectedIndex = _calculateSelectedIndex(showOnboarding);
-                final isNarrowPhone = constraints.maxWidth < 360;
-                final isSettings = widget.currentPath.startsWith(
-                  '/app/settings',
-                );
-
-                final navItems = showOnboarding
-                    ? const [
-                        PaidiXBottomNavItem(
-                          icon: Icons.grid_view_outlined,
-                          activeIcon: Icons.grid_view_rounded,
-                          label: 'Dashboard',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.badge_outlined,
-                          activeIcon: Icons.badge,
-                          label: 'Onboarding',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.receipt_long_outlined,
-                          activeIcon: Icons.receipt_long_rounded,
-                          label: 'My Payments',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.add_circle_outline_rounded,
-                          activeIcon: Icons.add_circle_rounded,
-                          label: 'New Payment',
-                        ),
-                      ]
-                    : const [
-                        PaidiXBottomNavItem(
-                          icon: Icons.grid_view_outlined,
-                          activeIcon: Icons.grid_view_rounded,
-                          label: 'Dashboard',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.receipt_long_outlined,
-                          activeIcon: Icons.receipt_long_rounded,
-                          label: 'My Payments',
-                        ),
-                        PaidiXBottomNavItem(
-                          icon: Icons.add_circle_outline_rounded,
-                          activeIcon: Icons.add_circle_rounded,
-                          label: 'New Payment',
-                        ),
-                      ];
-
-                return Scaffold(
-                  backgroundColor: colors.background,
-                  appBar: isSettings
-                      ? null
-                      : AppBar(
-                          backgroundColor: colors.card,
-                          elevation: 0,
-                          titleSpacing: isNarrowPhone ? 10 : 16,
-                          title: const BrandLogo(
-                            size: 30,
-                            showPlanBadge: false,
-                            showTagline: false,
-                          ),
-                          actions: [
-                            InkWell(
-                              borderRadius: BorderRadius.circular(16),
-                              onTap: () => ProfileMenuDialog.show(
-                                context: context,
-                                userProfile: userProfile,
-                                isMobile: true,
-                              ),
-                              child: _buildUserAvatar(
-                                isSidebar: false,
-                                userProfile: userProfile,
-                              ),
+                    appBar: isSettings
+                        ? null
+                        : AppBar(
+                            backgroundColor: colors.card,
+                            elevation: 0,
+                            titleSpacing: isNarrowPhone ? 10 : 16,
+                            title: const BrandLogo(
+                              size: 30,
+                              showPlanBadge: false,
+                              showTagline: false,
                             ),
-                            SizedBox(width: isNarrowPhone ? 10 : 16),
-                          ],
-                          bottom: PreferredSize(
-                            preferredSize: const Size.fromHeight(1),
-                            child: Container(color: colors.border, height: 1),
+                            actions: [
+                              InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () => ProfileMenuDialog.show(
+                                  context: context,
+                                  userProfile: userProfile,
+                                  isMobile: true,
+                                ),
+                                child: _buildUserAvatar(
+                                  isSidebar: false,
+                                  userProfile: userProfile,
+                                ),
+                              ),
+                              SizedBox(width: isNarrowPhone ? 10 : 16),
+                            ],
+                            bottom: PreferredSize(
+                              preferredSize: const Size.fromHeight(1),
+                              child: Container(color: colors.border, height: 1),
+                            ),
                           ),
-                        ),
-                  body: _buildPaymentsPinProtectedBody(context),
-                  bottomNavigationBar: isSettings
-                      ? null
-                      : PaidiXBottomNavBar(
-                          selectedIndex: selectedIndex,
-                          onItemSelected: (idx) =>
-                              _onDestinationSelected(idx, showOnboarding),
-                          items: navItems,
-                        ),
-                );
-              },
-            );
-          },
+                    body: _buildPaymentsPinProtectedBody(context),
+                    bottomNavigationBar: isSettings
+                        ? null
+                        : PaidiXBottomNavBar(
+                            selectedIndex: selectedIndex,
+                            onItemSelected: (idx) =>
+                                _onDestinationSelected(idx, showOnboarding),
+                            items: navItems,
+                          ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/widgets/app_shell.dart';
+import '../core/widgets/app_back_navigation.dart';
 import '../core/widgets/server_error_page.dart';
 import '../features/auth/presentation/pages/sign_in_page.dart';
 import '../features/auth/presentation/pages/sign_up_page.dart';
@@ -35,7 +36,14 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
         path: '/signin',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const SignInPage(),
+          child: AppBackButtonHandler(
+            onBack: (context) async {
+              if (ModalRoute.of(context)?.isCurrent == false) return false;
+              await showAppExitConfirmation(context);
+              return true;
+            },
+            child: const SignInPage(),
+          ),
           // Slide up + fade — elegant upward reveal with cubic easing
           transitionDuration: const Duration(milliseconds: 380),
           reverseTransitionDuration: const Duration(milliseconds: 300),
@@ -65,7 +73,14 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
         path: '/signup',
         pageBuilder: (context, state) => CustomTransitionPage(
           key: state.pageKey,
-          child: const SignUpPage(),
+          child: AppBackButtonHandler(
+            onBack: (context) async {
+              if (ModalRoute.of(context)?.isCurrent == false) return false;
+              context.go('/signin');
+              return true;
+            },
+            child: const SignUpPage(),
+          ),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
@@ -91,7 +106,14 @@ GoRouter createAppRouter({String initialLocation = '/signin'}) {
               : const ServerErrorInfo();
           return CustomTransitionPage(
             key: state.pageKey,
-            child: ServerErrorPage(info: info),
+            child: AppBackButtonHandler(
+              onBack: (context) async {
+                if (ModalRoute.of(context)?.isCurrent == false) return false;
+                context.go('/signin');
+                return true;
+              },
+              child: ServerErrorPage(info: info),
+            ),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   return FadeTransition(opacity: animation, child: child);

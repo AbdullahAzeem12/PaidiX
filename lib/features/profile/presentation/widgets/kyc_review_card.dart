@@ -1,6 +1,7 @@
 /// Defines kyc review card in the profile feature's presentation layer.
 
 import 'package:material_ui/material_ui.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -30,10 +31,7 @@ class KycReviewCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.card,
             borderRadius: AppSpacing.radiusXl,
-            border: Border.all(
-              color: colors.border,
-              width: 1.2,
-            ),
+            border: Border.all(color: colors.border, width: 1.2),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: isDark ? 0.35 : 0.05),
@@ -56,11 +54,7 @@ class KycReviewCard extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.shield_outlined,
-                        size: 18,
-                        color: colors.aqua,
-                      ),
+                      Icon(Icons.shield_outlined, size: 18, color: colors.aqua),
                       const SizedBox(width: 8),
                       Text(
                         'KYC REVIEW',
@@ -80,7 +74,7 @@ class KycReviewCard extends StatelessWidget {
                 ],
               ),
 
-              if (profile.kycStatus == KycReviewStatus.rejected &&
+              if (profile.kycStatus.requiresCustomerAction &&
                   profile.formattedKycReviewedAt != null) ...[
                 const SizedBox(height: 8),
                 Padding(
@@ -125,8 +119,7 @@ class KycReviewCard extends StatelessWidget {
                       onTap: () => DocumentViewerDialog.show(
                         context,
                         title: 'Selfie Biometric Photo',
-                        subtitle:
-                            'Biometric portrait on file with State Bank compliance',
+                        subtitle: 'Biometric portrait on file with State Bank compliance',
                         bytes: profile.selfieBytes,
                         filePath: profile.selfieFilePath,
                         imageUrl: profile.selfieUrl,
@@ -192,31 +185,41 @@ class KycReviewCard extends StatelessWidget {
   Widget _buildStatusPill(PaidiXColorScheme colors) {
     final isVerified = profile.kycStatus.isVerified;
     final isRejected = profile.kycStatus.isRejected;
-    final isResubmitted = profile.hasResubmittedKyc &&
+    final isAwaitingCustomer =
+        profile.kycStatus == KycReviewStatus.awaitingCustomer;
+    final isResubmitted =
+        profile.hasResubmittedKyc &&
         profile.kycStatus == KycReviewStatus.pendingReview;
     const rejectedColor = Color(0xFFBE123C);
+    const updateRequiredColor = Color(0xFFB7791F);
     const resubmittedColor = Color(0xFF8064D9);
     final pillBg = isVerified
         ? colors.emerald.withValues(alpha: 0.12)
         : isRejected
-            ? rejectedColor.withValues(alpha: 0.08)
-            : isResubmitted
-                ? resubmittedColor.withValues(alpha: 0.08)
-                : colors.gold.withValues(alpha: 0.12);
+        ? rejectedColor.withValues(alpha: 0.08)
+        : isAwaitingCustomer
+        ? updateRequiredColor.withValues(alpha: 0.10)
+        : isResubmitted
+        ? resubmittedColor.withValues(alpha: 0.08)
+        : colors.gold.withValues(alpha: 0.12);
     final pillBorder = isVerified
         ? colors.emerald.withValues(alpha: 0.40)
         : isRejected
-            ? rejectedColor.withValues(alpha: 0.30)
-            : isResubmitted
-                ? resubmittedColor.withValues(alpha: 0.30)
-                : colors.gold.withValues(alpha: 0.40);
+        ? rejectedColor.withValues(alpha: 0.30)
+        : isAwaitingCustomer
+        ? updateRequiredColor.withValues(alpha: 0.34)
+        : isResubmitted
+        ? resubmittedColor.withValues(alpha: 0.30)
+        : colors.gold.withValues(alpha: 0.40);
     final dotColor = isVerified
         ? colors.emerald
         : isRejected
-            ? rejectedColor
-            : isResubmitted
-                ? resubmittedColor
-                : colors.gold;
+        ? rejectedColor
+        : isAwaitingCustomer
+        ? updateRequiredColor
+        : isResubmitted
+        ? resubmittedColor
+        : colors.gold;
     final textColor = dotColor;
 
     return Container(
@@ -232,18 +235,17 @@ class KycReviewCard extends StatelessWidget {
           Container(
             width: 6,
             height: 6,
-            decoration: BoxDecoration(
-              color: dotColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           Text(
             isRejected
                 ? 'Rejected'
+                : isAwaitingCustomer
+                ? 'Update Required'
                 : isResubmitted
-                    ? 'Resubmitted'
-                    : profile.kycStatus.label,
+                ? 'Resubmitted'
+                : profile.kycStatus.label,
             style: TextStyle(
               color: textColor,
               fontSize: 11,

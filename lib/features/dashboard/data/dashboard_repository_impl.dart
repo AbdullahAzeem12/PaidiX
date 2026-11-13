@@ -136,16 +136,15 @@ class DashboardRepositoryImpl implements DashboardRepository {
     var localTransferred = 0.0;
 
     for (final item in list) {
+      if (item.status.isPendingReview) pendingReview++;
+      if (item.status.isAwaitingPkr) awaitingPkr++;
+
       switch (item.status) {
         case PaymentStatusType.submitted:
         case PaymentStatusType.underReview:
         case PaymentStatusType.pendingReview:
-          pendingReview++;
-          break;
         case PaymentStatusType.verified:
         case PaymentStatusType.awaitingPkr:
-          awaitingPkr++;
-          break;
         case PaymentStatusType.pkrSent:
           break;
         case PaymentStatusType.completed:

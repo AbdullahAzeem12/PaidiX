@@ -2,10 +2,12 @@
 
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -14,6 +16,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
+import '../../data/kyc_media_recovery.dart';
 import '../../data/kyc_image_validation.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
@@ -77,17 +80,14 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
     }
     _isCheckingLostData = true;
     try {
-      final response = await _picker.retrieveLostData();
-      if (response.isEmpty) return;
-      if (response.exception != null) {
-        debugPrint('retrieveLostData exception: ${response.exception}');
-      }
-      final file = response.file;
+      final repository = UserProfileRepository.instance;
+      final pending = repository.pendingPickSide;
+      if (pending != 'cnic_front' && pending != 'cnic_back') return;
+      final file = await KycMediaRecovery.retrieveLostFileFor(pending!);
       if (file != null) {
-        final pending = UserProfileRepository.instance.pendingPickSide;
         final isFront = pending != 'cnic_back';
         await _applyPickedImage(file, isFront);
-        await UserProfileRepository.instance.setPendingPickSide(null);
+        await repository.setPendingPickSide(null);
       }
     } catch (e) {
       debugPrint('retrieveLostData error: $e');
@@ -119,9 +119,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
 
   /// Stores the edited CNIC value and restarts its format/availability checks.
   void _onCnicChanged(String val) {
-    widget.onChanged(
-      widget.identityInfo.copyWith(cnicNumber: val.trim()),
-    );
+    widget.onChanged(widget.identityInfo.copyWith(cnicNumber: val.trim()));
     _validateCnicRealtime(val, debounce: true);
   }
 
@@ -158,10 +156,9 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         }
       });
     } else {
-      CnicValidator.checkAvailability(
-        val,
-        excludeEmail: activeEmail,
-      ).then((status) {
+      CnicValidator.checkAvailability(val, excludeEmail: activeEmail).then((
+        status,
+      ) {
         if (mounted) {
           setState(() => _cnicStatus = status);
         }
@@ -244,10 +241,9 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
           !kIsWeb &&
           defaultTargetPlatform == TargetPlatform.android) {
         try {
-          final lost = await _picker.retrieveLostData();
-          if (!lost.isEmpty && lost.file != null) {
-            xFile = lost.file;
-          }
+          xFile = await KycMediaRecovery.retrieveLostFileFor(
+            isFront ? 'cnic_front' : 'cnic_back',
+          );
         } catch (_) {}
       }
 
@@ -325,11 +321,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
   /// Clears the selected CNIC images so the user can replace them.
   void _reuploadDifferentImages() {
     HapticFeedback.selectionClick();
-    widget.onChanged(
-      widget.identityInfo.copyWith(
-        isEnhanced: false,
-      ),
-    );
+    widget.onChanged(widget.identityInfo.copyWith(isEnhanced: false));
   }
 
   /// Opens the selected identity image for full-screen inspection.
@@ -374,8 +366,11 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded,
-                          color: colors.textSecondary, size: 22),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colors.textSecondary,
+                        size: 22,
+                      ),
                       onPressed: () => Navigator.of(ctx).pop(),
                     ),
                   ],
@@ -385,11 +380,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                 // Regulatory compliance note
                 Row(
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 13,
-                      color: colors.aqua,
-                    ),
+                    Icon(Icons.shield_outlined, size: 13, color: colors.aqua),
                     const SizedBox(width: 6),
                     Text(
                       'State Bank KYC Compliance • Encrypted Vault',
@@ -428,10 +419,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                 Center(
                   child: Text(
                     'Pinch to zoom or drag to inspect document details.',
-                    style: TextStyle(
-                      color: colors.textMuted,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: colors.textMuted, fontSize: 11),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -490,10 +478,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         const SizedBox(height: 6),
         Text(
           'Upload clear photos of both sides of your CNIC.',
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 13.5,
-          ),
+          style: TextStyle(color: colors.textSecondary, fontSize: 13.5),
         ),
         const SizedBox(height: 24),
 
@@ -637,12 +622,13 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
             color: colors.inputBackground,
             borderRadius: AppSpacing.radiusMd,
             border: Border.all(
-              color: _cnicStatus == CnicStatus.invalidFormat ||
+              color:
+                  _cnicStatus == CnicStatus.invalidFormat ||
                       _cnicStatus == CnicStatus.alreadyRegistered
                   ? colors.ruby
                   : _cnicStatus == CnicStatus.available
-                      ? colors.emerald.withValues(alpha: 0.6)
-                      : colors.border.withValues(alpha: 0.8),
+                  ? colors.emerald.withValues(alpha: 0.6)
+                  : colors.border.withValues(alpha: 0.8),
               width: 1.2,
             ),
           ),
@@ -670,8 +656,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                 letterSpacing: 1.0,
               ),
               border: InputBorder.none,
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
             ),
             onChanged: _onCnicChanged,
           ),
@@ -737,11 +725,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.shield_outlined,
-                size: 18,
-                color: colors.gold,
-              ),
+              Icon(Icons.shield_outlined, size: 18, color: colors.gold),
               const SizedBox(width: 10),
               Expanded(
                 child: Text.rich(
@@ -757,8 +741,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(
-                        text:
-                            'Ensure all four corners of your CNIC are clearly visible and text is sharp and legible without glare.',
+                        text: 'Ensure all four corners of your CNIC are clearly visible and text is sharp and legible without glare.',
                       ),
                     ],
                   ),
@@ -776,7 +759,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
             text: 'Continue',
             icon: const Icon(Icons.arrow_forward_rounded, size: 16),
             variant: AppButtonVariant.primary,
-            onPressed: (_cnicStatus == CnicStatus.available &&
+            onPressed:
+                (_cnicStatus == CnicStatus.available &&
                     widget.identityInfo.frontFileName != null &&
                     widget.identityInfo.backFileName != null)
                 ? _enhanceAndContinue
@@ -797,11 +781,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         final digits = CnicValidator.clean(_cnicController.text);
         return Row(
           children: [
-            Icon(
-              Icons.info_outline_rounded,
-              size: 13,
-              color: colors.textMuted,
-            ),
+            Icon(Icons.info_outline_rounded, size: 13, color: colors.textMuted),
             const SizedBox(width: 5),
             Expanded(
               child: Text(
@@ -886,11 +866,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
       case CnicStatus.alreadyRegistered:
         return Row(
           children: [
-            Icon(
-              Icons.cancel_outlined,
-              size: 13,
-              color: colors.ruby,
-            ),
+            Icon(Icons.cancel_outlined, size: 13, color: colors.ruby),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -909,11 +885,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
       case CnicStatus.invalidFormat:
         return Row(
           children: [
-            Icon(
-              Icons.error_outline_rounded,
-              size: 13,
-              color: colors.ruby,
-            ),
+            Icon(Icons.error_outline_rounded, size: 13, color: colors.ruby),
             const SizedBox(width: 4),
             Expanded(
               child: Text(
@@ -992,7 +964,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                 child: _buildDocCard(
                   colors: colors,
                   title: 'CNIC — Front',
-                  bytes: widget.identityInfo.enhancedFrontBytes ??
+                  bytes:
+                      widget.identityInfo.enhancedFrontBytes ??
                       widget.identityInfo.frontBytes,
                   filePath: widget.identityInfo.frontFilePath,
                   isBack: false,
@@ -1003,7 +976,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                 child: _buildDocCard(
                   colors: colors,
                   title: 'CNIC — Back',
-                  bytes: widget.identityInfo.enhancedBackBytes ??
+                  bytes:
+                      widget.identityInfo.enhancedBackBytes ??
                       widget.identityInfo.backBytes,
                   filePath: widget.identityInfo.backFilePath,
                   isBack: true,
@@ -1015,7 +989,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
           _buildDocCard(
             colors: colors,
             title: 'CNIC — Front',
-            bytes: widget.identityInfo.enhancedFrontBytes ??
+            bytes:
+                widget.identityInfo.enhancedFrontBytes ??
                 widget.identityInfo.frontBytes,
             filePath: widget.identityInfo.frontFilePath,
             isBack: false,
@@ -1024,7 +999,8 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
           _buildDocCard(
             colors: colors,
             title: 'CNIC — Back',
-            bytes: widget.identityInfo.enhancedBackBytes ??
+            bytes:
+                widget.identityInfo.enhancedBackBytes ??
                 widget.identityInfo.backBytes,
             filePath: widget.identityInfo.backFilePath,
             isBack: true,
@@ -1042,8 +1018,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
             TextButton(
               onPressed: _reuploadDifferentImages,
               style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               child: Text(
                 'Re-upload Different Images',
@@ -1087,7 +1065,9 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
           color: colors.inputBackground,
           borderRadius: AppSpacing.radiusLg,
           border: Border.all(
-              color: colors.border.withValues(alpha: 0.8), width: 1.2),
+            color: colors.border.withValues(alpha: 0.8),
+            width: 1.2,
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1112,8 +1092,10 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                   ),
                   const SizedBox(width: 8),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.emerald.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
@@ -1166,8 +1148,12 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
                       bottomLeft: Radius.circular(10),
                       bottomRight: Radius.circular(10),
                     ),
-                    child:
-                        _buildDocumentGraphic(bytes, filePath, isBack, colors),
+                    child: _buildDocumentGraphic(
+                      bytes,
+                      filePath,
+                      isBack,
+                      colors,
+                    ),
                   ),
                 ),
                 Padding(
@@ -1247,10 +1233,7 @@ class _Step2IdentityViewState extends State<Step2IdentityView>
         decoration: BoxDecoration(
           color: const Color(0xFF072B2B),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: const Color(0xFF145753),
-            width: 1,
-          ),
+          border: Border.all(color: const Color(0xFF145753), width: 1),
         ),
         padding: const EdgeInsets.all(10),
         child: Column(

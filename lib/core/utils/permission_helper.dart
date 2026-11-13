@@ -7,9 +7,11 @@
 
 import 'dart:io';
 import 'dart:ui' as ui;
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:permission_handler/permission_handler.dart';
+
 import '../../app/theme/app_colors.dart';
 import '../../app/theme/app_spacing.dart';
 import '../../features/kyc/data/kyc_image_validation.dart';
@@ -38,7 +40,8 @@ class PermissionHelper {
   /// Safely requests photo gallery / storage permission across all Android and iOS versions.
   /// Opens the platform picker directly without an app-specific gallery rationale dialog.
   static Future<bool> requestStorageOrPhotosPermission(
-      BuildContext context) async {
+    BuildContext context,
+  ) async {
     if (kIsWeb || _isTestEnv) return true;
     if (!Platform.isAndroid && !Platform.isIOS) return true;
 
@@ -54,7 +57,8 @@ class PermissionHelper {
         final photosStatus = statuses[Permission.photos];
         final storageStatus = statuses[Permission.storage];
 
-        final isGranted = (photosStatus?.isGranted ?? false) ||
+        final isGranted =
+            (photosStatus?.isGranted ?? false) ||
             (photosStatus?.isLimited ?? false) ||
             (storageStatus?.isGranted ?? false) ||
             (storageStatus?.isLimited ?? false);
@@ -63,14 +67,13 @@ class PermissionHelper {
 
         final isPermanentlyDenied =
             (photosStatus?.isPermanentlyDenied ?? false) &&
-                (storageStatus?.isPermanentlyDenied ?? false);
+            (storageStatus?.isPermanentlyDenied ?? false);
 
         if (isPermanentlyDenied && context.mounted) {
           _showSettingsDialog(
             context,
             title: 'Photos & Storage Permission',
-            message:
-                'PaidiX requires access to your device storage or photos to select your CNIC and documents. Please enable access in App Settings.',
+            message: 'PaidiX requires access to your device storage or photos to select your CNIC and documents. Please enable access in App Settings.',
           );
           return false;
         }
@@ -86,8 +89,7 @@ class PermissionHelper {
             _showSettingsDialog(
               context,
               title: 'Photo Library Access',
-              message:
-                  'PaidiX requires access to your photo library to select documents. Please enable access in Settings.',
+              message: 'PaidiX requires access to your photo library to select documents. Please enable access in Settings.',
             );
           }
           return false;
@@ -127,8 +129,7 @@ class PermissionHelper {
         _showSettingsDialog(
           context,
           title: 'Camera Access Required',
-          message:
-              'PaidiX requires camera access to capture your selfie and verification documents. Please enable camera in App Settings.',
+          message: 'PaidiX requires camera access to capture your selfie and verification documents. Please enable camera in App Settings.',
         );
         return false;
       }
@@ -147,24 +148,30 @@ class PermissionHelper {
   }) async {
     if (rawBytes.isEmpty) return rawBytes;
 
-    // Small bytes under 500KB do not need downscaling - already compressed JPEGs
-    if (rawBytes.length < 500 * 1024) return rawBytes;
-
+    ui.Codec? codec;
+    ui.Image? image;
     try {
-      final codec = await ui.instantiateImageCodec(
+      // Bound the decoded frame before Skia allocates pixels. Huawei Gallery
+      // can return a low-byte-size but very high-resolution CNIC image, so a
+      // compressed-file-size shortcut still leaves a large native bitmap.
+      codec = await ui.instantiateImageCodec(
         rawBytes,
         targetWidth: maxDimension,
+        targetHeight: maxDimension,
+        allowUpscaling: false,
       );
       final frameInfo = await codec.getNextFrame();
-      final image = frameInfo.image;
+      image = frameInfo.image;
+      if (image.width <= maxDimension && image.height <= maxDimension) {
+        return rawBytes;
+      }
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
-      // Explicitly dispose native Skia GPU handles
-      image.dispose();
-      codec.dispose();
-
       if (byteData != null) {
-        final scaled = byteData.buffer.asUint8List();
+        final scaled = byteData.buffer.asUint8List(
+          byteData.offsetInBytes,
+          byteData.lengthInBytes,
+        );
         if (scaled.lengthInBytes <= KycImageValidation.maxFileSizeBytes ||
             rawBytes.lengthInBytes > KycImageValidation.maxFileSizeBytes) {
           return scaled;
@@ -172,6 +179,9 @@ class PermissionHelper {
       }
     } catch (e) {
       debugPrint('[PermissionHelper] Downscale fallback: $e');
+    } finally {
+      image?.dispose();
+      codec?.dispose();
     }
     return rawBytes;
   }

@@ -72,7 +72,7 @@ class OnboardingProfilePage extends StatelessWidget {
                       children: [
                         // Header Section: Eyebrow + Title + Subtitle + Edit Profile Action
                         _buildHeader(context, profile, isNarrow, colors),
-                        if (profile.kycStatus == KycReviewStatus.rejected ||
+                        if (profile.kycStatus.requiresCustomerAction ||
                             (profile.kycStatus ==
                                     KycReviewStatus.pendingReview &&
                                 profile.hasResubmittedKyc)) ...[
@@ -186,7 +186,7 @@ class OnboardingProfilePage extends StatelessWidget {
       spacing: 8,
       runSpacing: 8,
       children: [
-        if (profile.kycStatus == KycReviewStatus.rejected)
+        if (profile.kycStatus.requiresCustomerAction)
           SpongyTap(
             onTap: () => context.go('/kyc?resubmit=true'),
             pressScale: 0.94,
@@ -240,15 +240,18 @@ class OnboardingProfilePage extends StatelessWidget {
   Widget _buildKycStatusBanner(UserProfile profile, PaidiXColorScheme colors) {
     const rejection = Color(0xFFBE123C);
     const resubmitted = Color(0xFF3B82F6);
+    const updateRequired = Color(0xFFB7791F);
     final isResubmitted =
         profile.hasResubmittedKyc &&
         profile.kycStatus == KycReviewStatus.pendingReview;
-    final accent = isResubmitted ? resubmitted : rejection;
-    final message = profile.effectiveKycMessage;
-    final hasSpecificReason =
-        !isResubmitted &&
-        message != KycReviewStatus.rejected.label &&
-        message != 'Verification Rejected';
+    final isAwaitingCustomer =
+        profile.kycStatus == KycReviewStatus.awaitingCustomer;
+    final accent = isResubmitted
+        ? resubmitted
+        : isAwaitingCustomer
+        ? updateRequired
+        : rejection;
+    final feedback = profile.effectiveKycReason;
 
     return Container(
       width: double.infinity,
@@ -264,7 +267,11 @@ class OnboardingProfilePage extends StatelessWidget {
           Padding(
             padding: EdgeInsets.only(top: 1),
             child: Icon(
-              isResubmitted ? Icons.sync_rounded : Icons.warning_amber_rounded,
+              isResubmitted
+                  ? Icons.sync_rounded
+                  : isAwaitingCustomer
+                  ? Icons.edit_note_rounded
+                  : Icons.warning_amber_rounded,
               size: 19,
               color: accent,
             ),
@@ -277,6 +284,8 @@ class OnboardingProfilePage extends StatelessWidget {
                 Text(
                   isResubmitted
                       ? 'Thanks, your updated information is awaiting review.'
+                      : isAwaitingCustomer
+                      ? 'The reviewer requested updates to your KYC.'
                       : 'Your KYC submission was rejected.',
                   style: TextStyle(
                     color: colors.textPrimary,
@@ -284,19 +293,63 @@ class OnboardingProfilePage extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  isResubmitted
-                      ? "You'll see another update here if the reviewer raises any further objections or approves your account."
-                      : hasSpecificReason
-                      ? message
-                      : 'Update the requested information and resubmit your documents.',
-                  style: TextStyle(
-                    color: colors.textSecondary,
-                    fontSize: 12.5,
-                    height: 1.35,
+                const SizedBox(height: 4),
+                if (isResubmitted)
+                  Text(
+                    "You'll see an update here after review.",
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.35,
+                    ),
+                  )
+                else if (feedback != null)
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(top: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 11,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accent.withValues(alpha: 0.16)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isAwaitingCustomer ? 'Requested updates:' : 'Reason:',
+                          style: TextStyle(
+                            color: accent,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          feedback,
+                          style: TextStyle(
+                            color: colors.textSecondary,
+                            fontSize: 12.5,
+                            height: 1.35,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Text(
+                    isAwaitingCustomer
+                        ? 'Please correct the items below and resubmit your KYC.'
+                        : 'Update the requested information and resubmit your documents.',
+                    style: TextStyle(
+                      color: colors.textSecondary,
+                      fontSize: 12.5,
+                      height: 1.35,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

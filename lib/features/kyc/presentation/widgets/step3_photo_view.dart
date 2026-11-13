@@ -1,10 +1,12 @@
 /// Defines step3 photo view in the kyc feature's presentation layer.
 
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../app/theme/app_spacing.dart';
 import '../../../../app/theme/app_theme.dart';
@@ -13,6 +15,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/paidix_toast.dart';
 import '../../../profile/data/user_profile_repository.dart';
 import '../../data/kyc_image_processor.dart';
+import '../../data/kyc_media_recovery.dart';
 import '../../data/kyc_image_validation.dart';
 import '../../domain/kyc_models.dart';
 import 'kyc_file_picker_tile.dart';
@@ -87,11 +90,11 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
     }
     _isCheckingLostData = true;
     try {
-      final response = await _picker.retrieveLostData();
-      if (response.isEmpty) return;
-      final file = response.file;
+      if (UserProfileRepository.instance.pendingPickSide != 'selfie') return;
+      final file = await KycMediaRecovery.retrieveLostFileFor('selfie');
       if (file != null) {
         await _applyPickedPhoto(file, isCamera: _lastPickWasCamera);
+        await UserProfileRepository.instance.setPendingPickSide(null);
       }
     } catch (e) {
       debugPrint('retrieveLostData error: $e');
@@ -198,10 +201,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
           !kIsWeb &&
           defaultTargetPlatform == TargetPlatform.android) {
         try {
-          final lost = await _picker.retrieveLostData();
-          if (!lost.isEmpty && lost.file != null) {
-            xFile = lost.file;
-          }
+          xFile = await KycMediaRecovery.retrieveLostFileFor('selfie');
         } catch (_) {}
       }
 
@@ -263,11 +263,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
   /// Clears the current selfie so the user can take or choose another image.
   void _retakeOrChooseDifferent() {
     HapticFeedback.selectionClick();
-    widget.onChanged(
-      widget.photoInfo.copyWith(
-        isEnhanced: false,
-      ),
-    );
+    widget.onChanged(widget.photoInfo.copyWith(isEnhanced: false));
   }
 
   /// Fullscreen interactive inspection viewer with pinch-to-zoom and pan
@@ -320,8 +316,11 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                       ),
                     ),
                     IconButton(
-                      icon: Icon(Icons.close_rounded,
-                          color: colors.textSecondary, size: 20),
+                      icon: Icon(
+                        Icons.close_rounded,
+                        color: colors.textSecondary,
+                        size: 20,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () => Navigator.of(ctx).pop(),
@@ -333,11 +332,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                 // Regulatory biometric compliance note
                 Row(
                   children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 13,
-                      color: colors.aqua,
-                    ),
+                    Icon(Icons.shield_outlined, size: 13, color: colors.aqua),
                     const SizedBox(width: 6),
                     Text(
                       'Biometric Verification • 256-bit Encrypted Vault',
@@ -361,9 +356,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                         boundaryMargin: const EdgeInsets.all(20),
                         minScale: 0.8,
                         maxScale: 4.0,
-                        child: Center(
-                          child: _buildAvatarFullImage(colors),
-                        ),
+                        child: Center(child: _buildAvatarFullImage(colors)),
                       ),
                     ),
                   ),
@@ -436,10 +429,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         const SizedBox(height: 6),
         Text(
           'A clear photo of you holding your CNIC. We use this to confirm identity and as your profile picture.',
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontSize: 13.5,
-          ),
+          style: TextStyle(color: colors.textSecondary, fontSize: 13.5),
         ),
         const SizedBox(height: 24),
 
@@ -595,11 +585,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                     width: 1.5,
                   ),
                 ),
-                child: Icon(
-                  Icons.face_rounded,
-                  color: colors.aqua,
-                  size: 24,
-                ),
+                child: Icon(Icons.face_rounded, color: colors.aqua, size: 24),
               ),
               const SizedBox(height: 12),
               Text(
@@ -613,10 +599,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
               const SizedBox(height: 4),
               Text(
                 'Hold your phone at eye level with your CNIC visible.',
-                style: TextStyle(
-                  color: colors.textSecondary,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: colors.textSecondary, fontSize: 12),
               ),
               const SizedBox(height: 16),
               AppButton(
@@ -636,7 +619,8 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
         Row(
           children: [
             Expanded(
-                child: Divider(color: colors.border.withValues(alpha: 0.6))),
+              child: Divider(color: colors.border.withValues(alpha: 0.6)),
+            ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Text(
@@ -650,7 +634,8 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
               ),
             ),
             Expanded(
-                child: Divider(color: colors.border.withValues(alpha: 0.6))),
+              child: Divider(color: colors.border.withValues(alpha: 0.6)),
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -731,11 +716,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.shield_outlined,
-                size: 18,
-                color: colors.gold,
-              ),
+              Icon(Icons.shield_outlined, size: 18, color: colors.gold),
               const SizedBox(width: 10),
               Expanded(
                 child: Text.rich(
@@ -751,8 +732,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(
-                        text:
-                            'Ensure your face is centered, evenly lit, and clearly visible without hats or sunglasses.',
+                        text: 'Ensure your face is centered, evenly lit, and clearly visible without hats or sunglasses.',
                       ),
                     ],
                   ),
@@ -875,10 +855,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                       height: 150,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colors.emerald,
-                          width: 3.5,
-                        ),
+                        border: Border.all(color: colors.emerald, width: 3.5),
                         boxShadow: [
                           BoxShadow(
                             color: colors.emerald.withValues(alpha: 0.25),
@@ -887,9 +864,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                           ),
                         ],
                       ),
-                      child: ClipOval(
-                        child: _buildAvatarImage(colors),
-                      ),
+                      child: ClipOval(child: _buildAvatarImage(colors)),
                     ),
                     Positioned(
                       bottom: -10,
@@ -901,10 +876,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                         decoration: BoxDecoration(
                           color: const Color(0xFF0F3A35),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: colors.emerald,
-                            width: 1.5,
-                          ),
+                          border: Border.all(color: colors.emerald, width: 1.5),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.3),
@@ -943,8 +915,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                 onTap: _showFullScreenInspection,
                 borderRadius: BorderRadius.circular(20),
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.brand800.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
@@ -956,11 +930,7 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.zoom_in_rounded,
-                        size: 14,
-                        color: colors.aqua,
-                      ),
+                      Icon(Icons.zoom_in_rounded, size: 14, color: colors.aqua),
                       const SizedBox(width: 6),
                       Text(
                         'Tap to inspect photo in detail',
@@ -990,8 +960,10 @@ class _Step3PhotoViewState extends State<Step3PhotoView>
             TextButton(
               onPressed: _retakeOrChooseDifferent,
               style: TextButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
               ),
               child: Text(
                 'Retake / Choose Different Photo',

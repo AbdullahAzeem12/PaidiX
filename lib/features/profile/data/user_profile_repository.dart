@@ -2,8 +2,10 @@
 
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../../kyc/domain/kyc_models.dart';
 import '../domain/bank_account_item.dart';
 import '../domain/user_profile.dart';
@@ -54,8 +56,9 @@ class UserProfileRepository {
     await initialization;
   }
 
-  final ValueNotifier<UserProfile> profileNotifier =
-      ValueNotifier<UserProfile>(UserProfile.empty());
+  final ValueNotifier<UserProfile> profileNotifier = ValueNotifier<UserProfile>(
+    UserProfile.empty(),
+  );
 
   UserProfile get profile => profileNotifier.value;
 
@@ -64,6 +67,26 @@ class UserProfileRepository {
 
   /// Remembers whether the user was picking CNIC front or back across process reclamation
   String? pendingPickSide;
+
+  /// The image side restored by startup recovery, available to the page that
+  /// resumes the interrupted KYC flow.
+  String? recoveredPickSide;
+
+  /// Returns and clears the last recovered picker target after a page has
+  /// copied its restored image into its own form state.
+  String? consumeRecoveredPickSide() {
+    final side = recoveredPickSide;
+    recoveredPickSide = null;
+    return side;
+  }
+
+  /// Consumes a recovered result only when it belongs to the requesting flow.
+  String? consumeRecoveredPickSideFor(Set<String> allowedSides) {
+    final side = recoveredPickSide;
+    if (side == null || !allowedSides.contains(side)) return null;
+    recoveredPickSide = null;
+    return side;
+  }
 
   /// Persists the active picker target before launching an external gallery.
   /// Android may destroy MainActivity while another picker app is foregrounded.
@@ -94,22 +117,31 @@ class UserProfileRepository {
     final current = profileNotifier.value;
     final updated = switch (side) {
       'cnic_front' => current.copyWith(
-          cnicFrontBytes: bytes,
-          cnicFrontFilePath: sourcePath,
-        ),
+        cnicFrontBytes: bytes,
+        cnicFrontFilePath: sourcePath,
+      ),
       'cnic_back' => current.copyWith(
-          cnicBackBytes: bytes,
-          cnicBackFilePath: sourcePath,
-        ),
+        cnicBackBytes: bytes,
+        cnicBackFilePath: sourcePath,
+      ),
       'selfie' => current.copyWith(
-          selfieBytes: bytes,
-          selfieFilePath: sourcePath,
-        ),
+        selfieBytes: bytes,
+        selfieFilePath: sourcePath,
+      ),
+      'avatar' => current.copyWith(
+        avatarBytes: bytes,
+        avatarFilePath: sourcePath,
+      ),
       _ => current,
     };
     if (identical(updated, current)) return;
 
-    activeKycStep = side == 'selfie' ? KycStep.photo : KycStep.identity;
+    recoveredPickSide = side;
+    if (side == 'selfie') {
+      activeKycStep = KycStep.photo;
+    } else if (side == 'cnic_front' || side == 'cnic_back') {
+      activeKycStep = KycStep.identity;
+    }
     profileNotifier.value = updated;
     _saveRegisteredUser(updated, persist: false);
     await _persistUser(updated);
@@ -117,10 +149,10 @@ class UserProfileRepository {
 
   /// Normalizes an email into a filesystem-safe key for the user's storage folder.
   String _normalizeEmailKey(String email) {
-    return email
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-zA-Z0-9_\-\.]'), '_');
+    return email.trim().toLowerCase().replaceAll(
+      RegExp(r'[^a-zA-Z0-9_\-\.]'),
+      '_',
+    );
   }
 
   /// Creates or retrieves the local directory used for profile persistence.
@@ -247,15 +279,19 @@ class UserProfileRepository {
       );
 
       final jsonFile = File('${userDir.path}/profile.json');
-      await jsonFile.writeAsString(jsonEncode(profileToSave.toJson()),
-          flush: true);
+      await jsonFile.writeAsString(
+        jsonEncode(profileToSave.toJson()),
+        flush: true,
+      );
 
       final lastUserFile = File('${baseDir.path}/last_active_user.txt');
       await lastUserFile.writeAsString(user.email.trim(), flush: true);
 
       final lastStepFile = File('${baseDir.path}/last_active_kyc_step.txt');
-      await lastStepFile.writeAsString(activeKycStep.index.toString(),
-          flush: true);
+      await lastStepFile.writeAsString(
+        activeKycStep.index.toString(),
+        flush: true,
+      );
     } catch (e) {
       debugPrint('Persistence error: $e');
     }
@@ -321,11 +357,13 @@ class UserProfileRepository {
         final pendingPickFile = File('${dir.path}/pending_kyc_pick_side.txt');
         if (pendingPickFile.existsSync()) {
           final pendingSide = (await pendingPickFile.readAsString()).trim();
-          pendingPickSide = const {
-            'cnic_front',
-            'cnic_back',
-            'selfie',
-          }.contains(pendingSide)
+          pendingPickSide =
+              const {
+                'avatar',
+                'cnic_front',
+                'cnic_back',
+                'selfie',
+              }.contains(pendingSide)
               ? pendingSide
               : null;
         }
@@ -448,8 +486,10 @@ class UserProfileRepository {
       if (normalizedExclude != null && entryEmail == normalizedExclude) {
         continue;
       }
-      final existingClean =
-          entry.value.cnicNumber.replaceAll(RegExp(r'\D'), '');
+      final existingClean = entry.value.cnicNumber.replaceAll(
+        RegExp(r'\D'),
+        '',
+      );
       if (existingClean == cleanDigits) {
         return true;
       }
@@ -519,8 +559,9 @@ class UserProfileRepository {
     final bank = kycState.bank;
 
     // Determine clean phone representation
-    final country =
-        p.countryCode.trim().isNotEmpty ? p.countryCode : current.countryCode;
+    final country = p.countryCode.trim().isNotEmpty
+        ? p.countryCode
+        : current.countryCode;
     final rawPhone = p.phoneNumber.trim();
     final combinedPhone = rawPhone.isNotEmpty
         ? (rawPhone.startsWith('+') ? rawPhone : '$country$rawPhone')
@@ -529,8 +570,9 @@ class UserProfileRepository {
     final isSubmitted = kycState.isSubmitted;
 
     final updated = current.copyWith(
-      fullName:
-          p.fullName.trim().isNotEmpty ? p.fullName.trim() : current.fullName,
+      fullName: p.fullName.trim().isNotEmpty
+          ? p.fullName.trim()
+          : current.fullName,
       countryCode: country,
       phoneNumber: combinedPhone,
       smsConsent: p.smsConsent,
@@ -563,8 +605,9 @@ class UserProfileRepository {
           ? bank.beneficiaryTitle
           : current.bankBeneficiary,
       hasCompletedKyc: isSubmitted ? true : current.hasCompletedKyc,
-      kycStatus:
-          isSubmitted ? KycReviewStatus.pendingReview : current.kycStatus,
+      kycStatus: isSubmitted
+          ? KycReviewStatus.pendingReview
+          : current.kycStatus,
       updatedAt: DateTime.now(),
     );
 
@@ -577,8 +620,9 @@ class UserProfileRepository {
         final key = _normalizeEmailKey(updated.email);
         final newAccount = BankAccountItem(
           id: 'kyc_bank_${DateTime.now().millisecondsSinceEpoch}',
-          bankName:
-              bank.bankName.isNotEmpty ? bank.bankName : 'Meezan Bank Limited',
+          bankName: bank.bankName.isNotEmpty
+              ? bank.bankName
+              : 'Meezan Bank Limited',
           holder: bank.beneficiaryTitle.isNotEmpty
               ? bank.beneficiaryTitle
               : updated.fullName,
@@ -732,7 +776,9 @@ class UserProfileRepository {
 
   /// Saves bank accounts for a given user email to memory and disk, syncing primary details
   Future<void> saveBankAccounts(
-      String email, List<BankAccountItem> accounts) async {
+    String email,
+    List<BankAccountItem> accounts,
+  ) async {
     final key = _normalizeEmailKey(email);
     _bankAccountsCache[key] = List<BankAccountItem>.from(accounts);
     bankAccountsRevision.value++;
@@ -755,8 +801,9 @@ class UserProfileRepository {
       final updated = current.copyWith(
         bankName: primary.bankName,
         bankBeneficiary: primary.holder,
-        bankIban:
-            primary.iban.isNotEmpty ? primary.iban : primary.accountNumber,
+        bankIban: primary.iban.isNotEmpty
+            ? primary.iban
+            : primary.accountNumber,
         updatedAt: DateTime.now(),
       );
       profileNotifier.value = updated;

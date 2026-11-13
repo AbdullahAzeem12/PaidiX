@@ -1,15 +1,20 @@
 /// Defines kyc page in the kyc feature's presentation layer.
 
 import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
+import 'package:go_router/go_router.dart';
+
 import '../../../../app/theme/app_colors.dart';
 import '../../../../core/config/app_config.dart';
 import '../../../../core/widgets/paidix_toast.dart';
+import '../../../../core/widgets/app_back_navigation.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/utils/phone_formatter.dart';
 import '../../../auth/data/auth_repository.dart';
 import '../../data/kyc_repository.dart';
 import '../../../profile/data/user_profile_repository.dart';
+import '../../../profile/domain/user_profile.dart';
 import '../../domain/kyc_models.dart';
 import '../widgets/kyc_header.dart';
 import '../widgets/kyc_stepper.dart';
@@ -36,6 +41,8 @@ class KycPage extends StatefulWidget {
 
 class _KycPageState extends State<KycPage> {
   late KycState _state;
+  final UserProfileRepository _profileRepository =
+      UserProfileRepository.instance;
 
   /// Initializes controllers, listeners, and other state owned by this widget.
   @override
@@ -46,8 +53,8 @@ class _KycPageState extends State<KycPage> {
     final effectiveStep = widget.resubmission
         ? KycStep.personal
         : widget.initialStep != KycStep.personal
-            ? widget.initialStep
-            : UserProfileRepository.instance.activeKycStep;
+        ? widget.initialStep
+        : UserProfileRepository.instance.activeKycStep;
     if (widget.resubmission) {
       UserProfileRepository.instance.activeKycStep = KycStep.personal;
     }
@@ -56,8 +63,9 @@ class _KycPageState extends State<KycPage> {
       currentStep: effectiveStep,
       personal: PersonalInfo(
         fullName: profile.fullName,
-        countryCode:
-            profile.countryCode.isNotEmpty ? profile.countryCode : '+92',
+        countryCode: profile.countryCode.isNotEmpty
+            ? profile.countryCode
+            : '+92',
         phoneNumber: profile.phoneNumber,
         smsConsent: profile.smsConsent,
         address: profile.address.isNotEmpty ? profile.address : null,
@@ -78,7 +86,8 @@ class _KycPageState extends State<KycPage> {
         bankName: (profile.bankName != null && profile.bankName!.isNotEmpty)
             ? profile.bankName!
             : 'Meezan Bank Limited',
-        beneficiaryTitle: (profile.bankBeneficiary != null &&
+        beneficiaryTitle:
+            (profile.bankBeneficiary != null &&
                 profile.bankBeneficiary!.isNotEmpty)
             ? profile.bankBeneficiary!
             : profile.fullName,
@@ -90,6 +99,68 @@ class _KycPageState extends State<KycPage> {
     if (AppConfig.hasCustomBackend && !widget.resubmission) {
       _loadServerDraft();
     }
+    _profileRepository.profileNotifier.addListener(_handleRecoveredPick);
+    _handleRecoveredPick();
+  }
+
+  /// Applies an image recovered after Android recreated the activity to the
+  /// active wizard state, including when startup recovery finishes late.
+  void _handleRecoveredPick() {
+    final side = _profileRepository.consumeRecoveredPickSideFor(const {
+      'cnic_front',
+      'cnic_back',
+      'selfie',
+    });
+    if (side == null) return;
+
+    void apply() {
+      final profile = _profileRepository.profile;
+      if (side == 'cnic_front') {
+        _state = _state.copyWith(
+          identity: _state.identity.copyWith(
+            frontBytes: profile.cnicFrontBytes,
+            frontFilePath: profile.cnicFrontFilePath,
+            frontFileName: 'cnic_front.jpg',
+            isEnhanced: false,
+            clearEnhancedFrontBytes: true,
+          ),
+        );
+      } else if (side == 'cnic_back') {
+        _state = _state.copyWith(
+          identity: _state.identity.copyWith(
+            backBytes: profile.cnicBackBytes,
+            backFilePath: profile.cnicBackFilePath,
+            backFileName: 'cnic_back.jpg',
+            isEnhanced: false,
+            clearEnhancedBackBytes: true,
+          ),
+        );
+      } else {
+        _state = _state.copyWith(
+          photo: _state.photo.copyWith(
+            bytes: profile.selfieBytes,
+            filePath: profile.selfieFilePath,
+            fileName: 'selfie.jpg',
+            isCameraCapture: false,
+            isEnhanced: false,
+            clearEnhancedBytes: true,
+          ),
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(apply);
+    } else {
+      apply();
+    }
+  }
+
+  @override
+  void dispose() {
+    _profileRepository.profileNotifier.removeListener(_handleRecoveredPick);
+    _progressCreepTimer?.cancel();
+    super.dispose();
   }
 
   /// Restores any previously saved onboarding step and fields from the server.
@@ -189,7 +260,8 @@ class _KycPageState extends State<KycPage> {
       // Asynchronously sync step draft to backend
       if (AppConfig.hasCustomBackend) {
         final digits = PhoneFormatter.clean(_state.personal.phoneNumber);
-        final apiPhone = _state.personal.countryCode.contains('US') ||
+        final apiPhone =
+            _state.personal.countryCode.contains('US') ||
                 _state.personal.countryCode.contains('+1')
             ? '+1$digits'
             : (digits.isNotEmpty ? '+92$digits' : _state.personal.phoneNumber);
@@ -218,37 +290,43 @@ class _KycPageState extends State<KycPage> {
     }
   }
 
+  Future<bool> _handleAndroidBack() async {
+    if (!mounted) return true;
+    if (ModalRoute.of(context)?.isCurrent == false) return false;
+    if (_isSubmitting) return true;
+
+    if (_state.currentStep.index > KycStep.personal.index) {
+      _previousStep();
+    } else {
+      context.go(widget.resubmission ? '/app/onboarding' : '/signin');
+    }
+    return true;
+  }
+
   bool _isSubmitting = false;
   double _submitProgress = 0.0;
   double _progressCeiling = 0.68;
   String _submitStatusLabel = 'Submitting Verification...';
   Timer? _progressCreepTimer;
 
-  @override
-  void dispose() {
-    _progressCreepTimer?.cancel();
-    super.dispose();
-  }
-
   /// Advances submission progress smoothly toward [_progressCeiling] during active uploads.
   void _startProgressCreep() {
     _progressCreepTimer?.cancel();
-    _progressCreepTimer = Timer.periodic(
-      const Duration(milliseconds: 90),
-      (_) {
-        if (!mounted || !_isSubmitting) {
-          _progressCreepTimer?.cancel();
-          return;
-        }
-        if (_submitProgress < _progressCeiling - 0.005) {
-          setState(() {
-            final step = (_progressCeiling - _submitProgress) * 0.08;
-            _submitProgress = (_submitProgress + step.clamp(0.004, 0.03))
-                .clamp(0.0, _progressCeiling);
-          });
-        }
-      },
-    );
+    _progressCreepTimer = Timer.periodic(const Duration(milliseconds: 90), (_) {
+      if (!mounted || !_isSubmitting) {
+        _progressCreepTimer?.cancel();
+        return;
+      }
+      if (_submitProgress < _progressCeiling - 0.005) {
+        setState(() {
+          final step = (_progressCeiling - _submitProgress) * 0.08;
+          _submitProgress = (_submitProgress + step.clamp(0.004, 0.03)).clamp(
+            0.0,
+            _progressCeiling,
+          );
+        });
+      }
+    });
   }
 
   /// Marks KYC complete, syncs the submitted data, and opens the success dialog.
@@ -298,10 +376,7 @@ class _KycPageState extends State<KycPage> {
         context,
         'KYC documents submitted successfully for 1-LINK clearance.',
       );
-      KycSuccessDialog.show(
-        context,
-        resubmission: widget.resubmission,
-      );
+      KycSuccessDialog.show(context, resubmission: widget.resubmission);
     } on ApiException catch (e) {
       if (!mounted) return;
       PaidiXToast.showError(context, 'KYC submission error: ${e.message}');
@@ -327,111 +402,152 @@ class _KycPageState extends State<KycPage> {
     final horizontalPadding = screenWidth < 400 ? 12.0 : 20.0;
     final verticalPadding = screenWidth < 400 ? 16.0 : 28.0;
 
-    return Scaffold(
-      backgroundColor: colors.background,
-      body: Column(
-        children: [
-          // Fixed Top Header matching screenshots
-          const KycHeader(),
+    return AppBackButtonHandler(
+      onBack: (_) => _handleAndroidBack(),
+      child: Scaffold(
+        backgroundColor: colors.background,
+        body: Column(
+          children: [
+            // Fixed Top Header matching screenshots
+            const KycHeader(),
 
-          // Main Scrollable Body
-          Expanded(
-            child: SingleChildScrollView(
-              padding: EdgeInsets.symmetric(
-                horizontal: horizontalPadding,
-                vertical: verticalPadding,
-              ),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 680),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Stepper progress indicator
-                      KycStepper(
-                        currentStep: _state.currentStep,
-                        onStepTapped: (step) => _goToStep(step),
-                      ),
-                      if (widget.resubmission) ...[
-                        const SizedBox(height: 16),
-                        _buildResubmissionNotice(),
-                      ],
-                      SizedBox(height: screenWidth < 400 ? 18 : 28),
-
-                      // Animated Step Transitions
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 320),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        transitionBuilder: (child, animation) {
-                          return FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween<Offset>(
-                                begin: const Offset(0.04, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
-                          );
-                        },
-                        child: KeyedSubtree(
-                          key: ValueKey(_state.currentStep),
-                          child: _buildCurrentStepView(),
+            // Main Scrollable Body
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: verticalPadding,
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Stepper progress indicator
+                        KycStepper(
+                          currentStep: _state.currentStep,
+                          onStepTapped: (step) => _goToStep(step),
                         ),
-                      ),
-                      const SizedBox(height: 48),
-                    ],
+                        if (widget.resubmission) ...[
+                          const SizedBox(height: 16),
+                          _buildResubmissionNotice(),
+                        ],
+                        SizedBox(height: screenWidth < 400 ? 18 : 28),
+
+                        // Animated Step Transitions
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 320),
+                          switchInCurve: Curves.easeOutCubic,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.04, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: KeyedSubtree(
+                            key: ValueKey(_state.currentStep),
+                            child: _buildCurrentStepView(),
+                          ),
+                        ),
+                        const SizedBox(height: 48),
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildResubmissionNotice() {
     const rejection = Color(0xFFBE123C);
+    const updateRequired = Color(0xFFB7791F);
     final colors = AppColors.of(context);
     final profile = UserProfileRepository.instance.profile;
-    final reason = profile.effectiveKycMessage;
-    final hasSpecificReason = reason != 'Verification Rejected';
+    final reason = profile.effectiveKycReason;
+    final isAwaitingCustomer =
+        profile.kycStatus == KycReviewStatus.awaitingCustomer;
+    final accent = isAwaitingCustomer ? updateRequired : rejection;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: rejection.withValues(alpha: 0.08),
+        color: accent.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: rejection.withValues(alpha: 0.28)),
+        border: Border.all(color: accent.withValues(alpha: 0.28)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.warning_amber_rounded, size: 19, color: rejection),
+          Icon(
+            isAwaitingCustomer
+                ? Icons.edit_note_rounded
+                : Icons.warning_amber_rounded,
+            size: 19,
+            color: accent,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'KYC was rejected. Correct the details and upload all three documents again.',
+                  isAwaitingCustomer
+                      ? 'The reviewer requested updates. Correct the listed items and resubmit your KYC documents.'
+                      : 'KYC was rejected. Correct the details and upload all three documents again.',
                   style: TextStyle(
                     color: colors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                if (hasSpecificReason) ...[
+                if (reason != null) ...[
                   const SizedBox(height: 5),
-                  Text(
-                    reason,
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 12.5,
-                      height: 1.35,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accent.withValues(alpha: 0.16)),
+                    ),
+                    child: Text.rich(
+                      TextSpan(
+                        children: [
+                          TextSpan(
+                            text: isAwaitingCustomer
+                                ? 'Requested updates: '
+                                : 'Reason: ',
+                            style: TextStyle(
+                              color: accent,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          TextSpan(
+                            text: reason,
+                            style: TextStyle(
+                              color: colors.textSecondary,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                      style: const TextStyle(fontSize: 12.5, height: 1.35),
                     ),
                   ),
                 ],
